@@ -1,17 +1,18 @@
 /**
  * Heartbeat and kill switch manager for ClawForge.
  * Periodically pings the control plane and updates local state.
+ * Tracks connection state and applies configured offline behavior.
  */
 
-import type { ClawForgePluginConfig, HeartbeatResponse, SessionTokens } from "../types.js";
+import type { ClawForgePluginConfig, HeartbeatResponse, OfflineMode, SessionTokens } from "../types.js";
 import type { ToolEnforcerState } from "../policy/tool-enforcer.js";
+import type { ConnectionStateManager } from "../connection/connection-state.js";
 
 const DEFAULT_INTERVAL_MS = 30_000;
 const DEFAULT_FAILURE_THRESHOLD = 10;
 
 export class KillSwitchManager {
   private timer: ReturnType<typeof setInterval> | null = null;
-  private consecutiveFailures = 0;
   private readonly intervalMs: number;
   private readonly failureThreshold: number;
   private readonly controlPlaneUrl: string;
@@ -19,6 +20,8 @@ export class KillSwitchManager {
   private readonly userId: string;
   private accessToken: string;
   private readonly enforcerState: ToolEnforcerState;
+  private readonly offlineMode: OfflineMode;
+  private connectionStateManager?: ConnectionStateManager;
   private onPolicyRefreshNeeded?: () => void;
   private logger?: { info: (msg: string) => void; warn: (msg: string) => void; error: (msg: string) => void };
 
@@ -26,6 +29,7 @@ export class KillSwitchManager {
     config: ClawForgePluginConfig;
     session: SessionTokens;
     enforcerState: ToolEnforcerState;
+    connectionStateManager?: ConnectionStateManager;
     onPolicyRefreshNeeded?: () => void;
     logger?: { info: (msg: string) => void; warn: (msg: string) => void; error: (msg: string) => void };
   }) {
@@ -36,6 +40,8 @@ export class KillSwitchManager {
     this.intervalMs = params.config.heartbeatIntervalMs ?? DEFAULT_INTERVAL_MS;
     this.failureThreshold = params.config.heartbeatFailureThreshold ?? DEFAULT_FAILURE_THRESHOLD;
     this.enforcerState = params.enforcerState;
+    this.offlineMode = params.config.offlineMode ?? "block";
+    this.connectionStateManager = params.connectionStateManager;
     this.onPolicyRefreshNeeded = params.onPolicyRefreshNeeded;
     this.logger = params.logger;
   }
@@ -85,7 +91,15 @@ export class KillSwitchManager {
       }
 
       const data = (await response.json()) as HeartbeatResponse;
-      this.consecutiveFailures = 0;
+
+      // Record success in connection state manager.
+      this.connectionStateManager?.recordSuccess();
+
+      // On reconnection from offline/degraded, restore normal enforcement.
+      if (this.enforcerState.offlineOverride) {
+        this.logger?.info("Connection restored, clearing offline override");
+        this.enforcerState.offlineOverride = undefined;
+      }
 
       // Update kill switch state
       if (data.killSwitch) {
@@ -115,15 +129,46 @@ export class KillSwitchManager {
   }
 
   private handleFailure(reason: string): void {
-    this.consecutiveFailures++;
+    this.connectionStateManager?.recordFailure();
+    const consecutiveFailures = this.connectionStateManager?.consecutiveFailures ?? 0;
+
     this.logger?.warn(
-      `Heartbeat failed (${this.consecutiveFailures}/${this.failureThreshold}): ${reason}`,
+      `Heartbeat failed (${consecutiveFailures}/${this.failureThreshold}): ${reason}`,
     );
 
-    if (this.consecutiveFailures >= this.failureThreshold) {
-      this.logger?.error(
-        `Heartbeat failure threshold reached (${this.failureThreshold}). Entering degraded mode.`,
-      );
+    if (consecutiveFailures >= this.failureThreshold) {
+      this.applyOfflineBehavior();
+    }
+  }
+
+  /**
+   * Apply the configured offline mode behavior when the failure threshold is reached.
+   */
+  private applyOfflineBehavior(): void {
+    switch (this.offlineMode) {
+      case "block":
+        this.logger?.error(
+          `Heartbeat failure threshold reached (${this.failureThreshold}). Blocking all tools (offlineMode=block).`,
+        );
+        this.enforcerState.killSwitchActive = true;
+        this.enforcerState.killSwitchMessage =
+          "ClawForge: Cannot reach control plane. All tools blocked (offline mode: block).";
+        this.enforcerState.offlineOverride = undefined;
+        break;
+
+      case "allow":
+        this.logger?.warn(
+          `Heartbeat failure threshold reached (${this.failureThreshold}). Allowing all tools (offlineMode=allow).`,
+        );
+        this.enforcerState.offlineOverride = "allow";
+        break;
+
+      case "cached":
+        this.logger?.warn(
+          `Heartbeat failure threshold reached (${this.failureThreshold}). Using cached policy (offlineMode=cached).`,
+        );
+        this.enforcerState.offlineOverride = "cached";
+        break;
     }
   }
 }

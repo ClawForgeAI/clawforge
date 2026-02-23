@@ -47,6 +47,15 @@
       "auditFlushIntervalMs": {
         "type": "number",
         "description": "Interval for flushing audit events in milliseconds (default: 30000)"
+      },
+      "offlineMode": {
+        "type": "string",
+        "enum": ["block", "allow", "cached"],
+        "description": "Behavior when the plugin cannot reach the control plane. 'block' blocks all tools (default), 'allow' allows all tools, 'cached' uses the last cached policy even if stale."
+      },
+      "maxAuditBufferSize": {
+        "type": "number",
+        "description": "Maximum number of audit events to buffer before dropping oldest (default: 10000)"
       }
     }
   }
