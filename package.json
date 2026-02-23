@@ -6,6 +6,7 @@
   "scripts": {
     "dev:server": "pnpm --filter @openclaw/clawforge-server dev",
     "dev:admin": "pnpm --filter @openclaw/clawforge-admin dev",
-    "test": "pnpm --filter @openclaw/clawforge test"
+    "typecheck": "pnpm -r exec tsc --noEmit",
+    "test": "pnpm -r --if-present run test"
   }
 }
