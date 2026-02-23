@@ -67,6 +67,8 @@ export type ClawForgePluginConfig = {
   heartbeatFailureThreshold?: number;
   auditBatchSize?: number;
   auditFlushIntervalMs?: number;
+  /** Enable real-time SSE connection for instant kill switch and policy updates. Defaults to true. */
+  sseEnabled?: boolean;
 };
 
 export type SessionTokens = {
