@@ -11,7 +11,9 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx src/db/seed.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.0",
@@ -26,8 +28,10 @@
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
     "@types/node": "^22.12.0",
+    "@vitest/coverage-v8": "^4.0.18",
     "drizzle-kit": "^0.30.5",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.18"
   }
 }
