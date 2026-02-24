@@ -179,7 +179,7 @@ export default function PoliciesPage() {
 
     try {
       await updatePolicy(auth.orgId, auth.accessToken, {
-        tools: {
+        toolsConfig: {
           deny: denyList.length > 0 ? denyList : undefined,
           allow: allowList.length > 0 ? allowList : undefined,
           profile: profile || undefined,

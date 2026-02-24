@@ -51,6 +51,7 @@ export async function createServer(config: ServerConfig) {
   // CORS
   await app.register(cors, {
     origin: config.corsOrigin ?? true,
+    methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE"],
   });
 
   // JWT

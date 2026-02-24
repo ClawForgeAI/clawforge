@@ -80,7 +80,10 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
         return reply.code(404).send({ error: "No policy found" });
       }
 
-      return reply.send(policy);
+      return reply.send({
+        ...policy,
+        tools: policy.toolsConfig ?? {},
+      });
     },
   );
 
