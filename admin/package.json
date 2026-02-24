@@ -1,5 +1,5 @@
 {
-  "name": "@openclaw/clawforge-admin",
+  "name": "@ClawForgeAI/clawforge-admin",
   "version": "0.1.0",
   "description": "ClawForge admin console – web UI for enterprise governance",
   "scripts": {

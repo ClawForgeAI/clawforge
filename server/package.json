@@ -1,5 +1,5 @@
 {
-  "name": "@openclaw/clawforge-server",
+  "name": "@ClawForgeAI/clawforge-server",
   "version": "0.1.0",
   "description": "ClawForge control plane – admin API and web console for enterprise governance",
   "type": "module",

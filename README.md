@@ -32,7 +32,7 @@
 ## Quick Start
 
 ```bash
-git clone https://github.com/openclaw/clawforge.git
+git clone https://github.com/ClawForgeAI/clawforge.git
 cd clawforge
 docker compose up --build
 ```

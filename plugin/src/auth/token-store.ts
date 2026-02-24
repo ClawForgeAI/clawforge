@@ -1,6 +1,6 @@
 /**
  * Session token persistence for ClawForge.
- * Stores and retrieves session tokens at ~/.openclaw/clawforge/session.json.
+ * Stores and retrieves session tokens at ~/.ClawForgeAI/clawforge/session.json.
  */
 
 import fs from "node:fs";

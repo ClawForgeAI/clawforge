@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev:server": "pnpm --filter @openclaw/clawforge-server dev",
-    "dev:admin": "pnpm --filter @openclaw/clawforge-admin dev",
-    "test": "pnpm --filter @openclaw/clawforge test"
+    "dev:server": "pnpm --filter @ClawForgeAI/clawforge-server dev",
+    "dev:admin": "pnpm --filter @ClawForgeAI/clawforge-admin dev",
+    "test": "pnpm --filter @ClawForgeAI/clawforge test"
   }
 }

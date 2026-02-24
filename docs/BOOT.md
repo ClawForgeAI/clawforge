@@ -42,7 +42,7 @@ ClawForge solves this by providing a **single admin panel** that connects to eve
 |---|---|
 | **Org Admin** | Uses the ClawForge admin console (web UI) to manage policies, review skills, query audits, and control the kill switch. Has full visibility over all connected OpenClaw instances. |
 | **Employee / User** | Runs OpenClaw on their machine for day-to-day work. Their instance connects to the org's ClawForge control plane and follows the policies set by the admin. They can submit skills for approval and see their own status. |
-| **OpenClaw Instance** | The AI assistant running on an employee's machine. It connects to ClawForge via the `@openclaw/clawforge` plugin, authenticates the user, fetches policies, enforces tool restrictions, uploads audit events, and checks in via heartbeat. |
+| **OpenClaw Instance** | The AI assistant running on an employee's machine. It connects to ClawForge via the `@ClawForgeAI/clawforge` plugin, authenticates the user, fetches policies, enforces tool restrictions, uploads audit events, and checks in via heartbeat. |
 
 ---
 
@@ -81,9 +81,9 @@ Employee Machine A          Employee Machine B          Employee Machine C
 
 | Package | Role | Runs On |
 |---|---|---|
-| `@openclaw/clawforge` | OpenClaw plugin — hooks into the AI assistant lifecycle, enforces policies client-side, uploads audit events, polls heartbeat | Employee's machine |
-| `@openclaw/clawforge-server` | Control plane API — manages auth, policies, skill reviews, audit storage, heartbeat, kill switch | Org's server / cloud |
-| `@openclaw/clawforge-admin` | Admin web console — UI for managing everything | Org's server / cloud (accessed via browser) |
+| `@ClawForgeAI/clawforge` | OpenClaw plugin — hooks into the AI assistant lifecycle, enforces policies client-side, uploads audit events, polls heartbeat | Employee's machine |
+| `@ClawForgeAI/clawforge-server` | Control plane API — manages auth, policies, skill reviews, audit storage, heartbeat, kill switch | Org's server / cloud |
+| `@ClawForgeAI/clawforge-admin` | Admin web console — UI for managing everything | Org's server / cloud (accessed via browser) |
 
 ---
 
