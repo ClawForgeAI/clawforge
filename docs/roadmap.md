@@ -41,3 +41,20 @@ These are the issues targeted for the v1 release:
 | Audit export | CSV/JSON export and retention policy management |
 | Secret/key management | Vault integration for API keys and credentials |
 | Multi-org management UI | Schema supports multiple orgs, but no org creation flow in the admin console yet |
+
+---
+
+## Power User Features
+
+Items for multi-agent fleet management, cross-client workflows, and advanced orchestration.
+
+| Issue | Title | Area |
+|---|---|---|
+| [#30](https://github.com/ClawForgeAI/clawforge/issues/30) | Multi-agent orchestration dashboard | Admin |
+| [#31](https://github.com/ClawForgeAI/clawforge/issues/31) | Cross-client memory/context sharing | Plugin, Server |
+| [#32](https://github.com/ClawForgeAI/clawforge/issues/32) | Smart routing / task delegation across fleet | Server |
+| [#33](https://github.com/ClawForgeAI/clawforge/issues/33) | Per-context profiles (work mode / personal mode) | Plugin |
+| [#34](https://github.com/ClawForgeAI/clawforge/issues/34) | Cost tracking & budget enforcement | Admin, Server |
+| [#35](https://github.com/ClawForgeAI/clawforge/issues/35) | Shared skill marketplace (private/org-scoped) | Plugin, Server |
+| [#36](https://github.com/ClawForgeAI/clawforge/issues/36) | Event-driven triggers across clients | Server, Plugin |
+| [#37](https://github.com/ClawForgeAI/clawforge/issues/37) | Backup & restore: one-click agent state export/import | Plugin, Server |
