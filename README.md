@@ -56,6 +56,7 @@ Once running:
 | [Setup Guide](docs/setup.md) | Docker, manual setup, SSO, connecting OpenClaw |
 | [Architecture & How It Works](docs/architecture.md) | Package structure, core concepts, data flows, database schema |
 | [API Reference](docs/api-reference.md) | Every endpoint with request/response examples |
+| [E2E Onboarding Guide](docs/e2e-guide.md) | Full walkthrough from zero to managed fleet |
 | [Configuration](docs/configuration.md) | Plugin config, server env vars, admin console env vars |
 | [Roadmap](docs/roadmap.md) | What's next for ClawForge |
 
