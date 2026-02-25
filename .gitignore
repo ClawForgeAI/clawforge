@@ -4,4 +4,3 @@ dist
 **/.env
 *.tsbuildinfo
 .DS_Store
-.idea/
