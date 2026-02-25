@@ -1,25 +1,37 @@
 {
-  "name": "@openclaw/clawforge-admin",
+  "name": "@ClawForgeAI/clawforge-admin",
   "version": "0.1.0",
   "description": "ClawForge admin console – web UI for enterprise governance",
   "scripts": {
     "dev": "next dev --port 4200",
     "build": "next build",
     "start": "next start --port 4200",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
+    "daisyui": "^4.12.24",
+    "framer-motion": "^12.34.3",
     "next": "^15.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/user-event": "^14.5.2",
     "@types/node": "^22.12.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.21",
+    "jsdom": "^25.0.1",
+    "msw": "^2.7.0",
+    "playwright": "^1.58.2",
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
   }
 }

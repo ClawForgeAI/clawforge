@@ -1,6 +1,6 @@
 # ClawForge Control Plane — Setup & Features
 
-The control plane (`@openclaw/clawforge-server`) is the central API that manages authentication, policies, skill reviews, audit logs, and the kill switch for all OpenClaw gateways in your organization.
+The control plane (`@ClawForgeAI/clawforge-server`) is the central API that manages authentication, policies, skill reviews, audit logs, and the kill switch for all OpenClaw gateways in your organization.
 
 **Stack:** Fastify 5 · Drizzle ORM · PostgreSQL · jose (OIDC) · Zod validation
 
@@ -39,7 +39,7 @@ The control plane (`@openclaw/clawforge-server`) is the central API that manages
 The fastest way to get ClawForge running locally. This starts Postgres, runs migrations, seeds a default admin user, and launches both the server and admin console.
 
 ```bash
-git clone https://github.com/openclaw/clawforge.git
+git clone https://github.com/ClawForgeAI/clawforge.git
 cd clawforge
 docker compose up --build
 ```

@@ -31,7 +31,7 @@ export const organizations = pgTable("organizations", {
 });
 
 // ---------------------------------------------------------------------------
-// Users
+// Users (#38: added viewer role)
 // ---------------------------------------------------------------------------
 
 export const users = pgTable(
@@ -43,7 +43,7 @@ export const users = pgTable(
       .references(() => organizations.id, { onDelete: "cascade" }),
     email: text("email").notNull(),
     name: text("name"),
-    role: text("role", { enum: ["admin", "user"] })
+    role: text("role", { enum: ["admin", "viewer", "user"] })
       .notNull()
       .default("user"),
     passwordHash: text("password_hash"),
@@ -235,5 +235,37 @@ export const enrollmentTokens = pgTable(
   (table) => [
     index("enrollment_tokens_org_idx").on(table.orgId),
     uniqueIndex("enrollment_tokens_token_idx").on(table.token),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// API Keys (#44)
+// ---------------------------------------------------------------------------
+
+export const apiKeys = pgTable(
+  "api_keys",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    keyHash: text("key_hash").notNull(),
+    keyPrefix: text("key_prefix").notNull(),
+    role: text("role", { enum: ["admin", "viewer"] })
+      .notNull()
+      .default("viewer"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    ipAllowlist: jsonb("ip_allowlist").$type<string[]>(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("api_keys_org_idx").on(table.orgId),
+    uniqueIndex("api_keys_prefix_idx").on(table.keyPrefix),
   ],
 );

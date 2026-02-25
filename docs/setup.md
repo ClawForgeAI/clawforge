@@ -5,7 +5,7 @@
 The fastest way to get running. One command starts Postgres, runs migrations, seeds an admin user, and launches both the server and admin console.
 
 ```bash
-git clone https://github.com/openclaw/clawforge.git
+git clone https://github.com/ClawForgeAI/clawforge.git
 cd clawforge
 docker compose up --build
 ```
@@ -57,7 +57,7 @@ The seed creates a superadmin you can log in with immediately. Customize with en
 ```bash
 cd server
 
-export DATABASE_URL="postgresql://localhost:5432/clawforge"
+export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/clawforge"
 export JWT_SECRET="your-secret-here"  # Change in production!
 export CORS_ORIGIN="http://localhost:4200"
 
@@ -169,8 +169,8 @@ See [Configuration](configuration.md) for details on all plugin options.
 pnpm install
 
 # Run everything in dev mode
-pnpm --filter @openclaw/clawforge-server dev   # API on :4100
-pnpm --filter @openclaw/clawforge-admin dev    # UI on :4200
+pnpm --filter @ClawForgeAI/clawforge-server dev   # API on :4100
+pnpm --filter @ClawForgeAI/clawforge-admin dev    # UI on :4200
 
 # Database management
 cd server

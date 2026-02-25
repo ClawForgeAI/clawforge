@@ -4,18 +4,18 @@
 
 import type { FastifyInstance } from "fastify";
 import { eq, desc } from "drizzle-orm";
-import { requireAdmin, requireOrg } from "../middleware/auth.js";
+import { requireAdmin, requireAdminOrViewer, requireOrg } from "../middleware/auth.js";
 import { clientHeartbeats, policies, users } from "../db/schema.js";
 
 export async function heartbeatRoutes(app: FastifyInstance): Promise<void> {
   /**
    * GET /api/v1/heartbeat/:orgId
-   * List all connected clients for the org (admin only).
+   * List all connected clients for the org (admin or viewer).
    */
   app.get<{ Params: { orgId: string } }>(
     "/api/v1/heartbeat/:orgId",
     async (request, reply) => {
-      requireAdmin(request, reply);
+      requireAdminOrViewer(request, reply);
       if (reply.sent) return;
       const { orgId } = request.params;
       requireOrg(request, reply, orgId);

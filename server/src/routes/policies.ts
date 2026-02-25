@@ -4,9 +4,10 @@
 
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { requireAdmin, requireOrg } from "../middleware/auth.js";
+import { requireAdmin, requireAdminOrViewer, requireOrg } from "../middleware/auth.js";
 import { PolicyService } from "../services/policy-service.js";
 import { logAdminAction } from "../services/admin-audit.js";
+import { eventBus } from "../services/event-bus.js";
 
 const UpdatePolicyBodySchema = z.object({
   toolsConfig: z
@@ -63,12 +64,12 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
 
   /**
    * GET /api/v1/policies/:orgId
-   * Get raw org policy (admin only).
+   * Get raw org policy (admin or viewer).
    */
   app.get<{ Params: { orgId: string } }>(
     "/api/v1/policies/:orgId",
     async (request, reply) => {
-      requireAdmin(request, reply);
+      requireAdminOrViewer(request, reply);
       if (reply.sent) return;
       const { orgId } = request.params;
       requireOrg(request, reply, orgId);
@@ -105,6 +106,11 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
       }
 
       const updated = await policyService.upsertOrgPolicy(orgId, parseResult.data);
+
+      // Broadcast policy update to all connected SSE clients in the org.
+      eventBus.broadcast(orgId, "policy_updated", {
+        version: updated.version,
+      });
 
       logAdminAction(app.db, {
         orgId,
@@ -145,6 +151,12 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
         parseResult.data.active,
         parseResult.data.message,
       );
+
+      // Broadcast kill switch change to all connected SSE clients in the org.
+      eventBus.broadcast(orgId, "kill_switch", {
+        active: parseResult.data.active,
+        message: parseResult.data.message,
+      });
 
       logAdminAction(app.db, {
         orgId,

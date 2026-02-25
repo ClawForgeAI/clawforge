@@ -5,6 +5,10 @@
 <h1 align="center">ClawForge</h1>
 
 <p align="center">
+  <img src="docs/images/demo.gif" alt="ClawForge Demo" width="700" />
+</p>
+
+<p align="center">
   <strong>One dashboard to govern all your AI assistants.</strong>
 </p>
 
@@ -32,22 +36,27 @@
 ## Quick Start
 
 ```bash
-git clone https://github.com/openclaw/clawforge.git
+git clone https://github.com/ClawForgeAI/clawforge.git
 cd clawforge
 docker compose up --build
 ```
 
-Once running: **Admin Console** at [localhost:4200](http://localhost:4200) &middot; **API** at [localhost:4100](http://localhost:4100) &middot; Login with `admin@clawforge.local` / `clawforge`
+Once running:
+
+- **Admin Console** — [localhost:4200](http://localhost:4200)
+- **API** — [localhost:4100](http://localhost:4100)
+- **Login** — `admin@clawforge.local` / `clawforge`
 
 > For manual setup, SSO configuration, and connecting an OpenClaw gateway, see the [Setup Guide](docs/setup.md).
 
 ## Documentation
 
 | Guide | Description |
-|-------|-------------|
+| --- | --- |
 | [Setup Guide](docs/setup.md) | Docker, manual setup, SSO, connecting OpenClaw |
 | [Architecture & How It Works](docs/architecture.md) | Package structure, core concepts, data flows, database schema |
 | [API Reference](docs/api-reference.md) | Every endpoint with request/response examples |
+| [E2E Onboarding Guide](docs/e2e-guide.md) | Full walkthrough from zero to managed fleet |
 | [Configuration](docs/configuration.md) | Plugin config, server env vars, admin console env vars |
 | [Roadmap](docs/roadmap.md) | What's next for ClawForge |
 

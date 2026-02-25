@@ -1,11 +1,12 @@
 /**
- * Audit routes – event ingestion and querying.
+ * Audit routes – event ingestion, querying, retention, and stats.
  */
 
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { requireAdmin, requireOrg } from "../middleware/auth.js";
+import { requireAdmin, requireAdminOrViewer, requireOrg } from "../middleware/auth.js";
 import { AuditService } from "../services/audit-service.js";
+import { getAuditStats } from "../services/audit-retention.js";
 
 const MAX_BATCH_SIZE = 500;
 
@@ -76,7 +77,7 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // GET /api/v1/audit/:orgId/query - Query with pagination
+  // GET /api/v1/audit/:orgId/query - Query with pagination (#38: viewers can query)
   app.get<{
     Params: { orgId: string };
     Querystring: {
@@ -91,7 +92,7 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
       cursor?: string;
     };
   }>("/api/v1/audit/:orgId/query", async (request, reply) => {
-    requireAdmin(request, reply);
+    requireAdminOrViewer(request, reply);
     if (reply.sent) return;
     const { orgId } = request.params;
     requireOrg(request, reply, orgId);
@@ -122,11 +123,11 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
     return reply.send({ events, total, nextCursor });
   });
 
-  // GET /api/v1/audit/:orgId/events/:eventId - Single event detail
+  // GET /api/v1/audit/:orgId/events/:eventId - Single event detail (#38: viewers can read)
   app.get<{ Params: { orgId: string; eventId: string } }>(
     "/api/v1/audit/:orgId/events/:eventId",
     async (request, reply) => {
-      requireAdmin(request, reply);
+      requireAdminOrViewer(request, reply);
       if (reply.sent) return;
       const { orgId, eventId } = request.params;
       requireOrg(request, reply, orgId);
@@ -138,6 +139,26 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
       }
 
       return reply.send({ event });
+    },
+  );
+
+  // GET /api/v1/audit/:orgId/stats - Audit stats (#39)
+  app.get<{ Params: { orgId: string } }>(
+    "/api/v1/audit/:orgId/stats",
+    async (request, reply) => {
+      requireAdminOrViewer(request, reply);
+      if (reply.sent) return;
+      const { orgId } = request.params;
+      requireOrg(request, reply, orgId);
+      if (reply.sent) return;
+
+      const stats = await getAuditStats(app.db, orgId);
+      const retentionDays = parseInt(process.env.AUDIT_RETENTION_DAYS ?? "0", 10);
+
+      return reply.send({
+        ...stats,
+        retentionDays: retentionDays > 0 ? retentionDays : null,
+      });
     },
   );
 
