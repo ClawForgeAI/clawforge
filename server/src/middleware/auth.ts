@@ -37,6 +37,11 @@ export async function registerAuthMiddleware(app: FastifyInstance): Promise<void
   app.decorateRequest("authUser", undefined);
 
   app.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
+    // Skip CORS preflight and already-handled requests.
+    if (request.method === "OPTIONS" || reply.sent) {
+      return;
+    }
+
     // Skip auth for public endpoints.
     if (PUBLIC_ENDPOINTS.has(request.url) || request.url.startsWith("/health")) {
       return;

@@ -194,36 +194,36 @@ async function initializeClawForge(
     });
   });
 
-  // --- 9. Register LLM hooks when auditLevel is "full" ---
-  if (policy?.auditLevel === "full") {
-    api.on("llm_input", (event, ctx) => {
-      auditLogger.enqueue({
-        eventType: "llm_input",
-        outcome: "success",
-        agentId: ctx.agentId,
-        sessionKey: ctx.sessionKey,
-        metadata: {
-          provider: event.provider,
-          model: event.model,
-          imagesCount: event.imagesCount,
-        },
-      });
+  // --- 9. Register LLM hooks (gated by current auditLevel at runtime) ---
+  api.on("llm_input", (event, ctx) => {
+    if (enforcerState.policy?.auditLevel !== "full") return;
+    auditLogger.enqueue({
+      eventType: "llm_input",
+      outcome: "success",
+      agentId: ctx.agentId,
+      sessionKey: ctx.sessionKey,
+      metadata: {
+        provider: event.provider,
+        model: event.model,
+        imagesCount: event.imagesCount,
+      },
     });
+  });
 
-    api.on("llm_output", (event, ctx) => {
-      auditLogger.enqueue({
-        eventType: "llm_output",
-        outcome: "success",
-        agentId: ctx.agentId,
-        sessionKey: ctx.sessionKey,
-        metadata: {
-          provider: event.provider,
-          model: event.model,
-          usage: event.usage,
-        },
-      });
+  api.on("llm_output", (event, ctx) => {
+    if (enforcerState.policy?.auditLevel !== "full") return;
+    auditLogger.enqueue({
+      eventType: "llm_output",
+      outcome: "success",
+      agentId: ctx.agentId,
+      sessionKey: ctx.sessionKey,
+      metadata: {
+        provider: event.provider,
+        model: event.model,
+        usage: event.usage,
+      },
     });
-  }
+  });
 
   // --- 10. Start heartbeat / kill switch manager ---
   const refreshPolicy = async () => {
@@ -336,6 +336,68 @@ export function register(api: OpenClawPluginApi): void {
         return { text: `Logged in as ${session.email ?? session.userId} (org: ${session.orgId})` };
       } catch (err) {
         return { text: `Login failed: ${String(err)}` };
+      }
+    },
+  });
+
+  // Register the /clawforge-enroll command for enrollment token auth.
+  api.registerCommand({
+    name: "clawforge-enroll",
+    description: "Enroll this client with an enrollment token",
+    acceptsArgs: true,
+    handler: async (ctx) => {
+      const args = ctx.args?.trim();
+      if (!args) {
+        return { text: "Usage: /clawforge-enroll <token> <email> [name]" };
+      }
+
+      const parts = args.split(/\s+/);
+      if (parts.length < 2) {
+        return { text: "Usage: /clawforge-enroll <token> <email> [name]" };
+      }
+
+      const [token, email, ...nameParts] = parts;
+      const name = nameParts.length > 0 ? nameParts.join(" ") : undefined;
+
+      if (!pluginConfig.controlPlaneUrl) {
+        return { text: "ClawForge: controlPlaneUrl not configured in plugin settings." };
+      }
+
+      try {
+        const res = await fetch(`${pluginConfig.controlPlaneUrl}/api/v1/auth/enroll`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token, email, name }),
+        });
+
+        if (!res.ok) {
+          const body = await res.text();
+          return { text: `Enrollment failed (${res.status}): ${body}` };
+        }
+
+        const data = await res.json() as {
+          accessToken: string;
+          refreshToken: string;
+          expiresAt: number;
+          userId: string;
+          orgId: string;
+          email: string;
+          roles: string[];
+        };
+
+        saveSession({
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
+          expiresAt: data.expiresAt,
+          userId: data.userId,
+          orgId: data.orgId,
+          email: data.email,
+          roles: data.roles,
+        });
+
+        return { text: `Enrolled as ${data.email} (org: ${data.orgId}). Restart to activate policy enforcement.` };
+      } catch (err) {
+        return { text: `Enrollment failed: ${String(err)}` };
       }
     },
   });

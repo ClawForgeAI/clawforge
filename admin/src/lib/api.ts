@@ -26,9 +26,11 @@ async function apiFetch<T>(path: string, opts: FetchOptions = {}): Promise<T> {
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
 
-  if (response.status === 401) {
+  if (response.status === 401 && opts.token) {
     clearAuth();
-    window.location.href = "/login?expired=1";
+    if (typeof window !== "undefined") {
+      window.location.replace("/login?expired=1");
+    }
     throw new Error("Session expired");
   }
 

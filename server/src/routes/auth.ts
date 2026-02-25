@@ -243,10 +243,12 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       orgId = defaultOrg.id;
     }
 
+    const condition = and(eq(users.orgId, orgId), eq(users.email, email));
+
     const [user] = await db
       .select()
       .from(users)
-      .where(and(eq(users.orgId, orgId), eq(users.email, email)))
+      .where(condition)
       .limit(1);
 
     if (!user || !user.passwordHash) {
@@ -258,6 +260,8 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(401).send({ error: "Invalid email or password" });
     }
 
+    const resolvedOrgId = orgId ?? user.orgId;
+
     // Update last seen
     await db
       .update(users)
@@ -266,11 +270,11 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
     // Issue tokens
     const accessToken = app.jwt.sign(
-      { userId: user.id, orgId, email: user.email, role: user.role },
+      { userId: user.id, orgId: resolvedOrgId, email: user.email, role: user.role },
       { expiresIn: "1h" },
     );
     const refreshToken = app.jwt.sign(
-      { userId: user.id, orgId, email: user.email, role: user.role, type: "refresh" },
+      { userId: user.id, orgId: resolvedOrgId, email: user.email, role: user.role, type: "refresh" },
       { expiresIn: "30d" },
     );
 
@@ -279,7 +283,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       refreshToken,
       expiresAt: Date.now() + 60 * 60 * 1000,
       userId: user.id,
-      orgId,
+      orgId: resolvedOrgId,
       email: user.email,
       roles: [user.role],
     });

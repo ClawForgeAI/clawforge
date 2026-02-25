@@ -3,6 +3,15 @@
   "version": "0.1.0",
   "description": "Enterprise governance plugin for OpenClaw – SSO, policy enforcement, audit, kill switch",
   "type": "module",
+  "bin": {
+    "clawguard": "./bin/clawforge.mjs"
+  },
+  "files": [
+    "index.ts",
+    "src/",
+    "bin/",
+    "openclaw.plugin.json"
+  ],
   "scripts": {
     "test": "vitest run"
   },
