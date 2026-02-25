@@ -1,169 +1,262 @@
-import { describe, it, expect, vi } from "vitest";
-import Fastify from "fastify";
-import jwtPlugin from "@fastify/jwt";
-import { registerAuthMiddleware } from "../middleware/auth.js";
-import { heartbeatRoutes } from "./heartbeat.js";
-import { JWT_SECRET, TEST_ORG_ID, TEST_ADMIN_ID, TEST_USER_ID } from "../test/helpers.js";
+/**
+ * Integration tests for heartbeat routes.
+ *
+ * Tests the client heartbeat endpoint response format via Fastify inject.
+ */
 
-function makeChain(result: unknown[] = []) {
-  const c: any = {};
-  for (const m of ["select", "from", "where", "limit", "orderBy", "innerJoin", "set", "values", "returning", "insert", "update", "delete", "onConflictDoUpdate"]) {
-    c[m] = vi.fn().mockReturnValue(c);
+import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
+import type { FastifyInstance } from "fastify";
+import {
+  createTestApp,
+  createMockDb,
+  type MockDb,
+  generateTestToken,
+  TEST_ORG_ID,
+  TEST_USER_ID,
+  TEST_ADMIN_ID,
+  testPolicy,
+} from "../test/helpers.js";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function mockDbChain(result: unknown[]) {
+  const obj: Record<string, unknown> = {};
+  const methods = [
+    "from", "where", "limit", "offset", "orderBy",
+    "values", "set", "returning", "onConflictDoUpdate",
+    "innerJoin", "leftJoin",
+  ];
+  for (const m of methods) {
+    obj[m] = vi.fn().mockReturnValue(obj);
   }
-  c.then = (resolve: (v: unknown) => void) => resolve(result);
-  return c;
+  obj.then = vi.fn((resolve: (v: unknown) => void) => resolve(result));
+  return obj;
 }
 
-function createTestDb(selectResults: unknown[][] = [[]], insertResults: unknown[][] = [[]]) {
-  let selectCall = 0;
-  let insertCall = 0;
-  return {
-    select: vi.fn(() => makeChain(selectResults[selectCall++] ?? [])),
-    insert: vi.fn(() => makeChain(insertResults[insertCall++] ?? [])),
-    update: vi.fn(() => makeChain([])),
-    delete: vi.fn(() => makeChain([])),
-  };
-}
+describe("Heartbeat Routes", () => {
+  let app: FastifyInstance;
+  let mockDb: MockDb;
 
-async function buildApp(db: any) {
-  const app = Fastify({ logger: false });
-  await app.register(jwtPlugin, { secret: JWT_SECRET });
-  app.decorate("db", db as never);
-  await registerAuthMiddleware(app);
-  await app.register(heartbeatRoutes);
-  await app.ready();
-  return app;
-}
-
-function adminToken(app: any) {
-  return app.jwt.sign(
-    { userId: TEST_ADMIN_ID, orgId: TEST_ORG_ID, email: "admin@test.com", role: "admin" },
-    { expiresIn: "1h" },
-  );
-}
-
-function userToken(app: any) {
-  return app.jwt.sign(
-    { userId: TEST_USER_ID, orgId: TEST_ORG_ID, email: "user@test.com", role: "user" },
-    { expiresIn: "1h" },
-  );
-}
-
-describe("heartbeat routes", () => {
-  describe("GET /api/v1/heartbeat/:orgId (list clients)", () => {
-    it("returns client list with status for admin", async () => {
-      const now = new Date();
-      const clients = [
-        {
-          userId: TEST_USER_ID,
-          email: "u@t.com",
-          name: "User",
-          role: "user",
-          lastHeartbeatAt: now.toISOString(),
-          clientVersion: "1.0.0",
-        },
-      ];
-      const db = createTestDb([clients]);
-      const app = await buildApp(db);
-
-      const res = await app.inject({
-        method: "GET",
-        url: `/api/v1/heartbeat/${TEST_ORG_ID}`,
-        headers: { authorization: `Bearer ${adminToken(app)}` },
-      });
-      expect(res.statusCode).toBe(200);
-      const body = res.json();
-      expect(body.clients).toHaveLength(1);
-      expect(body.summary.total).toBe(1);
-
-      await app.close();
-    });
-
-    it("rejects non-admin", async () => {
-      const db = createTestDb();
-      const app = await buildApp(db);
-
-      const res = await app.inject({
-        method: "GET",
-        url: `/api/v1/heartbeat/${TEST_ORG_ID}`,
-        headers: { authorization: `Bearer ${userToken(app)}` },
-      });
-      expect(res.statusCode).toBe(403);
-
-      await app.close();
-    });
+  beforeAll(async () => {
+    mockDb = createMockDb();
+    app = await createTestApp(mockDb);
   });
 
-  describe("GET /api/v1/heartbeat/:orgId/:userId (client heartbeat)", () => {
-    it("returns heartbeat response with kill switch status", async () => {
-      const policy = { version: 3, killSwitch: false, killSwitchMessage: null };
-      // select returns policy
-      const db = createTestDb([[policy]]);
+  afterAll(async () => {
+    await app.close();
+  });
 
-      const app = await buildApp(db);
+  // -------------------------------------------------------------------------
+  // GET /api/v1/heartbeat/:orgId/:userId
+  // -------------------------------------------------------------------------
+
+  describe("GET /api/v1/heartbeat/:orgId/:userId", () => {
+    it("returns 401 without auth", async () => {
+      const res = await app.inject({
+        method: "GET",
+        url: `/api/v1/heartbeat/${TEST_ORG_ID}/${TEST_USER_ID}`,
+      });
+
+      expect(res.statusCode).toBe(401);
+    });
+
+    it("returns 403 for org mismatch", async () => {
+      const otherOrg = "22222222-2222-4000-8000-222222222222";
+      const token = generateTestToken(app, {
+        userId: TEST_USER_ID,
+        orgId: otherOrg,
+        role: "user",
+      });
 
       const res = await app.inject({
         method: "GET",
         url: `/api/v1/heartbeat/${TEST_ORG_ID}/${TEST_USER_ID}`,
-        headers: { authorization: `Bearer ${userToken(app)}` },
+        headers: { authorization: `Bearer ${token}` },
       });
+
+      expect(res.statusCode).toBe(403);
+    });
+
+    it("returns heartbeat response with default values when no policy exists", async () => {
+      const token = generateTestToken(app, {
+        userId: TEST_USER_ID,
+        orgId: TEST_ORG_ID,
+        role: "user",
+      });
+
+      // insert (upsert heartbeat) then select (policy)
+      mockDb.insert = vi.fn(() => mockDbChain([]) as ReturnType<MockDb["insert"]>);
+      mockDb.select = vi.fn(() => mockDbChain([]) as ReturnType<MockDb["select"]>);
+
+      const res = await app.inject({
+        method: "GET",
+        url: `/api/v1/heartbeat/${TEST_ORG_ID}/${TEST_USER_ID}`,
+        headers: { authorization: `Bearer ${token}` },
+      });
+
       expect(res.statusCode).toBe(200);
       const body = res.json();
-      expect(body.killSwitch).toBe(false);
-      expect(body.policyVersion).toBe(3);
-
-      await app.close();
+      expect(body).toHaveProperty("policyVersion", 0);
+      expect(body).toHaveProperty("killSwitch", false);
+      expect(body).toHaveProperty("refreshPolicyNow", false);
     });
 
-    it("detects policy version mismatch", async () => {
-      const policy = { version: 5, killSwitch: false, killSwitchMessage: null };
-      const db = createTestDb([[policy]]);
-      db.insert = vi.fn(() => makeChain([]));
+    it("returns kill switch status from existing policy", async () => {
+      const token = generateTestToken(app, {
+        userId: TEST_USER_ID,
+        orgId: TEST_ORG_ID,
+        role: "user",
+      });
 
-      const app = await buildApp(db);
+      const policyWithKillSwitch = {
+        version: 3,
+        killSwitch: true,
+        killSwitchMessage: "All systems halt",
+      };
+
+      // insert for heartbeat upsert, select for policy
+      let callCount = 0;
+      mockDb.insert = vi.fn(() => mockDbChain([]) as ReturnType<MockDb["insert"]>);
+      mockDb.select = vi.fn(() => mockDbChain([policyWithKillSwitch]) as ReturnType<MockDb["select"]>);
+
+      const res = await app.inject({
+        method: "GET",
+        url: `/api/v1/heartbeat/${TEST_ORG_ID}/${TEST_USER_ID}`,
+        headers: { authorization: `Bearer ${token}` },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body).toHaveProperty("policyVersion", 3);
+      expect(body).toHaveProperty("killSwitch", true);
+      expect(body).toHaveProperty("killSwitchMessage", "All systems halt");
+    });
+
+    it("sets refreshPolicyNow when client version differs from server", async () => {
+      const token = generateTestToken(app, {
+        userId: TEST_USER_ID,
+        orgId: TEST_ORG_ID,
+        role: "user",
+      });
+
+      const policyRow = { version: 5, killSwitch: false, killSwitchMessage: null };
+
+      mockDb.insert = vi.fn(() => mockDbChain([]) as ReturnType<MockDb["insert"]>);
+      mockDb.select = vi.fn(() => mockDbChain([policyRow]) as ReturnType<MockDb["select"]>);
 
       const res = await app.inject({
         method: "GET",
         url: `/api/v1/heartbeat/${TEST_ORG_ID}/${TEST_USER_ID}?policyVersion=3`,
-        headers: { authorization: `Bearer ${userToken(app)}` },
+        headers: { authorization: `Bearer ${token}` },
       });
-      expect(res.statusCode).toBe(200);
-      expect(res.json().refreshPolicyNow).toBe(true);
 
-      await app.close();
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body).toHaveProperty("policyVersion", 5);
+      expect(body).toHaveProperty("refreshPolicyNow", true);
     });
 
-    it("reports no refresh needed when versions match", async () => {
-      const policy = { version: 3, killSwitch: false, killSwitchMessage: null };
-      const db = createTestDb([[policy]]);
-      db.insert = vi.fn(() => makeChain([]));
+    it("does not set refreshPolicyNow when client version matches server", async () => {
+      const token = generateTestToken(app, {
+        userId: TEST_USER_ID,
+        orgId: TEST_ORG_ID,
+        role: "user",
+      });
 
-      const app = await buildApp(db);
+      const policyRow = { version: 5, killSwitch: false, killSwitchMessage: null };
+
+      mockDb.insert = vi.fn(() => mockDbChain([]) as ReturnType<MockDb["insert"]>);
+      mockDb.select = vi.fn(() => mockDbChain([policyRow]) as ReturnType<MockDb["select"]>);
 
       const res = await app.inject({
         method: "GET",
-        url: `/api/v1/heartbeat/${TEST_ORG_ID}/${TEST_USER_ID}?policyVersion=3`,
-        headers: { authorization: `Bearer ${userToken(app)}` },
+        url: `/api/v1/heartbeat/${TEST_ORG_ID}/${TEST_USER_ID}?policyVersion=5`,
+        headers: { authorization: `Bearer ${token}` },
       });
+
       expect(res.statusCode).toBe(200);
-      expect(res.json().refreshPolicyNow).toBe(false);
-
-      await app.close();
+      const body = res.json();
+      expect(body).toHaveProperty("refreshPolicyNow", false);
     });
+  });
 
-    it("rejects org mismatch", async () => {
-      const db = createTestDb();
-      const app = await buildApp(db);
-      const otherOrg = "00000000-0000-0000-0000-000000000099";
+  // -------------------------------------------------------------------------
+  // GET /api/v1/heartbeat/:orgId (admin - list clients)
+  // -------------------------------------------------------------------------
+
+  describe("GET /api/v1/heartbeat/:orgId", () => {
+    it("returns 403 for non-admin", async () => {
+      const token = generateTestToken(app, {
+        userId: TEST_USER_ID,
+        orgId: TEST_ORG_ID,
+        role: "user",
+      });
 
       const res = await app.inject({
         method: "GET",
-        url: `/api/v1/heartbeat/${otherOrg}/${TEST_USER_ID}`,
-        headers: { authorization: `Bearer ${userToken(app)}` },
+        url: `/api/v1/heartbeat/${TEST_ORG_ID}`,
+        headers: { authorization: `Bearer ${token}` },
       });
+
       expect(res.statusCode).toBe(403);
+    });
 
-      await app.close();
+    it("returns client list for admin", async () => {
+      const token = generateTestToken(app, {
+        userId: TEST_ADMIN_ID,
+        orgId: TEST_ORG_ID,
+        role: "admin",
+      });
+
+      const recentTime = new Date().toISOString();
+      const clients = [
+        {
+          userId: TEST_USER_ID,
+          email: "user@test.com",
+          name: "Test User",
+          role: "user",
+          lastHeartbeatAt: recentTime,
+          clientVersion: "1.0.0",
+        },
+      ];
+
+      mockDb.select = vi.fn(() => mockDbChain(clients) as ReturnType<MockDb["select"]>);
+
+      const res = await app.inject({
+        method: "GET",
+        url: `/api/v1/heartbeat/${TEST_ORG_ID}`,
+        headers: { authorization: `Bearer ${token}` },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body).toHaveProperty("clients");
+      expect(body).toHaveProperty("summary");
+      expect(body.summary).toHaveProperty("total", 1);
+      expect(body.clients[0]).toHaveProperty("status");
+    });
+
+    it("returns empty client list", async () => {
+      const token = generateTestToken(app, {
+        userId: TEST_ADMIN_ID,
+        orgId: TEST_ORG_ID,
+        role: "admin",
+      });
+
+      mockDb.select = vi.fn(() => mockDbChain([]) as ReturnType<MockDb["select"]>);
+
+      const res = await app.inject({
+        method: "GET",
+        url: `/api/v1/heartbeat/${TEST_ORG_ID}`,
+        headers: { authorization: `Bearer ${token}` },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.clients).toEqual([]);
+      expect(body.summary).toEqual({ total: 0, online: 0, offline: 0 });
     });
   });
 });
