@@ -7,6 +7,7 @@ import { z } from "zod";
 import { requireAdmin, requireAdminOrViewer, requireOrg } from "../middleware/auth.js";
 import { PolicyService } from "../services/policy-service.js";
 import { logAdminAction } from "../services/admin-audit.js";
+import { eventBus } from "../services/event-bus.js";
 
 const UpdatePolicyBodySchema = z.object({
   toolsConfig: z
@@ -106,6 +107,11 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
 
       const updated = await policyService.upsertOrgPolicy(orgId, parseResult.data);
 
+      // Broadcast policy update to all connected SSE clients in the org.
+      eventBus.broadcast(orgId, "policy_updated", {
+        version: updated.version,
+      });
+
       logAdminAction(app.db, {
         orgId,
         userId: request.authUser!.userId,
@@ -145,6 +151,12 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
         parseResult.data.active,
         parseResult.data.message,
       );
+
+      // Broadcast kill switch change to all connected SSE clients in the org.
+      eventBus.broadcast(orgId, "kill_switch", {
+        active: parseResult.data.active,
+        message: parseResult.data.message,
+      });
 
       logAdminAction(app.db, {
         orgId,
