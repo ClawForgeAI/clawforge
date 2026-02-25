@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import { Sidebar } from "@/components/sidebar";
 import { Card, CardTitle } from "@/components/card";
 import { Badge } from "@/components/badge";
@@ -103,29 +104,41 @@ export default function SkillsPage() {
 
   function renderScanResults(submission: SkillSubmission) {
     const scan = submission.scanResults;
-    if (!scan) return <p className="text-sm text-muted-foreground">No scan results available.</p>;
+    if (!scan) return <p className="text-sm text-base-content/40">No scan results available.</p>;
 
     return (
       <div className="space-y-3">
-        <div className="flex gap-4 text-sm">
-          <span>Files scanned: {scan.scannedFiles}</span>
-          <span className="text-red-600">Critical: {scan.critical}</span>
-          <span className="text-amber-600">Warnings: {scan.warn}</span>
-          <span className="text-blue-600">Info: {scan.info}</span>
+        <div className="stats stats-horizontal shadow-sm border border-base-300/50 w-full">
+          <div className="stat py-2 px-4">
+            <div className="stat-title text-xs">Files</div>
+            <div className="stat-value text-lg">{scan.scannedFiles}</div>
+          </div>
+          <div className="stat py-2 px-4">
+            <div className="stat-title text-xs">Critical</div>
+            <div className="stat-value text-lg text-error">{scan.critical}</div>
+          </div>
+          <div className="stat py-2 px-4">
+            <div className="stat-title text-xs">Warnings</div>
+            <div className="stat-value text-lg text-warning">{scan.warn}</div>
+          </div>
+          <div className="stat py-2 px-4">
+            <div className="stat-title text-xs">Info</div>
+            <div className="stat-value text-lg text-info">{scan.info}</div>
+          </div>
         </div>
         {scan.findings.length > 0 && (
           <div className="space-y-2">
             {scan.findings.map((f, i) => (
-              <div key={i} className="text-xs border border-border rounded p-2 bg-secondary/50">
+              <div key={i} className="text-xs rounded-lg border border-base-300/50 p-3 bg-base-200/50">
                 <div className="flex items-center gap-2 mb-1">
-                  <Badge variant={f.severity === "critical" ? "danger" : f.severity === "warn" ? "warning" : "info"}>
+                  <Badge variant={f.severity === "critical" ? "danger" : f.severity === "warn" ? "warning" : "info"} size="xs">
                     {f.severity}
                   </Badge>
                   <span className="font-medium">{f.ruleId}</span>
-                  <span className="text-muted-foreground">{f.file}:{f.line}</span>
+                  <span className="text-base-content/40">{f.file}:{f.line}</span>
                 </div>
                 <p>{f.message}</p>
-                <pre className="mt-1 text-muted-foreground overflow-x-auto">{f.evidence}</pre>
+                <pre className="mt-1 text-base-content/40 overflow-x-auto font-mono">{f.evidence}</pre>
               </div>
             ))}
           </div>
@@ -134,44 +147,33 @@ export default function SkillsPage() {
     );
   }
 
+  const tabs = [
+    { key: "pending", label: "Pending", count: pending.length },
+    { key: "approved", label: "Approved", count: approved.length },
+    { key: "history", label: "History", count: history.length },
+  ] as const;
+
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-base-200">
       <Sidebar />
-      <main className="flex-1 p-4 md:p-8">
-        <h2 className="text-2xl font-bold mb-6">Skill Review</h2>
+      <main className="flex-1 p-4 lg:p-8 pt-16 lg:pt-8">
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold">Skill Review</h2>
+          <p className="text-sm text-base-content/50 mt-1">Review, approve, and manage skill submissions</p>
+        </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 border-b border-border">
-          <button
-            onClick={() => setTab("pending")}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              tab === "pending"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Pending ({pending.length})
-          </button>
-          <button
-            onClick={() => setTab("approved")}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              tab === "approved"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Approved ({approved.length})
-          </button>
-          <button
-            onClick={() => setTab("history")}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              tab === "history"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            History ({history.length})
-          </button>
+        <div className="tabs tabs-boxed bg-base-100 p-1 mb-6 w-fit border border-base-300/50">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`tab tab-sm gap-2 ${tab === t.key ? "tab-active" : ""}`}
+            >
+              {t.label}
+              <span className="badge badge-sm badge-ghost">{t.count}</span>
+            </button>
+          ))}
         </div>
 
         {loading ? (
@@ -181,109 +183,136 @@ export default function SkillsPage() {
           </div>
         ) : tab === "pending" ? (
           pending.length === 0 ? (
-            <p className="text-muted-foreground">No pending skill submissions.</p>
+            <div className="text-center py-16 text-base-content/40">
+              <svg className="w-12 h-12 mx-auto mb-3 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M9 12l2 2 4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
+              </svg>
+              <p className="text-sm">No pending skill submissions</p>
+            </div>
           ) : (
             <div className="space-y-4">
-              {pending.map((submission) => (
-                <Card key={submission.id}>
-                  <div className="flex items-start justify-between flex-wrap gap-2">
-                    <div>
-                      <h3 className="font-semibold text-base">{submission.skillName}</h3>
-                      {submission.skillKey && (
-                        <p className="text-xs text-muted-foreground font-mono mt-0.5">{submission.skillKey}</p>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Submitted {new Date(submission.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex gap-2 flex-wrap">
-                      <button
-                        onClick={() => setExpandedId(expandedId === submission.id ? null : submission.id)}
-                        className="px-3 py-1.5 text-xs border border-border rounded-md hover:bg-secondary"
-                      >
-                        {expandedId === submission.id ? "Hide Details" : "Details"}
-                      </button>
-                      <button
-                        onClick={() => handleReview(submission.id, "approved-org")}
-                        disabled={reviewingId === submission.id}
-                        className="px-3 py-1.5 text-xs bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
-                      >
-                        Approve (Org)
-                      </button>
-                      <button
-                        onClick={() => handleReview(submission.id, "approved-self")}
-                        disabled={reviewingId === submission.id}
-                        className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-                      >
-                        Approve (Self)
-                      </button>
-                      <button
-                        onClick={() => handleReview(submission.id, "rejected")}
-                        disabled={reviewingId === submission.id}
-                        className="px-3 py-1.5 text-xs bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  </div>
-
-                  {expandedId === submission.id && (
-                    <div className="mt-4 pt-4 border-t border-border space-y-4">
-                      {submission.manifestContent && (
+              <AnimatePresence>
+                {pending.map((submission) => (
+                  <motion.div
+                    key={submission.id}
+                    layout
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                  >
+                    <Card>
+                      <div className="flex items-start justify-between flex-wrap gap-3">
                         <div>
-                          <h4 className="text-sm font-medium mb-1">SKILL.md</h4>
-                          <pre className="text-xs bg-secondary rounded p-3 overflow-x-auto whitespace-pre-wrap">
-                            {submission.manifestContent}
-                          </pre>
+                          <h3 className="font-semibold text-base">{submission.skillName}</h3>
+                          {submission.skillKey && (
+                            <p className="text-xs text-base-content/40 font-mono mt-0.5">{submission.skillKey}</p>
+                          )}
+                          <p className="text-xs text-base-content/40 mt-1">
+                            Submitted {new Date(submission.createdAt).toLocaleDateString()}
+                          </p>
                         </div>
-                      )}
-                      <div>
-                        <h4 className="text-sm font-medium mb-1">Security Scan</h4>
-                        {renderScanResults(submission)}
+                        <div className="flex gap-2 flex-wrap">
+                          <button
+                            onClick={() => setExpandedId(expandedId === submission.id ? null : submission.id)}
+                            className="btn btn-ghost btn-xs"
+                          >
+                            {expandedId === submission.id ? "Hide" : "Details"}
+                          </button>
+                          <button
+                            onClick={() => handleReview(submission.id, "approved-org")}
+                            disabled={reviewingId === submission.id}
+                            className="btn btn-success btn-xs"
+                          >
+                            {reviewingId === submission.id && <span className="loading loading-spinner loading-xs" />}
+                            Approve (Org)
+                          </button>
+                          <button
+                            onClick={() => handleReview(submission.id, "approved-self")}
+                            disabled={reviewingId === submission.id}
+                            className="btn btn-info btn-xs"
+                          >
+                            Approve (Self)
+                          </button>
+                          <button
+                            onClick={() => handleReview(submission.id, "rejected")}
+                            disabled={reviewingId === submission.id}
+                            className="btn btn-error btn-xs"
+                          >
+                            Reject
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </Card>
-              ))}
+
+                      <AnimatePresence>
+                        {expandedId === submission.id && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="mt-4 pt-4 border-t border-base-300/50 space-y-4">
+                              {submission.manifestContent && (
+                                <div>
+                                  <h4 className="text-sm font-medium mb-2">SKILL.md</h4>
+                                  <pre className="text-xs bg-base-200 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap font-mono">
+                                    {submission.manifestContent}
+                                  </pre>
+                                </div>
+                              )}
+                              <div>
+                                <h4 className="text-sm font-medium mb-2">Security Scan</h4>
+                                {renderScanResults(submission)}
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </Card>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
           )
         ) : tab === "approved" ? (
           approved.length === 0 ? (
-            <p className="text-muted-foreground">No approved skills.</p>
+            <div className="text-center py-16 text-base-content/40">
+              <p className="text-sm">No approved skills</p>
+            </div>
           ) : (
             <Card>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+              <div className="overflow-x-auto -mx-5">
+                <table className="table table-sm">
                   <thead>
-                    <tr className="border-b border-border text-left text-muted-foreground">
-                      <th className="pb-2 font-medium">Skill Name</th>
-                      <th className="pb-2 font-medium">Key</th>
-                      <th className="pb-2 font-medium">Scope</th>
-                      <th className="pb-2 font-medium">Version</th>
-                      <th className="pb-2 font-medium">Status</th>
-                      <th className="pb-2 font-medium">Actions</th>
+                    <tr className="text-base-content/40 text-xs uppercase">
+                      <th>Skill Name</th>
+                      <th>Key</th>
+                      <th>Scope</th>
+                      <th>Version</th>
+                      <th>Status</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {approved.map((skill) => (
-                      <tr key={skill.id} className="border-b border-border last:border-0">
-                        <td className="py-2 font-medium">{skill.skillName}</td>
-                        <td className="py-2 font-mono text-xs text-muted-foreground">{skill.skillKey}</td>
-                        <td className="py-2">
+                      <tr key={skill.id} className="table-row-hover">
+                        <td className="font-medium">{skill.skillName}</td>
+                        <td className="font-mono text-xs text-base-content/50">{skill.skillKey}</td>
+                        <td>
                           <Badge variant={skill.scope === "org" ? "success" : "info"}>
                             {skill.scope}
                           </Badge>
                         </td>
-                        <td className="py-2 text-muted-foreground">v{skill.version}</td>
-                        <td className="py-2">
-                          <Badge variant="success">Active</Badge>
-                        </td>
-                        <td className="py-2">
+                        <td className="text-base-content/50">v{skill.version}</td>
+                        <td><Badge variant="success">Active</Badge></td>
+                        <td>
                           <button
                             onClick={() => handleRevoke(skill.id)}
                             disabled={revokingId === skill.id}
-                            className="px-3 py-1 text-xs bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
+                            className="btn btn-error btn-outline btn-xs"
                           >
+                            {revokingId === skill.id && <span className="loading loading-spinner loading-xs" />}
                             {revokingId === skill.id ? "Revoking..." : "Revoke"}
                           </button>
                         </td>
@@ -297,44 +326,46 @@ export default function SkillsPage() {
         ) : (
           /* History tab */
           history.length === 0 ? (
-            <p className="text-muted-foreground">No skill approval history.</p>
+            <div className="text-center py-16 text-base-content/40">
+              <p className="text-sm">No skill approval history</p>
+            </div>
           ) : (
             <Card>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+              <div className="overflow-x-auto -mx-5">
+                <table className="table table-sm">
                   <thead>
-                    <tr className="border-b border-border text-left text-muted-foreground">
-                      <th className="pb-2 font-medium">Skill Name</th>
-                      <th className="pb-2 font-medium">Key</th>
-                      <th className="pb-2 font-medium">Scope</th>
-                      <th className="pb-2 font-medium">Version</th>
-                      <th className="pb-2 font-medium">Status</th>
-                      <th className="pb-2 font-medium">Approved</th>
-                      <th className="pb-2 font-medium">Revoked</th>
+                    <tr className="text-base-content/40 text-xs uppercase">
+                      <th>Skill Name</th>
+                      <th>Key</th>
+                      <th>Scope</th>
+                      <th>Version</th>
+                      <th>Status</th>
+                      <th>Approved</th>
+                      <th>Revoked</th>
                     </tr>
                   </thead>
                   <tbody>
                     {history.map((skill) => (
-                      <tr key={skill.id} className="border-b border-border last:border-0">
-                        <td className="py-2 font-medium">{skill.skillName}</td>
-                        <td className="py-2 font-mono text-xs text-muted-foreground">{skill.skillKey}</td>
-                        <td className="py-2">
+                      <tr key={skill.id} className="table-row-hover">
+                        <td className="font-medium">{skill.skillName}</td>
+                        <td className="font-mono text-xs text-base-content/50">{skill.skillKey}</td>
+                        <td>
                           <Badge variant={skill.scope === "org" ? "success" : "info"}>
                             {skill.scope}
                           </Badge>
                         </td>
-                        <td className="py-2 text-muted-foreground">v{skill.version}</td>
-                        <td className="py-2">
+                        <td className="text-base-content/50">v{skill.version}</td>
+                        <td>
                           {skill.revokedAt ? (
                             <Badge variant="danger">Revoked</Badge>
                           ) : (
                             <Badge variant="success">Active</Badge>
                           )}
                         </td>
-                        <td className="py-2 text-xs text-muted-foreground">
+                        <td className="text-xs text-base-content/50">
                           {new Date(skill.createdAt).toLocaleDateString()}
                         </td>
-                        <td className="py-2 text-xs text-muted-foreground">
+                        <td className="text-xs text-base-content/50">
                           {skill.revokedAt ? new Date(skill.revokedAt).toLocaleDateString() : "\u2014"}
                         </td>
                       </tr>

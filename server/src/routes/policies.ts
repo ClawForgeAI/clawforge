@@ -4,7 +4,7 @@
 
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { requireAdmin, requireOrg } from "../middleware/auth.js";
+import { requireAdmin, requireAdminOrViewer, requireOrg } from "../middleware/auth.js";
 import { PolicyService } from "../services/policy-service.js";
 import { logAdminAction } from "../services/admin-audit.js";
 
@@ -63,12 +63,12 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
 
   /**
    * GET /api/v1/policies/:orgId
-   * Get raw org policy (admin only).
+   * Get raw org policy (admin or viewer).
    */
   app.get<{ Params: { orgId: string } }>(
     "/api/v1/policies/:orgId",
     async (request, reply) => {
-      requireAdmin(request, reply);
+      requireAdminOrViewer(request, reply);
       if (reply.sent) return;
       const { orgId } = request.params;
       requireOrg(request, reply, orgId);

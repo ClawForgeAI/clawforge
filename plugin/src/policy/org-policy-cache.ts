@@ -1,6 +1,6 @@
 /**
  * Local cache for org policies, providing offline resilience.
- * Caches to ~/.openclaw/clawforge/org-policy.json with a configurable TTL.
+ * Caches to ~/.ClawForgeAI/clawforge/org-policy.json with a configurable TTL.
  */
 
 import fs from "node:fs";

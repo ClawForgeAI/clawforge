@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { Sidebar } from "@/components/sidebar";
 import { Card, StatCard } from "@/components/card";
 import { Badge } from "@/components/badge";
-import { CardSkeleton, Skeleton } from "@/components/skeleton";
+import { StatSkeleton, TableSkeleton } from "@/components/skeleton";
 import { getAuth } from "@/lib/auth";
 import { getConnectedClients } from "@/lib/api";
 import type { ConnectedClient, ClientsSummary } from "@/lib/api";
@@ -24,7 +25,6 @@ export default function ConnectedClientsPage() {
       return;
     }
     loadClients();
-    // Auto-refresh every 30 seconds
     const interval = setInterval(loadClients, 30000);
     return () => clearInterval(interval);
   }, [router]);
@@ -53,19 +53,22 @@ export default function ConnectedClientsPage() {
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-base-200">
       <Sidebar />
-      <main className="flex-1 p-4 md:p-8">
-        <h2 className="text-2xl font-bold mb-6">Connected Clients</h2>
+      <main className="flex-1 p-4 lg:p-8 pt-16 lg:pt-8">
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold">Connected Clients</h2>
+          <p className="text-sm text-base-content/50 mt-1">Monitor active agent connections across your organization</p>
+        </div>
 
         {loading ? (
           <div className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-24 rounded-lg" />
+                <StatSkeleton key={i} />
               ))}
             </div>
-            <CardSkeleton />
+            <TableSkeleton />
           </div>
         ) : (
           <>
@@ -77,18 +80,17 @@ export default function ConnectedClientsPage() {
             </div>
 
             {/* Filter tabs */}
-            <div className="flex gap-1 mb-6 border-b border-border">
+            <div className="tabs tabs-boxed bg-base-100 p-1 mb-6 w-fit border border-base-300/50">
               {(["all", "online", "offline"] as const).map((f) => (
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
-                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors capitalize ${
-                    filter === f
-                      ? "border-primary text-primary"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={`tab tab-sm gap-2 capitalize ${filter === f ? "tab-active" : ""}`}
                 >
-                  {f} ({f === "all" ? summary.total : f === "online" ? summary.online : summary.offline})
+                  {f}
+                  <span className="badge badge-sm badge-ghost">
+                    {f === "all" ? summary.total : f === "online" ? summary.online : summary.offline}
+                  </span>
                 </button>
               ))}
             </div>
@@ -96,55 +98,64 @@ export default function ConnectedClientsPage() {
             {/* Clients table */}
             <Card>
               {filtered.length === 0 ? (
-                <p className="text-muted-foreground">No clients found.</p>
+                <div className="text-center py-10 text-base-content/40">
+                  <p className="text-sm">No clients found</p>
+                </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                <div className="overflow-x-auto -mx-5">
+                  <table className="table table-sm">
                     <thead>
-                      <tr className="border-b border-border text-left text-muted-foreground">
-                        <th className="pb-2 font-medium">Status</th>
-                        <th className="pb-2 font-medium">User</th>
-                        <th className="pb-2 font-medium">Email</th>
-                        <th className="pb-2 font-medium">Role</th>
-                        <th className="pb-2 font-medium">Client Version</th>
-                        <th className="pb-2 font-medium">Last Seen</th>
+                      <tr className="text-base-content/40 text-xs uppercase">
+                        <th>Status</th>
+                        <th>User</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Client Version</th>
+                        <th>Last Seen</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filtered.map((client) => (
-                        <tr key={client.userId} className="border-b border-border last:border-0">
-                          <td className="py-2">
+                      {filtered.map((client, i) => (
+                        <motion.tr
+                          key={client.userId}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: i * 0.03 }}
+                          className="table-row-hover"
+                        >
+                          <td>
                             <div className="flex items-center gap-2">
-                              <div
-                                className={`w-2.5 h-2.5 rounded-full ${
-                                  client.status === "online" ? "bg-green-500" : "bg-gray-400"
-                                }`}
-                              />
+                              <div className={`w-2 h-2 rounded-full ${
+                                client.status === "online" ? "bg-success animate-pulse" : "bg-base-content/20"
+                              }`} />
                               <Badge variant={client.status === "online" ? "success" : "default"}>
                                 {client.status}
                               </Badge>
                             </div>
                           </td>
-                          <td className="py-2 font-medium">{client.name ?? "-"}</td>
-                          <td className="py-2 text-muted-foreground">{client.email}</td>
-                          <td className="py-2">
+                          <td className="font-medium">{client.name ?? "-"}</td>
+                          <td className="text-base-content/50">{client.email}</td>
+                          <td>
                             <Badge variant={client.role === "admin" ? "info" : "default"}>
                               {client.role}
                             </Badge>
                           </td>
-                          <td className="py-2 font-mono text-xs text-muted-foreground">
+                          <td className="font-mono text-xs text-base-content/50">
                             {client.clientVersion ?? "-"}
                           </td>
-                          <td className="py-2 text-muted-foreground">
+                          <td className="text-base-content/50 text-sm">
                             {formatLastSeen(client.lastHeartbeatAt)}
                           </td>
-                        </tr>
+                        </motion.tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               )}
-              <p className="text-xs text-muted-foreground mt-3">Auto-refreshes every 30 seconds</p>
+              <div className="flex items-center gap-2 mt-3 text-xs text-base-content/30">
+                <span className="loading loading-dots loading-xs" />
+                Auto-refreshes every 30 seconds
+              </div>
             </Card>
           </>
         )}

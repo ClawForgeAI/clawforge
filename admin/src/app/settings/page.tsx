@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { Sidebar } from "@/components/sidebar";
 import { Card, CardTitle } from "@/components/card";
 import { Badge } from "@/components/badge";
@@ -120,10 +121,23 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-base-200">
       <Sidebar />
-      <main className="flex-1 p-4 md:p-8">
-        <h2 className="text-2xl font-bold mb-6">Organization Settings</h2>
+      <main className="flex-1 p-4 lg:p-8 pt-16 lg:pt-8">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-2xl font-bold">Organization Settings</h2>
+            <p className="text-sm text-base-content/50 mt-1">Manage your organization profile and security</p>
+          </div>
+          <button
+            onClick={handleSave}
+            disabled={saving || !orgName}
+            className="btn btn-primary btn-sm"
+          >
+            {saving && <span className="loading loading-spinner loading-xs" />}
+            {saving ? "Saving..." : "Save Settings"}
+          </button>
+        </div>
 
         {loading ? (
           <div className="space-y-4">
@@ -131,135 +145,147 @@ export default function SettingsPage() {
             <CardSkeleton />
           </div>
         ) : (
-          <div className="space-y-6">
-            <Card>
-              <CardTitle>General</CardTitle>
-              <div className="mt-4 space-y-4">
-                <div>
-                  <label className="text-sm font-medium block mb-1">Organization Name</label>
-                  <input
-                    value={orgName}
-                    onChange={(e) => setOrgName(e.target.value)}
-                    className="w-full max-w-md px-3 py-2 bg-secondary rounded-md text-sm border border-border"
-                  />
-                </div>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <span>Org ID: <code className="font-mono">{orgId}</code></span>
-                  <span>Created: {createdAt ? new Date(createdAt).toLocaleDateString() : "-"}</span>
-                </div>
-              </div>
-            </Card>
-
-            <Card>
-              <div className="flex items-center justify-between">
-                <CardTitle>SSO / OIDC Configuration</CardTitle>
-                <Badge variant={ssoEnabled ? "success" : "default"}>
-                  {ssoEnabled ? "Configured" : "Not Configured"}
-                </Badge>
-              </div>
-              <div className="mt-4 space-y-4">
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={ssoEnabled}
-                    onChange={(e) => setSsoEnabled(e.target.checked)}
-                    className="rounded"
-                  />
-                  Enable SSO (OIDC)
-                </label>
-
-                {ssoEnabled && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium block mb-1">Issuer URL *</label>
-                      <input
-                        value={issuerUrl}
-                        onChange={(e) => setIssuerUrl(e.target.value)}
-                        placeholder="https://your-org.okta.com"
-                        className="w-full px-3 py-2 bg-secondary rounded-md text-sm border border-border"
-                      />
+          <div className="space-y-6 max-w-3xl">
+            {/* General */}
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+              <Card>
+                <CardTitle>General</CardTitle>
+                <div className="space-y-4">
+                  <div className="form-control">
+                    <label className="label"><span className="label-text text-xs font-medium">Organization Name</span></label>
+                    <input
+                      value={orgName}
+                      onChange={(e) => setOrgName(e.target.value)}
+                      className="input input-bordered input-sm w-full max-w-md"
+                    />
+                  </div>
+                  <div className="flex items-center gap-6 text-sm text-base-content/50">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-base-content/40">Org ID</span>
+                      <code className="font-mono text-xs bg-base-200 px-2 py-0.5 rounded">{orgId}</code>
                     </div>
-                    <div>
-                      <label className="text-sm font-medium block mb-1">Client ID *</label>
-                      <input
-                        value={clientId}
-                        onChange={(e) => setClientId(e.target.value)}
-                        placeholder="0oa1234567890"
-                        className="w-full px-3 py-2 bg-secondary rounded-md text-sm border border-border"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium block mb-1">Audience (optional)</label>
-                      <input
-                        value={audience}
-                        onChange={(e) => setAudience(e.target.value)}
-                        placeholder="api://clawforge"
-                        className="w-full px-3 py-2 bg-secondary rounded-md text-sm border border-border"
-                      />
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-base-content/40">Created</span>
+                      <span className="text-xs">{createdAt ? new Date(createdAt).toLocaleDateString() : "-"}</span>
                     </div>
                   </div>
-                )}
-              </div>
-            </Card>
-
-            <button
-              onClick={handleSave}
-              disabled={saving || !orgName}
-              className="px-6 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-50"
-            >
-              {saving ? "Saving..." : "Save Settings"}
-            </button>
-
-            <Card>
-              <CardTitle>Change Password</CardTitle>
-              <form onSubmit={handleChangePassword} className="mt-4 space-y-4 max-w-md">
-                <div>
-                  <label className="text-sm font-medium block mb-1">Current Password</label>
-                  <input
-                    type="password"
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 bg-secondary rounded-md text-sm border border-border"
-                    placeholder="Enter current password"
-                  />
                 </div>
+              </Card>
+            </motion.div>
 
-                <div>
-                  <label className="text-sm font-medium block mb-1">New Password</label>
-                  <input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    required
-                    minLength={6}
-                    className="w-full px-3 py-2 bg-secondary rounded-md text-sm border border-border"
-                    placeholder="Enter new password (min 6 characters)"
-                  />
+            {/* SSO / OIDC Configuration */}
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+              <Card>
+                <div className="flex items-center justify-between mb-1">
+                  <CardTitle className="mb-0">SSO / OIDC Configuration</CardTitle>
+                  <Badge variant={ssoEnabled ? "success" : "default"}>
+                    {ssoEnabled ? "Configured" : "Not Configured"}
+                  </Badge>
                 </div>
+                <div className="space-y-4 mt-4">
+                  <label className="flex items-center gap-3 cursor-pointer w-fit">
+                    <input
+                      type="checkbox"
+                      checked={ssoEnabled}
+                      onChange={(e) => setSsoEnabled(e.target.checked)}
+                      className="toggle toggle-primary toggle-sm"
+                    />
+                    <span className="text-sm font-medium">Enable SSO (OIDC)</span>
+                  </label>
 
-                <div>
-                  <label className="text-sm font-medium block mb-1">Confirm New Password</label>
-                  <input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                    minLength={6}
-                    className="w-full px-3 py-2 bg-secondary rounded-md text-sm border border-border"
-                    placeholder="Confirm new password"
-                  />
+                  {ssoEnabled && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                    >
+                      <div className="form-control">
+                        <label className="label"><span className="label-text text-xs font-medium">Issuer URL *</span></label>
+                        <input
+                          value={issuerUrl}
+                          onChange={(e) => setIssuerUrl(e.target.value)}
+                          placeholder="https://your-org.okta.com"
+                          className="input input-bordered input-sm w-full"
+                        />
+                      </div>
+                      <div className="form-control">
+                        <label className="label"><span className="label-text text-xs font-medium">Client ID *</span></label>
+                        <input
+                          value={clientId}
+                          onChange={(e) => setClientId(e.target.value)}
+                          placeholder="0oa1234567890"
+                          className="input input-bordered input-sm w-full"
+                        />
+                      </div>
+                      <div className="form-control md:col-span-2">
+                        <label className="label"><span className="label-text text-xs font-medium">Audience (optional)</span></label>
+                        <input
+                          value={audience}
+                          onChange={(e) => setAudience(e.target.value)}
+                          placeholder="api://clawforge"
+                          className="input input-bordered input-sm w-full max-w-md"
+                        />
+                      </div>
+                    </motion.div>
+                  )}
                 </div>
+              </Card>
+            </motion.div>
 
-                <button
-                  type="submit"
-                  disabled={changingPassword || !currentPassword || !newPassword || !confirmPassword}
-                  className="px-6 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-50"
-                >
-                  {changingPassword ? "Changing..." : "Change Password"}
-                </button>
-              </form>
-            </Card>
+            {/* Change Password */}
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+              <Card>
+                <CardTitle>Change Password</CardTitle>
+                <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">
+                  <div className="form-control">
+                    <label className="label"><span className="label-text text-xs font-medium">Current Password</span></label>
+                    <input
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      required
+                      className="input input-bordered input-sm w-full"
+                      placeholder="Enter current password"
+                    />
+                  </div>
+
+                  <div className="form-control">
+                    <label className="label"><span className="label-text text-xs font-medium">New Password</span></label>
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      className="input input-bordered input-sm w-full"
+                      placeholder="Enter new password (min 6 characters)"
+                    />
+                  </div>
+
+                  <div className="form-control">
+                    <label className="label"><span className="label-text text-xs font-medium">Confirm New Password</span></label>
+                    <input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      className="input input-bordered input-sm w-full"
+                      placeholder="Confirm new password"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={changingPassword || !currentPassword || !newPassword || !confirmPassword}
+                    className="btn btn-primary btn-sm"
+                  >
+                    {changingPassword && <span className="loading loading-spinner loading-xs" />}
+                    {changingPassword ? "Changing..." : "Change Password"}
+                  </button>
+                </form>
+              </Card>
+            </motion.div>
           </div>
         )}
       </main>

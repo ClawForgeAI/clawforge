@@ -334,6 +334,56 @@ export function updateOrganization(
   });
 }
 
+// --- API Keys (#44) ---
+
+export type ApiKey = {
+  id: string;
+  name: string;
+  keyPrefix: string;
+  role: string;
+  expiresAt?: string;
+  ipAllowlist?: string[];
+  lastUsedAt?: string;
+  createdAt: string;
+  key?: string; // Only present on creation
+};
+
+export function getApiKeys(orgId: string, token: string) {
+  return apiFetch<{ apiKeys: ApiKey[] }>(`/api/v1/api-keys/${orgId}`, { token });
+}
+
+export function createApiKey(
+  orgId: string,
+  token: string,
+  body: { name: string; role?: string; expiresAt?: string; ipAllowlist?: string[] },
+) {
+  return apiFetch<ApiKey>(`/api/v1/api-keys/${orgId}`, {
+    method: "POST",
+    token,
+    body,
+  });
+}
+
+export function revokeApiKey(orgId: string, keyId: string, token: string) {
+  return apiFetch<{ success: boolean }>(`/api/v1/api-keys/${orgId}/${keyId}`, {
+    method: "DELETE",
+    token,
+  });
+}
+
+// --- Audit Stats (#39) ---
+
+export type AuditStats = {
+  eventCount: number;
+  oldestEvent: string | null;
+  newestEvent: string | null;
+  retentionDays: number | null;
+};
+
+export function getAuditStats(orgId: string, token: string) {
+  return apiFetch<AuditStats>(`/api/v1/audit/${orgId}/stats`, { token });
+}
+
 // --- Connected Clients ---
 
 export type ConnectedClient = {

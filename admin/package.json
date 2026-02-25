@@ -1,5 +1,5 @@
 {
-  "name": "@openclaw/clawforge-admin",
+  "name": "@ClawForgeAI/clawforge-admin",
   "version": "0.1.0",
   "description": "ClawForge admin console – web UI for enterprise governance",
   "scripts": {
@@ -9,6 +9,8 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "daisyui": "^4.12.24",
+    "framer-motion": "^12.34.3",
     "next": "^15.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
@@ -18,6 +20,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "autoprefixer": "^10.4.21",
+    "playwright": "^1.58.2",
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.3"

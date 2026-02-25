@@ -1,15 +1,25 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { setAuth } from "@/lib/auth";
 import { login } from "@/lib/api";
+import Image from "next/image";
+import { motion } from "framer-motion";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4100";
 
 type AuthMode = { methods: string[] };
 
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
@@ -91,23 +101,96 @@ export default function LoginPage() {
   const showPasswordLogin = authMethods.includes("password");
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="w-full max-w-sm">
-        <div className="bg-card rounded-lg border border-border p-8 shadow-sm">
-          <h1 className="text-2xl font-bold text-primary mb-1">ClawForge</h1>
-          <p className="text-sm text-muted-foreground mb-6">Admin Console</p>
+    <div className="min-h-screen flex bg-base-100">
+      {/* Left panel -- branding */}
+      <div className="hidden lg:flex lg:w-[480px] xl:w-[560px] bg-neutral flex-col justify-between p-10 relative overflow-hidden">
+        {/* Gradient blobs */}
+        <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-gradient-to-br from-blue-500/20 to-cyan-400/10 blur-3xl animate-pulse" />
+        <div className="absolute -bottom-48 -right-48 w-[500px] h-[500px] rounded-full bg-gradient-to-tr from-indigo-500/15 to-purple-400/5 blur-3xl animate-pulse" />
+
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="relative z-10"
+        >
+          <Image
+            src="/logo.png"
+            alt="ClawForge"
+            width={200}
+            height={56}
+            priority
+            className="mb-3 brightness-0 invert"
+          />
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="relative z-10 space-y-8"
+        >
+          <blockquote className="text-neutral-content text-lg leading-relaxed opacity-70">
+            One dashboard to govern all your AI assistants. Manage policies, audit trails, and kill switches across your entire OpenClaw fleet.
+          </blockquote>
+
+          <div className="flex flex-wrap items-center gap-4">
+            {["Policy Enforcement", "Audit Logging", "Kill Switch"].map((feature) => (
+              <div key={feature} className="flex items-center gap-2 text-neutral-content text-sm opacity-50">
+                <div className="w-1.5 h-1.5 rounded-full bg-success" />
+                <span>{feature}</span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+
+        <div className="relative z-10 text-neutral-content text-xs opacity-30">
+          ClawForge Admin Console
+        </div>
+      </div>
+
+      {/* Right panel -- login form */}
+      <div className="flex-1 flex items-center justify-center px-6 py-12">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+          className="w-full max-w-[400px]"
+        >
+          {/* Mobile logo */}
+          <div className="lg:hidden mb-10 flex justify-center">
+            <Image
+              src="/logo.png"
+              alt="ClawForge"
+              width={180}
+              height={50}
+              priority
+            />
+          </div>
+
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold tracking-tight text-base-content">
+              Sign in
+            </h1>
+            <p className="text-sm mt-1 opacity-50">
+              Enter your credentials to access the admin console.
+            </p>
+          </div>
 
           {expired && (
-            <div className="mb-4 p-3 rounded-md text-sm bg-amber-500/10 text-amber-600 border border-amber-500/20">
-              Session expired. Please sign in again.
+            <div className="alert alert-warning mb-6 text-sm">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <span>Session expired. Please sign in again.</span>
             </div>
           )}
 
           {showPasswordLogin ? (
             <form onSubmit={handlePasswordLogin} className="space-y-4">
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium mb-1">
-                  Email
+              <div className="form-control">
+                <label className="label" htmlFor="email">
+                  <span className="label-text font-medium text-sm">Email address</span>
                 </label>
                 <input
                   id="email"
@@ -115,14 +198,16 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  autoComplete="email"
+                  autoFocus
+                  className="input input-bordered w-full"
                   placeholder="admin@example.com"
                 />
               </div>
 
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium mb-1">
-                  Password
+              <div className="form-control">
+                <label className="label" htmlFor="password">
+                  <span className="label-text font-medium text-sm">Password</span>
                 </label>
                 <input
                   id="password"
@@ -130,39 +215,49 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  autoComplete="current-password"
+                  className="input input-bordered w-full"
                   placeholder="Enter your password"
                 />
               </div>
 
               {error && (
-                <p className="text-sm text-red-600">{error}</p>
+                <div className="alert alert-error text-sm py-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>{error}</span>
+                </div>
               )}
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+                className="btn btn-primary w-full"
               >
+                {loading && <span className="loading loading-spinner loading-sm" />}
                 {loading ? "Signing in..." : "Sign in"}
               </button>
 
               {authMethods.includes("sso") && (
-                <button
-                  type="button"
-                  onClick={handleSsoLogin as unknown as () => void}
-                  disabled={loading}
-                  className="w-full px-4 py-2 border border-border text-foreground rounded-md text-sm font-medium hover:bg-secondary disabled:opacity-50 transition-colors"
-                >
-                  Sign in with SSO
-                </button>
+                <>
+                  <div className="divider text-xs opacity-30">or</div>
+                  <button
+                    type="button"
+                    onClick={handleSsoLogin as unknown as () => void}
+                    disabled={loading}
+                    className="btn btn-outline w-full"
+                  >
+                    Sign in with SSO
+                  </button>
+                </>
               )}
             </form>
           ) : (
             <form onSubmit={handleSsoLogin} className="space-y-4">
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium mb-1">
-                  Email
+              <div className="form-control">
+                <label className="label" htmlFor="email">
+                  <span className="label-text font-medium text-sm">Email address</span>
                 </label>
                 <input
                   id="email"
@@ -170,25 +265,33 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  autoComplete="email"
+                  autoFocus
+                  className="input input-bordered w-full"
                   placeholder="admin@example.com"
                 />
               </div>
 
               {error && (
-                <p className="text-sm text-red-600">{error}</p>
+                <div className="alert alert-error text-sm py-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>{error}</span>
+                </div>
               )}
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+                className="btn btn-primary w-full"
               >
+                {loading && <span className="loading loading-spinner loading-sm" />}
                 {loading ? "Signing in..." : "Sign in with SSO"}
               </button>
             </form>
           )}
-        </div>
+        </motion.div>
       </div>
     </div>
   );

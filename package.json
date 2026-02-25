@@ -4,9 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev:server": "pnpm --filter @openclaw/clawforge-server dev",
-    "dev:admin": "pnpm --filter @openclaw/clawforge-admin dev",
-    "typecheck": "pnpm -r exec tsc --noEmit",
-    "test": "pnpm -r --if-present run test"
+    "dev:server": "pnpm --filter @ClawForgeAI/clawforge-server dev",
+    "dev:admin": "pnpm --filter @ClawForgeAI/clawforge-admin dev",
+    "test": "pnpm --filter @ClawForgeAI/clawforge test"
   }
 }

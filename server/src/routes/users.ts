@@ -6,31 +6,31 @@ import type { FastifyInstance } from "fastify";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { requireAdmin, requireOrg } from "../middleware/auth.js";
+import { requireAdmin, requireAdminOrViewer, requireOrg } from "../middleware/auth.js";
 import { users } from "../db/schema.js";
 import { logAdminAction } from "../services/admin-audit.js";
 
 const CreateUserSchema = z.object({
   email: z.string().email(),
   name: z.string().optional(),
-  role: z.enum(["admin", "user"]).optional().default("user"),
+  role: z.enum(["admin", "viewer", "user"]).optional().default("user"),
   password: z.string().min(6).optional(),
 });
 
 const UpdateUserSchema = z.object({
   name: z.string().optional(),
-  role: z.enum(["admin", "user"]).optional(),
+  role: z.enum(["admin", "viewer", "user"]).optional(),
 });
 
 export async function userRoutes(app: FastifyInstance): Promise<void> {
   /**
    * GET /api/v1/users/:orgId
-   * List org users (admin only).
+   * List org users (admin or viewer).
    */
   app.get<{ Params: { orgId: string } }>(
     "/api/v1/users/:orgId",
     async (request, reply) => {
-      requireAdmin(request, reply);
+      requireAdminOrViewer(request, reply);
       if (reply.sent) return;
       const { orgId } = request.params;
       requireOrg(request, reply, orgId);

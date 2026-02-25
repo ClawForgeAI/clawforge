@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import { Sidebar } from "@/components/sidebar";
 import { Card, CardTitle } from "@/components/card";
 import { CardSkeleton } from "@/components/skeleton";
@@ -13,6 +14,7 @@ import type { OrgUser } from "@/lib/api";
 export default function UsersPage() {
   const router = useRouter();
   const toast = useToast();
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [users, setUsers] = useState<OrgUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [showInvite, setShowInvite] = useState(false);
@@ -32,6 +34,7 @@ export default function UsersPage() {
       router.replace("/login");
       return;
     }
+    setCurrentUserId(auth.userId);
     setLoading(true);
     getUsers(auth.orgId, auth.accessToken)
       .then((data) => setUsers(data.users))
@@ -104,139 +107,167 @@ export default function UsersPage() {
     return d.toLocaleDateString();
   }
 
-  const auth = getAuth();
-
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-base-200">
       <Sidebar />
-      <main className="flex-1 p-4 md:p-8">
+      <main className="flex-1 p-4 lg:p-8 pt-16 lg:pt-8">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold">Users</h2>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">{users.length} total</span>
-            <button
-              onClick={() => setShowInvite(true)}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90"
-            >
-              Invite User
-            </button>
+          <div>
+            <h2 className="text-2xl font-bold">Users</h2>
+            <p className="text-sm text-base-content/50 mt-1">{users.length} member{users.length !== 1 ? "s" : ""} in your organization</p>
           </div>
+          <button
+            onClick={() => setShowInvite(true)}
+            className="btn btn-primary btn-sm gap-2"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><line x1="20" y1="8" x2="20" y2="14" /><line x1="23" y1="11" x2="17" y2="11" />
+            </svg>
+            Invite User
+          </button>
         </div>
 
-        {showInvite && (
-          <Card className="mb-6">
-            <CardTitle>Invite User</CardTitle>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              <div>
-                <label className="text-sm font-medium block mb-1">Email *</label>
-                <input
-                  type="email"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  placeholder="user@company.com"
-                  className="w-full px-3 py-2 bg-secondary rounded-md text-sm border border-border"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium block mb-1">Name</label>
-                <input
-                  value={inviteName}
-                  onChange={(e) => setInviteName(e.target.value)}
-                  placeholder="John Doe"
-                  className="w-full px-3 py-2 bg-secondary rounded-md text-sm border border-border"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium block mb-1">Role</label>
-                <select
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value)}
-                  className="w-full px-3 py-2 bg-secondary rounded-md text-sm border border-border"
-                >
-                  <option value="user">User</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium block mb-1">Password (optional)</label>
-                <input
-                  type="password"
-                  value={invitePassword}
-                  onChange={(e) => setInvitePassword(e.target.value)}
-                  placeholder="Min 6 characters"
-                  className="w-full px-3 py-2 bg-secondary rounded-md text-sm border border-border"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2 mt-4">
-              <button
-                onClick={handleInvite}
-                disabled={inviting || !inviteEmail}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-50"
-              >
-                {inviting ? "Creating..." : "Create User"}
-              </button>
-              <button
-                onClick={() => setShowInvite(false)}
-                className="px-4 py-2 bg-secondary text-foreground rounded-md text-sm"
-              >
-                Cancel
-              </button>
-            </div>
-          </Card>
-        )}
+        <AnimatePresence>
+          {showInvite && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden mb-6"
+            >
+              <Card>
+                <CardTitle>Invite User</CardTitle>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="form-control">
+                    <label className="label"><span className="label-text text-xs font-medium">Email *</span></label>
+                    <input
+                      type="email"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      placeholder="user@company.com"
+                      className="input input-bordered input-sm w-full"
+                    />
+                  </div>
+                  <div className="form-control">
+                    <label className="label"><span className="label-text text-xs font-medium">Name</span></label>
+                    <input
+                      value={inviteName}
+                      onChange={(e) => setInviteName(e.target.value)}
+                      placeholder="John Doe"
+                      className="input input-bordered input-sm w-full"
+                    />
+                  </div>
+                  <div className="form-control">
+                    <label className="label"><span className="label-text text-xs font-medium">Role</span></label>
+                    <select
+                      value={inviteRole}
+                      onChange={(e) => setInviteRole(e.target.value)}
+                      className="select select-bordered select-sm w-full"
+                    >
+                      <option value="user">User</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                  <div className="form-control">
+                    <label className="label"><span className="label-text text-xs font-medium">Password (optional)</span></label>
+                    <input
+                      type="password"
+                      value={invitePassword}
+                      onChange={(e) => setInvitePassword(e.target.value)}
+                      placeholder="Min 6 characters"
+                      className="input input-bordered input-sm w-full"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <button
+                    onClick={handleInvite}
+                    disabled={inviting || !inviteEmail}
+                    className="btn btn-primary btn-sm"
+                  >
+                    {inviting && <span className="loading loading-spinner loading-xs" />}
+                    {inviting ? "Creating..." : "Create User"}
+                  </button>
+                  <button
+                    onClick={() => setShowInvite(false)}
+                    className="btn btn-ghost btn-sm"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {loading ? (
-          <div className="space-y-4">
-            <CardSkeleton />
-          </div>
+          <CardSkeleton />
         ) : users.length === 0 ? (
-          <p className="text-muted-foreground">No users found.</p>
+          <div className="text-center py-16 text-base-content/40">
+            <svg className="w-12 h-12 mx-auto mb-3 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+            </svg>
+            <p className="text-sm">No users found</p>
+          </div>
         ) : (
           <Card>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto -mx-5">
+              <table className="table table-sm">
                 <thead>
-                  <tr className="border-b border-border text-left text-muted-foreground">
-                    <th className="pb-2 font-medium">Email</th>
-                    <th className="pb-2 font-medium">Name</th>
-                    <th className="pb-2 font-medium">Role</th>
-                    <th className="pb-2 font-medium">Last Seen</th>
-                    <th className="pb-2 font-medium">Joined</th>
-                    <th className="pb-2 font-medium">Actions</th>
+                  <tr className="text-base-content/40 text-xs uppercase">
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>Last Seen</th>
+                    <th>Joined</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((user) => (
-                    <tr key={user.id} className="border-b border-border last:border-0">
-                      <td className="py-3 font-medium">{user.email}</td>
-                      <td className="py-3 text-muted-foreground">{user.name ?? "-"}</td>
-                      <td className="py-3">
+                  {users.map((user, i) => (
+                    <motion.tr
+                      key={user.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: i * 0.03 }}
+                      className="table-row-hover"
+                    >
+                      <td>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold uppercase shrink-0">
+                            {user.email.charAt(0)}
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{user.name || user.email}</p>
+                            {user.name && <p className="text-xs text-base-content/40">{user.email}</p>}
+                          </div>
+                        </div>
+                      </td>
+                      <td>
                         <select
                           value={user.role}
                           onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                          className="bg-secondary px-2 py-1 rounded text-sm border border-border"
-                          disabled={user.id === auth?.userId}
+                          className="select select-bordered select-xs"
+                          disabled={user.id === currentUserId}
                         >
                           <option value="user">user</option>
                           <option value="admin">admin</option>
                         </select>
                       </td>
-                      <td className="py-3 text-muted-foreground">{formatDate(user.lastSeenAt)}</td>
-                      <td className="py-3 text-muted-foreground">
+                      <td className="text-base-content/50 text-sm">{formatDate(user.lastSeenAt)}</td>
+                      <td className="text-base-content/50 text-sm">
                         {new Date(user.createdAt).toLocaleDateString()}
                       </td>
-                      <td className="py-3">
-                        {user.id !== auth?.userId && (
+                      <td>
+                        {user.id !== currentUserId && (
                           <button
                             onClick={() => handleDelete(user.id, user.email)}
-                            className="text-red-500 hover:text-red-400 text-sm"
+                            className="btn btn-ghost btn-xs text-error hover:bg-error/10"
                           >
                             Remove
                           </button>
                         )}
                       </td>
-                    </tr>
+                    </motion.tr>
                   ))}
                 </tbody>
               </table>

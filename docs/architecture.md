@@ -4,9 +4,9 @@
 
 | Package | Path | Runs On | Description |
 |---|---|---|---|
-| `@openclaw/clawforge` | `plugin/` | Employee's machine | OpenClaw plugin — hooks into the gateway lifecycle, enforces policies, uploads audit events, polls heartbeat |
-| `@openclaw/clawforge-server` | `server/` | Org's server / cloud | Fastify control plane API (port 4100) — manages auth, policies, skill reviews, audit storage, heartbeat, kill switch |
-| `@openclaw/clawforge-admin` | `admin/` | Org's server / cloud | Next.js admin UI (port 4200) — dashboard for managing everything |
+| `@ClawForgeAI/clawforge` | `plugin/` | Employee's machine | OpenClaw plugin — hooks into the gateway lifecycle, enforces policies, uploads audit events, polls heartbeat |
+| `@ClawForgeAI/clawforge-server` | `server/` | Org's server / cloud | Fastify control plane API (port 4100) — manages auth, policies, skill reviews, audit storage, heartbeat, kill switch |
+| `@ClawForgeAI/clawforge-admin` | `admin/` | Org's server / cloud | Next.js admin UI (port 4200) — dashboard for managing everything |
 
 ## How It All Connects
 
@@ -36,7 +36,7 @@ Employee Machine A          Employee Machine B          Employee Machine C
 ┌─────────────────────┐       ┌──────────────────────┐       ┌─────────────────────┐
 │   OpenClaw Gateway   │       │   Control Plane API   │       │    Admin Console     │
 │                     │  HTTP  │                      │  HTTP  │                     │
-│  @openclaw/clawforge│◄─────►│  @openclaw/clawforge  │◄─────►│  @openclaw/clawforge │
+│  @ClawForgeAI/clawforge│◄─────►│  @ClawForgeAI/clawforge  │◄─────►│  @ClawForgeAI/clawforge │
 │     (extension)     │       │       -server         │       │       -admin         │
 └─────────────────────┘       └──────────┬───────────┘       └─────────────────────┘
                                          │

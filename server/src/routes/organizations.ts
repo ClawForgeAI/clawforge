@@ -5,7 +5,7 @@
 import type { FastifyInstance } from "fastify";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { requireAdmin, requireOrg } from "../middleware/auth.js";
+import { requireAdmin, requireAdminOrViewer, requireOrg } from "../middleware/auth.js";
 import { organizations } from "../db/schema.js";
 import { logAdminAction } from "../services/admin-audit.js";
 
@@ -24,12 +24,12 @@ const UpdateOrgSchema = z.object({
 export async function organizationRoutes(app: FastifyInstance): Promise<void> {
   /**
    * GET /api/v1/organizations/:orgId
-   * Get org details (admin only).
+   * Get org details (admin or viewer).
    */
   app.get<{ Params: { orgId: string } }>(
     "/api/v1/organizations/:orgId",
     async (request, reply) => {
-      requireAdmin(request, reply);
+      requireAdminOrViewer(request, reply);
       if (reply.sent) return;
       const { orgId } = request.params;
       requireOrg(request, reply, orgId);

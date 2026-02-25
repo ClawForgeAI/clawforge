@@ -4,7 +4,7 @@
 
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { requireAdmin, requireOrg } from "../middleware/auth.js";
+import { requireAdmin, requireAdminOrViewer, requireOrg } from "../middleware/auth.js";
 import { SkillReviewService } from "../services/skill-review-service.js";
 import { logAdminAction } from "../services/admin-audit.js";
 
@@ -73,12 +73,12 @@ export async function skillRoutes(app: FastifyInstance): Promise<void> {
 
   /**
    * GET /api/v1/skills/:orgId/review
-   * List pending skill submissions (admin only).
+   * List pending skill submissions (admin or viewer).
    */
   app.get<{ Params: { orgId: string } }>(
     "/api/v1/skills/:orgId/review",
     async (request, reply) => {
-      requireAdmin(request, reply);
+      requireAdminOrViewer(request, reply);
       if (reply.sent) return;
       const { orgId } = request.params;
       requireOrg(request, reply, orgId);
@@ -157,13 +157,13 @@ export async function skillRoutes(app: FastifyInstance): Promise<void> {
 
   /**
    * GET /api/v1/skills/:orgId/approved/history
-   * Full approval history including revoked (admin only).
+   * Full approval history including revoked (admin or viewer).
    * NOTE: This must be registered BEFORE the /approved catch-all route.
    */
   app.get<{ Params: { orgId: string } }>(
     "/api/v1/skills/:orgId/approved/history",
     async (request, reply) => {
-      requireAdmin(request, reply);
+      requireAdminOrViewer(request, reply);
       if (reply.sent) return;
       const { orgId } = request.params;
       requireOrg(request, reply, orgId);
