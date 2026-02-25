@@ -200,7 +200,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     const loginSchema = z.object({
       email: z.string().email(),
       password: z.string().min(1),
-      orgId: z.string().uuid(),
+      orgId: z.string().uuid().optional(),
     });
 
     const parseResult = loginSchema.safeParse(request.body);
@@ -211,8 +211,18 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       });
     }
 
-    const { email, password, orgId } = parseResult.data;
+    const { email, password } = parseResult.data;
+    let orgId = parseResult.data.orgId;
     const db = app.db;
+
+    // For single-org deployments: auto-discover the org if not provided
+    if (!orgId) {
+      const [defaultOrg] = await db.select().from(organizations).limit(1);
+      if (!defaultOrg) {
+        return reply.code(400).send({ error: "No organization found. Please run the seed script." });
+      }
+      orgId = defaultOrg.id;
+    }
 
     const [user] = await db
       .select()

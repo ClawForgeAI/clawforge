@@ -57,7 +57,7 @@ The seed creates a superadmin you can log in with immediately. Customize with en
 ```bash
 cd server
 
-export DATABASE_URL="postgresql://localhost:5432/clawforge"
+export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/clawforge"
 export JWT_SECRET="your-secret-here"  # Change in production!
 export CORS_ORIGIN="http://localhost:4200"
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import { Sidebar } from "@/components/sidebar";
 import { Card, CardTitle } from "@/components/card";
 import { Badge } from "@/components/badge";
@@ -94,7 +95,6 @@ export default function AuditPage() {
     setFilterType("admin_action");
   }
 
-  // Trigger loadEvents when filterType changes to admin_action via the preset button.
   useEffect(() => {
     if (filterType === "admin_action") {
       loadEvents();
@@ -134,15 +134,20 @@ export default function AuditPage() {
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-base-200">
       <Sidebar />
-      <main className="flex-1 p-4 md:p-8">
+      <main className="flex-1 p-4 lg:p-8 pt-16 lg:pt-8">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold">Audit Logs</h2>
-          <button
-            onClick={exportCSV}
-            className="px-4 py-2 text-sm border border-border rounded-md hover:bg-secondary"
-          >
+          <div>
+            <h2 className="text-2xl font-bold">Audit Logs</h2>
+            <p className="text-sm text-base-content/50 mt-1">Track and investigate all governance events</p>
+          </div>
+          <button onClick={exportCSV} className="btn btn-ghost btn-sm gap-2">
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
             Export CSV
           </button>
         </div>
@@ -155,24 +160,24 @@ export default function AuditPage() {
               value={filterUser}
               onChange={(e) => setFilterUser(e.target.value)}
               placeholder="User ID"
-              className="px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="input input-bordered input-sm w-full"
             />
             <input
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
               placeholder="Event type"
-              className="px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="input input-bordered input-sm w-full"
             />
             <input
               value={filterTool}
               onChange={(e) => setFilterTool(e.target.value)}
               placeholder="Tool name"
-              className="px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="input input-bordered input-sm w-full"
             />
             <select
               value={filterOutcome}
               onChange={(e) => setFilterOutcome(e.target.value)}
-              className="px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="select select-bordered select-sm w-full"
             >
               <option value="">All outcomes</option>
               <option value="allowed">Allowed</option>
@@ -182,29 +187,22 @@ export default function AuditPage() {
               type="date"
               value={filterFrom}
               onChange={(e) => setFilterFrom(e.target.value)}
-              className="px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="input input-bordered input-sm w-full"
             />
             <input
               type="date"
               value={filterTo}
               onChange={(e) => setFilterTo(e.target.value)}
-              className="px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="input input-bordered input-sm w-full"
             />
           </div>
           <div className="flex gap-2 mt-3">
-            <button
-              onClick={loadEvents}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90"
-            >
+            <button onClick={loadEvents} className="btn btn-primary btn-sm">
               Apply Filters
             </button>
             <button
               onClick={applyAdminFilter}
-              className={`px-4 py-2 rounded-md text-sm font-medium border ${
-                filterType === "admin_action"
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "border-border hover:bg-secondary"
-              }`}
+              className={`btn btn-sm ${filterType === "admin_action" ? "btn-primary" : "btn-ghost"}`}
             >
               Admin Actions
             </button>
@@ -218,77 +216,88 @@ export default function AuditPage() {
               <CardSkeleton />
             </div>
           ) : events.length === 0 ? (
-            <p className="text-muted-foreground">No audit events found.</p>
+            <div className="text-center py-12 text-base-content/40">
+              <svg className="w-12 h-12 mx-auto mb-3 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <path d="M14 2v6h6" />
+              </svg>
+              <p className="text-sm">No audit events found</p>
+            </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto -mx-5">
+              <table className="table table-sm">
                 <thead>
-                  <tr className="border-b border-border text-left text-muted-foreground">
-                    <th className="pb-2 font-medium">Timestamp</th>
-                    <th className="pb-2 font-medium">User</th>
-                    <th className="pb-2 font-medium">Event</th>
-                    <th className="pb-2 font-medium">Tool</th>
-                    <th className="pb-2 font-medium">Outcome</th>
-                    <th className="pb-2 font-medium">Session</th>
+                  <tr className="text-base-content/40 text-xs uppercase">
+                    <th>Timestamp</th>
+                    <th>User</th>
+                    <th>Event</th>
+                    <th>Tool</th>
+                    <th>Outcome</th>
+                    <th>Session</th>
                   </tr>
                 </thead>
                 <tbody>
                   {events.map((event) => (
-                    <>
+                    <AnimatePresence key={event.id}>
                       <tr
-                        key={event.id}
-                        className="border-b border-border last:border-0 cursor-pointer hover:bg-secondary/50"
+                        className="table-row-hover cursor-pointer"
                         onClick={() => setExpandedEventId(expandedEventId === event.id ? null : event.id)}
                       >
-                        <td className="py-2 text-muted-foreground whitespace-nowrap">
+                        <td className="text-base-content/50 whitespace-nowrap text-xs">
                           {new Date(event.timestamp).toLocaleString()}
                         </td>
-                        <td className="py-2 font-mono text-xs">{event.userId.slice(0, 12)}...</td>
-                        <td className="py-2">{event.eventType}</td>
-                        <td className="py-2 font-mono text-xs">{event.toolName ?? "-"}</td>
-                        <td className="py-2">
+                        <td className="font-mono text-xs">{event.userId.slice(0, 12)}...</td>
+                        <td className="text-sm">{event.eventType}</td>
+                        <td className="font-mono text-xs text-base-content/50">{event.toolName ?? "-"}</td>
+                        <td>
                           <Badge variant={event.outcome === "allowed" ? "success" : event.eventType === "admin_action" ? "default" : "danger"}>
                             {event.outcome}
                           </Badge>
                         </td>
-                        <td className="py-2 font-mono text-xs text-muted-foreground">
+                        <td className="font-mono text-xs text-base-content/40">
                           {event.sessionKey?.slice(0, 8) ?? "-"}
                         </td>
                       </tr>
                       {expandedEventId === event.id && (
-                        <tr key={`${event.id}-detail`} className="border-b border-border">
-                          <td colSpan={6} className="py-3 px-4 bg-secondary/30">
+                        <motion.tr
+                          key={`${event.id}-detail`}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                        >
+                          <td colSpan={6} className="py-3 px-4 bg-base-200/50">
                             <div className="space-y-2 text-xs">
-                              <div><span className="font-semibold">ID:</span> {event.id}</div>
-                              <div><span className="font-semibold">User ID:</span> {event.userId}</div>
-                              {event.agentId && <div><span className="font-semibold">Agent ID:</span> {event.agentId}</div>}
-                              {event.sessionKey && <div><span className="font-semibold">Session Key:</span> {event.sessionKey}</div>}
+                              <div><span className="font-semibold">ID:</span> <span className="font-mono">{event.id}</span></div>
+                              <div><span className="font-semibold">User ID:</span> <span className="font-mono">{event.userId}</span></div>
+                              {event.agentId && <div><span className="font-semibold">Agent ID:</span> <span className="font-mono">{event.agentId}</span></div>}
+                              {event.sessionKey && <div><span className="font-semibold">Session Key:</span> <span className="font-mono">{event.sessionKey}</span></div>}
                               {event.metadata && (
                                 <div>
                                   <span className="font-semibold">Metadata:</span>
-                                  <pre className="mt-1 p-2 bg-background rounded-md overflow-x-auto text-xs">
+                                  <pre className="mt-1 p-3 bg-base-100 rounded-lg overflow-x-auto text-xs font-mono border border-base-300/50">
                                     {JSON.stringify(event.metadata, null, 2)}
                                   </pre>
                                 </div>
                               )}
                             </div>
                           </td>
-                        </tr>
+                        </motion.tr>
                       )}
-                    </>
+                    </AnimatePresence>
                   ))}
                 </tbody>
               </table>
-              <div className="flex items-center justify-between mt-3">
-                <p className="text-xs text-muted-foreground">
+              <div className="flex items-center justify-between mt-4 px-4">
+                <p className="text-xs text-base-content/40">
                   Showing {events.length.toLocaleString()} of {total.toLocaleString()} events
                 </p>
                 {nextCursor && (
                   <button
                     onClick={loadMore}
                     disabled={loadingMore}
-                    className="px-4 py-2 text-sm border border-border rounded-md hover:bg-secondary disabled:opacity-50"
+                    className="btn btn-ghost btn-sm"
                   >
+                    {loadingMore && <span className="loading loading-spinner loading-xs" />}
                     {loadingMore ? "Loading..." : "Load More"}
                   </button>
                 )}
@@ -300,25 +309,26 @@ export default function AuditPage() {
         {/* Retention Policy */}
         <Card>
           <CardTitle>Retention Policy</CardTitle>
-          <p className="text-sm text-muted-foreground mb-4">
+          <p className="text-sm text-base-content/50 mb-4">
             Purge audit events older than a specified number of days. This action is irreversible.
           </p>
           <div className="flex items-center gap-3 flex-wrap">
-            <label className="text-sm font-medium">Delete events older than</label>
+            <span className="text-sm font-medium">Delete events older than</span>
             <input
               type="number"
               min={1}
               max={3650}
               value={retentionDays}
               onChange={(e) => setRetentionDays(parseInt(e.target.value, 10) || 90)}
-              className="w-24 px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="input input-bordered input-sm w-24"
             />
-            <span className="text-sm text-muted-foreground">days</span>
+            <span className="text-sm text-base-content/50">days</span>
             <button
               onClick={handlePurge}
               disabled={purging}
-              className="px-4 py-2 bg-destructive text-destructive-foreground rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-50"
+              className="btn btn-error btn-sm"
             >
+              {purging && <span className="loading loading-spinner loading-xs" />}
               {purging ? "Purging..." : "Purge Old Events"}
             </button>
           </div>

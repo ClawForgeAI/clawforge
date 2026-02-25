@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { Sidebar } from "@/components/sidebar";
 import { Card, CardTitle, StatCard } from "@/components/card";
 import { Badge } from "@/components/badge";
-import { CardSkeleton, Skeleton } from "@/components/skeleton";
+import { StatSkeleton, TableSkeleton } from "@/components/skeleton";
 import { getAuth } from "@/lib/auth";
 import { getPolicy, queryAudit, getPendingSkills, getUsers, getConnectedClients } from "@/lib/api";
 import type { EffectivePolicy, AuditEvent } from "@/lib/api";
@@ -58,73 +59,124 @@ export default function DashboardPage() {
   }, [router]);
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-base-200">
       <Sidebar />
-      <main className="flex-1 p-4 md:p-8">
-        <h2 className="text-2xl font-bold mb-6">Dashboard</h2>
+      <main className="flex-1 p-4 lg:p-8 pt-16 lg:pt-8">
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold">Dashboard</h2>
+          <p className="text-sm text-base-content/50 mt-1">Overview of your organization&apos;s governance status</p>
+        </div>
 
         {loading ? (
           <div className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-24 rounded-lg" />
+                <StatSkeleton key={i} />
               ))}
             </div>
-            <CardSkeleton />
+            <TableSkeleton />
           </div>
         ) : (
           <>
-            {/* Stats row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-              <StatCard label="Active Users" value={userCount} />
-              <StatCard label="Clients Online" value={onlineClients} />
-              <StatCard label="Tool Calls Allowed" value={toolCallsAllowed} variant="success" />
-              <StatCard label="Tool Calls Blocked" value={toolCallsBlocked} variant="danger" />
-              <StatCard label="Pending Reviews" value={pendingCount} variant="warning" />
-            </div>
-
             {/* Kill switch banner */}
             {policy?.killSwitch.active && (
-              <div className="mb-6 rounded-lg border border-red-300 bg-red-50 p-4">
-                <p className="font-semibold text-red-800">Kill Switch Active</p>
-                <p className="text-sm text-red-700 mt-1">
-                  {policy.killSwitch.message ?? "All agent tool calls are currently blocked."}
-                </p>
-              </div>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="alert alert-error mb-6 shadow-md"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M18.36 6.64a9 9 0 1 1-12.73 0M12 2v10" />
+                </svg>
+                <div>
+                  <h3 className="font-bold">Kill Switch Active</h3>
+                  <p className="text-sm opacity-80">
+                    {policy.killSwitch.message ?? "All agent tool calls are currently blocked."}
+                  </p>
+                </div>
+              </motion.div>
             )}
+
+            {/* Stats row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+              <StatCard
+                label="Active Users"
+                value={userCount}
+                icon={<UsersSmIcon />}
+              />
+              <StatCard
+                label="Clients Online"
+                value={onlineClients}
+                icon={<MonitorSmIcon />}
+              />
+              <StatCard
+                label="Calls Allowed"
+                value={toolCallsAllowed}
+                variant="success"
+                icon={<CheckSmIcon />}
+              />
+              <StatCard
+                label="Calls Blocked"
+                value={toolCallsBlocked}
+                variant="danger"
+                icon={<XSmIcon />}
+              />
+              <StatCard
+                label="Pending Reviews"
+                value={pendingCount}
+                variant="warning"
+                icon={<ClockSmIcon />}
+              />
+            </div>
 
             {/* Recent audit events */}
             <Card>
-              <CardTitle>Recent Activity</CardTitle>
+              <div className="flex items-center justify-between mb-1">
+                <CardTitle className="mb-0">Recent Activity</CardTitle>
+                <button
+                  onClick={() => router.push("/audit")}
+                  className="btn btn-ghost btn-xs text-primary"
+                >
+                  View all
+                </button>
+              </div>
               {recentEvents.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No recent events.</p>
+                <div className="text-center py-10 text-base-content/40">
+                  <p className="text-sm">No recent events</p>
+                </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                <div className="overflow-x-auto -mx-5">
+                  <table className="table table-sm">
                     <thead>
-                      <tr className="border-b border-border text-left text-muted-foreground">
-                        <th className="pb-2 font-medium">Time</th>
-                        <th className="pb-2 font-medium">User</th>
-                        <th className="pb-2 font-medium">Event</th>
-                        <th className="pb-2 font-medium">Tool</th>
-                        <th className="pb-2 font-medium">Outcome</th>
+                      <tr className="text-base-content/40 text-xs uppercase">
+                        <th>Time</th>
+                        <th>User</th>
+                        <th>Event</th>
+                        <th>Tool</th>
+                        <th>Outcome</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {recentEvents.slice(0, 10).map((event) => (
-                        <tr key={event.id} className="border-b border-border last:border-0">
-                          <td className="py-2 text-muted-foreground">
+                      {recentEvents.slice(0, 10).map((event, i) => (
+                        <motion.tr
+                          key={event.id}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: i * 0.03 }}
+                          className="table-row-hover"
+                        >
+                          <td className="text-base-content/50 whitespace-nowrap text-xs">
                             {new Date(event.timestamp).toLocaleTimeString()}
                           </td>
-                          <td className="py-2">{event.userId.slice(0, 8)}...</td>
-                          <td className="py-2">{event.eventType}</td>
-                          <td className="py-2 font-mono text-xs">{event.toolName ?? "-"}</td>
-                          <td className="py-2">
+                          <td className="font-mono text-xs">{event.userId.slice(0, 8)}...</td>
+                          <td className="text-sm">{event.eventType}</td>
+                          <td className="font-mono text-xs text-base-content/50">{event.toolName ?? "-"}</td>
+                          <td>
                             <Badge variant={event.outcome === "allowed" ? "success" : "danger"}>
                               {event.outcome}
                             </Badge>
                           </td>
-                        </tr>
+                        </motion.tr>
                       ))}
                     </tbody>
                   </table>
@@ -135,5 +187,45 @@ export default function DashboardPage() {
         )}
       </main>
     </div>
+  );
+}
+
+function UsersSmIcon() {
+  return (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+    </svg>
+  );
+}
+
+function MonitorSmIcon() {
+  return (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="3" width="20" height="14" rx="2" /><path d="M8 21h8M12 17v4" />
+    </svg>
+  );
+}
+
+function CheckSmIcon() {
+  return (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 12l2 2 4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
+    </svg>
+  );
+}
+
+function XSmIcon() {
+  return (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 6L6 18M6 6l12 12" />
+    </svg>
+  );
+}
+
+function ClockSmIcon() {
+  return (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
+    </svg>
   );
 }

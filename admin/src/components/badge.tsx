@@ -1,22 +1,27 @@
 export function Badge({
   children,
   variant = "default",
+  size = "sm",
 }: {
   children: React.ReactNode;
   variant?: "default" | "success" | "danger" | "warning" | "info";
+  size?: "xs" | "sm";
 }) {
   const styles = {
-    default: "bg-secondary text-secondary-foreground",
-    success: "bg-green-100 text-green-800",
-    danger: "bg-red-100 text-red-800",
-    warning: "bg-amber-100 text-amber-800",
-    info: "bg-blue-100 text-blue-800",
+    default: "badge-ghost",
+    success: "badge-success text-success-content",
+    danger: "badge-error text-error-content",
+    warning: "badge-warning text-warning-content",
+    info: "badge-info text-info-content",
+  };
+
+  const sizes = {
+    xs: "badge-xs text-[10px] px-1.5",
+    sm: "badge-sm text-xs px-2",
   };
 
   return (
-    <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${styles[variant]}`}
-    >
+    <span className={`badge font-medium gap-1 ${styles[variant]} ${sizes[size]}`}>
       {children}
     </span>
   );
