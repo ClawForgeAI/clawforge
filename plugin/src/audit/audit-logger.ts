@@ -2,6 +2,7 @@
  * Audit logger for ClawForge.
  * Buffers audit events and ships them to the control plane in batches.
  * Persists unshipped events to disk for crash resilience.
+ * Enforces a configurable maximum buffer size, dropping oldest events when exceeded.
  */
 
 import fs from "node:fs";
@@ -14,6 +15,8 @@ const BUFFER_FILE = path.join(CLAWFORGE_DIR, "audit-buffer.jsonl");
 
 const DEFAULT_BATCH_SIZE = 100;
 const DEFAULT_FLUSH_INTERVAL_MS = 30_000;
+const DEFAULT_MAX_BUFFER_SIZE = 10_000;
+const BUFFER_WARNING_THRESHOLD = 0.8; // Warn at 80% capacity
 
 export type AuditLoggerEnqueueParams = {
   eventType: AuditEventType;
@@ -29,12 +32,14 @@ export class AuditLogger {
   private flushTimer: ReturnType<typeof setInterval> | null = null;
   private readonly batchSize: number;
   private readonly flushIntervalMs: number;
+  private readonly maxBufferSize: number;
   private controlPlaneUrl: string;
   private orgId: string;
   private userId: string;
   private accessToken: string;
   private auditLevel: "full" | "metadata" | "off";
   private logger?: { info: (msg: string) => void; warn: (msg: string) => void; error: (msg: string) => void };
+  private hasWarnedCapacity = false;
 
   constructor(params: {
     config: ClawForgePluginConfig;
@@ -48,6 +53,7 @@ export class AuditLogger {
     this.accessToken = params.session.accessToken;
     this.batchSize = params.config.auditBatchSize ?? DEFAULT_BATCH_SIZE;
     this.flushIntervalMs = params.config.auditFlushIntervalMs ?? DEFAULT_FLUSH_INTERVAL_MS;
+    this.maxBufferSize = params.config.maxAuditBufferSize ?? DEFAULT_MAX_BUFFER_SIZE;
     this.auditLevel = params.auditLevel ?? "metadata";
     this.logger = params.logger;
 
@@ -99,7 +105,22 @@ export class AuditLogger {
   }
 
   /**
+   * Returns the current number of buffered events.
+   */
+  get bufferSize(): number {
+    return this.buffer.length;
+  }
+
+  /**
+   * Returns the maximum buffer capacity.
+   */
+  get bufferCapacity(): number {
+    return this.maxBufferSize;
+  }
+
+  /**
    * Enqueue an audit event.
+   * If the buffer exceeds maxBufferSize, oldest events are dropped.
    */
   enqueue(params: AuditLoggerEnqueueParams): void {
     if (this.auditLevel === "off") {
@@ -120,6 +141,27 @@ export class AuditLogger {
 
     this.buffer.push(event);
 
+    // Enforce maximum buffer size by dropping oldest events.
+    if (this.buffer.length > this.maxBufferSize) {
+      const dropped = this.buffer.length - this.maxBufferSize;
+      this.buffer.splice(0, dropped);
+      this.logger?.warn(
+        `Audit buffer exceeded max size (${this.maxBufferSize}). Dropped ${dropped} oldest event(s).`,
+      );
+    }
+
+    // Warn when approaching capacity (>80%).
+    const capacityRatio = this.buffer.length / this.maxBufferSize;
+    if (capacityRatio > BUFFER_WARNING_THRESHOLD && !this.hasWarnedCapacity) {
+      this.hasWarnedCapacity = true;
+      this.logger?.warn(
+        `Audit buffer approaching capacity: ${this.buffer.length}/${this.maxBufferSize} (${Math.round(capacityRatio * 100)}%)`,
+      );
+    } else if (capacityRatio <= BUFFER_WARNING_THRESHOLD) {
+      // Reset the warning flag when buffer goes back below threshold.
+      this.hasWarnedCapacity = false;
+    }
+
     if (this.buffer.length >= this.batchSize) {
       this.flush().catch((err) => {
         this.logger?.warn(`Audit flush failed: ${String(err)}`);
@@ -129,6 +171,7 @@ export class AuditLogger {
 
   /**
    * Flush buffered events to the control plane.
+   * Events are flushed in order (oldest first).
    */
   async flush(): Promise<void> {
     if (this.buffer.length === 0) {
@@ -158,16 +201,33 @@ export class AuditLogger {
         // Put events back and persist for retry.
         this.logger?.warn(`Audit event submission failed (${response.status})`);
         this.buffer.unshift(...batch);
+        this.enforceBufferLimit();
         this.persistBuffer(this.buffer);
       } else {
         this.logger?.info(`Shipped ${batch.length} audit events`);
+        // Reset capacity warning after successful flush.
+        this.hasWarnedCapacity = false;
         // Clear persisted buffer on success.
         this.clearPersistedBuffer();
       }
     } catch (err) {
       this.logger?.warn(`Audit event submission error: ${String(err)}`);
       this.buffer.unshift(...batch);
+      this.enforceBufferLimit();
       this.persistBuffer(this.buffer);
+    }
+  }
+
+  /**
+   * Enforce the buffer size limit, dropping oldest events if necessary.
+   */
+  private enforceBufferLimit(): void {
+    if (this.buffer.length > this.maxBufferSize) {
+      const dropped = this.buffer.length - this.maxBufferSize;
+      this.buffer.splice(0, dropped);
+      this.logger?.warn(
+        `Audit buffer trimmed: dropped ${dropped} oldest event(s) to stay within limit (${this.maxBufferSize}).`,
+      );
     }
   }
 
@@ -200,6 +260,8 @@ export class AuditLogger {
           // Skip malformed lines.
         }
       }
+      // Enforce limit on persisted buffer load too.
+      this.enforceBufferLimit();
     } catch {
       // No persisted buffer.
     }

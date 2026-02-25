@@ -55,6 +55,8 @@ export type AuditEventType =
   | "kill_switch_activated"
   | "policy_refresh";
 
+export type OfflineMode = "block" | "allow" | "cached";
+
 export type ClawForgePluginConfig = {
   controlPlaneUrl?: string;
   orgId?: string;
@@ -67,6 +69,8 @@ export type ClawForgePluginConfig = {
   heartbeatFailureThreshold?: number;
   auditBatchSize?: number;
   auditFlushIntervalMs?: number;
+  offlineMode?: OfflineMode; // default: 'block'
+  maxAuditBufferSize?: number; // default: 10000
   /** Enable real-time SSE connection for instant kill switch and policy updates. Defaults to true. */
   sseEnabled?: boolean;
 };

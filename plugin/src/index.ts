@@ -8,6 +8,7 @@
  * - Audit logging (before_tool_call, after_tool_call, session lifecycle)
  * - Kill switch heartbeat
  * - Skill filtering via config population
+ * - Connection state tracking and graceful degradation
  */
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
@@ -23,7 +24,14 @@ import { createToolEnforcerHook, type ToolEnforcerState } from "./policy/tool-en
 import { buildSkillsEnterpriseConfig } from "./policy/skill-filter.js";
 import { AuditLogger } from "./audit/audit-logger.js";
 import { KillSwitchManager } from "./heartbeat/kill-switch.js";
+import { ConnectionStateManager, type ConnectionStatus } from "./connection/connection-state.js";
 import { SSEClient } from "./events/sse-client.js";
+
+/**
+ * Shared state used by the status command handler.
+ */
+let sharedConnectionStateManager: ConnectionStateManager | null = null;
+let sharedAuditLogger: AuditLogger | null = null;
 
 /**
  * Initialize the ClawForge plugin: authenticate, fetch policy, set up hooks.
@@ -57,6 +65,13 @@ async function initializeClawForge(
 
   if (!session) {
     logger.info("ClawForge running in unauthenticated mode (policy enforcement disabled)");
+    // Create a connection state manager in unauthenticated state.
+    const connState = new ConnectionStateManager({
+      failureThreshold: pluginConfig.heartbeatFailureThreshold ?? 10,
+      logger,
+    });
+    connState.setUnauthenticated();
+    sharedConnectionStateManager = connState;
     return;
   }
 
@@ -65,6 +80,7 @@ async function initializeClawForge(
   // --- 2. Fetch policy ---
   let policy: OrgPolicy | null = null;
   const cacheTtl = pluginConfig.policyCacheTtlMs;
+  let policyFetchedAt: number | null = null;
 
   // Try cache first.
   policy = loadCachedPolicy(cacheTtl);
@@ -79,6 +95,7 @@ async function initializeClawForge(
         accessToken: session.accessToken,
       });
       saveCachedPolicy(policy, cacheTtl);
+      policyFetchedAt = Date.now();
     } catch (err) {
       logger.warn?.(`Policy fetch failed: ${String(err)}`);
       // Fall back to expired cache.
@@ -88,24 +105,7 @@ async function initializeClawForge(
       }
     }
   } else if (policy) {
-    // Cache hit; async refresh in background.
-    if (pluginConfig.controlPlaneUrl) {
-      fetchEffectivePolicy({
-        controlPlaneUrl: pluginConfig.controlPlaneUrl,
-        orgId,
-        userId: session.userId,
-        accessToken: session.accessToken,
-      })
-        .then((fresh) => {
-          saveCachedPolicy(fresh, cacheTtl);
-          enforcerState.policy = fresh;
-          auditLogger.updateAuditLevel(fresh.auditLevel);
-          logger.info("Org policy refreshed in background");
-        })
-        .catch((err) => {
-          logger.warn?.(`Background policy refresh failed: ${String(err)}`);
-        });
-    }
+    policyFetchedAt = Date.now();
   }
 
   // --- 3. Apply skill filter ---
@@ -141,9 +141,19 @@ async function initializeClawForge(
     logger,
   });
   auditLogger.start();
+  sharedAuditLogger = auditLogger;
+
+  // --- 5b. Set up connection state manager ---
+  const connectionStateManager = new ConnectionStateManager({
+    failureThreshold: pluginConfig.heartbeatFailureThreshold ?? 10,
+    auditLogger,
+    cachedPolicyFetchedAt: policyFetchedAt,
+    logger,
+  });
+  sharedConnectionStateManager = connectionStateManager;
 
   // --- 6. Register before_tool_call hook (high priority) ---
-  const toolEnforcerHook = createToolEnforcerHook(enforcerState, auditLogger);
+  const toolEnforcerHook = createToolEnforcerHook(enforcerState, auditLogger, connectionStateManager);
   api.on("before_tool_call", toolEnforcerHook, { priority: 1000 });
 
   // --- 7. Register after_tool_call hook for audit ---
@@ -228,16 +238,38 @@ async function initializeClawForge(
       saveCachedPolicy(fresh, cacheTtl);
       enforcerState.policy = fresh;
       auditLogger.updateAuditLevel(fresh.auditLevel);
+      connectionStateManager.updateCachedPolicyFetchedAt(Date.now());
       logger.info("Policy refreshed via heartbeat");
     } catch (err) {
       logger.warn?.(`Heartbeat-triggered policy refresh failed: ${String(err)}`);
     }
   };
 
+  // Background refresh on cache hit.
+  if (policy && pluginConfig.controlPlaneUrl) {
+    fetchEffectivePolicy({
+      controlPlaneUrl: pluginConfig.controlPlaneUrl,
+      orgId,
+      userId: session.userId,
+      accessToken: session.accessToken,
+    })
+      .then((fresh) => {
+        saveCachedPolicy(fresh, cacheTtl);
+        enforcerState.policy = fresh;
+        auditLogger.updateAuditLevel(fresh.auditLevel);
+        connectionStateManager.updateCachedPolicyFetchedAt(Date.now());
+        logger.info("Org policy refreshed in background");
+      })
+      .catch((err) => {
+        logger.warn?.(`Background policy refresh failed: ${String(err)}`);
+      });
+  }
+
   const killSwitchMgr = new KillSwitchManager({
     config: pluginConfig,
     session,
     enforcerState,
+    connectionStateManager,
     onPolicyRefreshNeeded: () => {
       refreshPolicy().catch(() => {});
     },
@@ -272,8 +304,18 @@ async function initializeClawForge(
   });
 
   logger.info(
-    `ClawForge initialized (org=${orgId}, policy v${policy?.version ?? "none"}, audit=${policy?.auditLevel ?? "off"})`,
+    `ClawForge initialized (org=${orgId}, policy v${policy?.version ?? "none"}, audit=${policy?.auditLevel ?? "off"}, offlineMode=${pluginConfig.offlineMode ?? "block"})`,
   );
+}
+
+/**
+ * Format a duration in milliseconds to a human-readable string.
+ */
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+  if (ms < 3_600_000) return `${(ms / 60_000).toFixed(1)}m`;
+  return `${(ms / 3_600_000).toFixed(1)}h`;
 }
 
 /**
@@ -361,16 +403,33 @@ export function register(api: OpenClawPluginApi): void {
     handler: () => {
       const session = loadSession();
       if (!isSessionValid(session)) {
-        return { text: "ClawForge: Not authenticated. Use /clawforge-login to connect." };
+        const connStatus = sharedConnectionStateManager?.getStatus();
+        const lines = [
+          `ClawForge Status:`,
+          `  Connection: ${connStatus?.state ?? "unauthenticated"}`,
+          `  Not authenticated. Use /clawforge-login to connect.`,
+        ];
+        return { text: lines.join("\n") };
       }
+
       const cached = loadCachedPolicy(pluginConfig.policyCacheTtlMs);
+      const connStatus = sharedConnectionStateManager?.getStatus();
+      const auditBufferSize = sharedAuditLogger?.bufferSize ?? 0;
+      const auditBufferCapacity = sharedAuditLogger?.bufferCapacity ?? 0;
+
       const lines = [
         `ClawForge Status:`,
         `  User: ${session!.email ?? session!.userId}`,
         `  Org: ${session!.orgId}`,
+        `  Connection: ${connStatus?.state ?? "unknown"}`,
+        `  Last Heartbeat: ${connStatus?.lastSuccessfulHeartbeat ? connStatus.lastSuccessfulHeartbeat.toISOString() : "never"}`,
+        `  Heartbeat Failures: ${connStatus?.consecutiveFailures ?? 0}`,
         `  Policy: ${cached ? `v${cached.version}` : "not loaded"}`,
+        `  Cached Policy Age: ${connStatus?.cachedPolicyAge != null ? formatDuration(connStatus.cachedPolicyAge) : "n/a"}`,
         `  Kill Switch: ${cached?.killSwitch?.active ? "ACTIVE" : "inactive"}`,
         `  Audit Level: ${cached?.auditLevel ?? "unknown"}`,
+        `  Audit Buffer: ${auditBufferSize} / ${auditBufferCapacity}`,
+        `  Offline Mode: ${pluginConfig.offlineMode ?? "block"}`,
       ];
       return { text: lines.join("\n") };
     },
