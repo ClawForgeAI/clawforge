@@ -4,7 +4,6 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { setAuth } from "@/lib/auth";
 import { login } from "@/lib/api";
-import Image from "next/image";
 import { motion } from "framer-motion";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4100";
@@ -112,16 +111,14 @@ function LoginForm() {
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="relative z-10"
+          className="relative z-10 flex items-center gap-3 mb-3"
         >
-          <Image
-            src="/logo.png"
-            alt="ClawForge"
-            width={200}
-            height={56}
-            priority
-            className="mb-3 brightness-0 invert"
-          />
+          <div className="w-11 h-11 rounded-lg bg-primary/20 flex items-center justify-center text-2xl">
+            🛡
+          </div>
+          <span className="text-2xl font-bold text-neutral-content tracking-tight">
+            ClawForge
+          </span>
         </motion.div>
 
         <motion.div
@@ -158,14 +155,13 @@ function LoginForm() {
           className="w-full max-w-[400px]"
         >
           {/* Mobile logo */}
-          <div className="lg:hidden mb-10 flex justify-center">
-            <Image
-              src="/logo.png"
-              alt="ClawForge"
-              width={180}
-              height={50}
-              priority
-            />
+          <div className="lg:hidden mb-10 flex items-center justify-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center text-2xl">
+              🛡
+            </div>
+            <span className="text-2xl font-bold text-base-content tracking-tight">
+              ClawForge
+            </span>
           </div>
 
           <div className="mb-8">

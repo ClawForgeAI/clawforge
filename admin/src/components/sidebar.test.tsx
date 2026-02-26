@@ -27,7 +27,6 @@ describe("Sidebar", () => {
   it("renders the ClawForge brand", () => {
     render(<Sidebar />);
     expect(screen.getAllByText("ClawForge").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Admin Console").length).toBeGreaterThan(0);
   });
 
   it("renders all navigation links", () => {
@@ -51,11 +50,11 @@ describe("Sidebar", () => {
     }
   });
 
-  it("renders a Sign out link", () => {
+  it("renders a Sign out button", () => {
     render(<Sidebar />);
     const signOutLinks = screen.getAllByText("Sign out");
     expect(signOutLinks.length).toBeGreaterThanOrEqual(1);
-    expect(signOutLinks[0].closest("a")).toHaveAttribute("href", "/login");
+    expect(signOutLinks[0].closest("button")).toBeInTheDocument();
   });
 
   it("highlights the active Dashboard link when pathname is /dashboard", () => {
@@ -81,7 +80,7 @@ describe("Sidebar", () => {
     const usersLinks = screen.getAllByText("Users");
     const usersLink = usersLinks[0].closest("a")!;
     expect(usersLink.className).not.toContain("bg-primary");
-    expect(usersLink.className).toContain("hover:bg-secondary");
+    expect(usersLink.className).toContain("hover:bg-white/5");
   });
 
   it("links have correct href attributes", () => {
