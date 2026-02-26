@@ -28,7 +28,7 @@ export class SSEClient {
 
   private readonly controlPlaneUrl: string;
   private readonly orgId: string;
-  private readonly accessToken: string;
+  private accessToken: string;
   private readonly enforcerState: ToolEnforcerState;
   private readonly onPolicyRefreshNeeded?: () => void;
   private readonly logger?: SSEClientLogger;
@@ -72,6 +72,18 @@ export class SSEClient {
     if (this.abortController) {
       this.abortController.abort();
       this.abortController = null;
+    }
+  }
+
+  /**
+   * Update the access token and reconnect so the next request uses it.
+   */
+  updateAccessToken(token: string): void {
+    this.accessToken = token;
+    // Abort current connection to trigger reconnect with the new token.
+    this.reconnectMs = INITIAL_RECONNECT_MS;
+    if (this.abortController) {
+      this.abortController.abort();
     }
   }
 

@@ -26,6 +26,7 @@ import { AuditLogger } from "./audit/audit-logger.js";
 import { KillSwitchManager } from "./heartbeat/kill-switch.js";
 import { ConnectionStateManager, type ConnectionStatus } from "./connection/connection-state.js";
 import { SSEClient } from "./events/sse-client.js";
+import { TokenRefreshManager } from "./auth/token-refresh-manager.js";
 
 /**
  * Shared state used by the status command handler.
@@ -295,8 +296,23 @@ async function initializeClawForge(
     logger.info("SSE real-time event stream enabled");
   }
 
+  // --- 10c. Start proactive token refresh manager ---
+  const tokenRefreshMgr = new TokenRefreshManager({
+    controlPlaneUrl: pluginConfig.controlPlaneUrl ?? "",
+    session,
+    onTokenRefreshed: (newSession) => {
+      session = newSession;
+      killSwitchMgr.updateAccessToken(newSession.accessToken);
+      auditLogger.updateAccessToken(newSession.accessToken);
+      sseClient?.updateAccessToken(newSession.accessToken);
+    },
+    logger,
+  });
+  tokenRefreshMgr.start();
+
   // --- 11. Register gateway_stop hook to flush audit ---
   api.on("gateway_stop", async () => {
+    tokenRefreshMgr.stop();
     killSwitchMgr.stop();
     sseClient?.stop();
     await auditLogger.stop();
