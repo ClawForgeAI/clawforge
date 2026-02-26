@@ -23,6 +23,8 @@ export default function UsersPage() {
   const [inviteRole, setInviteRole] = useState("user");
   const [invitePassword, setInvitePassword] = useState("");
   const [inviting, setInviting] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; email: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadUsers();
@@ -79,16 +81,20 @@ export default function UsersPage() {
     }
   }
 
-  async function handleDelete(userId: string, email: string) {
+  async function handleDelete() {
+    if (!deleteTarget) return;
     const auth = getAuth();
     if (!auth) return;
-    if (!confirm(`Remove ${email} from the organization? This action cannot be undone.`)) return;
+    setDeleting(true);
     try {
-      await deleteUser(auth.orgId, userId, auth.accessToken);
-      toast.success(`User ${email} removed.`);
+      await deleteUser(auth.orgId, deleteTarget.id, auth.accessToken);
+      toast.success(`User ${deleteTarget.email} removed.`);
+      setDeleteTarget(null);
       loadUsers();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to remove user");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -260,7 +266,7 @@ export default function UsersPage() {
                       <td>
                         {user.id !== currentUserId && (
                           <button
-                            onClick={() => handleDelete(user.id, user.email)}
+                            onClick={() => setDeleteTarget({ id: user.id, email: user.email })}
                             className="btn btn-ghost btn-xs text-error hover:bg-error/10"
                           >
                             Remove
@@ -274,6 +280,58 @@ export default function UsersPage() {
             </div>
           </Card>
         )}
+
+        {/* Delete confirmation dialog */}
+        <AnimatePresence>
+          {deleteTarget && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+              onClick={() => !deleting && setDeleteTarget(null)}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-base-100 rounded-2xl shadow-xl p-6 mx-4 max-w-sm w-full"
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-error/15 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-error" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                      <line x1="12" y1="9" x2="12" y2="13" />
+                      <line x1="12" y1="17" x2="12.01" y2="17" />
+                    </svg>
+                  </div>
+                  <h3 className="font-semibold text-lg">Remove User</h3>
+                </div>
+                <p className="text-sm text-base-content/60 mb-5">
+                  Remove <strong>{deleteTarget.email}</strong> from the organization? This action cannot be undone.
+                </p>
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => setDeleteTarget(null)}
+                    disabled={deleting}
+                    className="btn btn-ghost btn-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="btn btn-error btn-sm"
+                  >
+                    {deleting && <span className="loading loading-spinner loading-xs" />}
+                    {deleting ? "Removing..." : "Remove"}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
     </div>
   );
