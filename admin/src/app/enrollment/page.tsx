@@ -28,6 +28,8 @@ export default function EnrollmentPage() {
   const [creating, setCreating] = useState(false);
   const [newToken, setNewToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [revokeTarget, setRevokeTarget] = useState<{ id: string; label?: string } | null>(null);
+  const [revoking, setRevoking] = useState(false);
 
   useEffect(() => {
     loadTokens();
@@ -73,16 +75,20 @@ export default function EnrollmentPage() {
     }
   }
 
-  async function handleRevoke(tokenId: string) {
+  async function handleRevoke() {
+    if (!revokeTarget) return;
     const auth = getAuth();
     if (!auth) return;
-    if (!confirm("Revoke this enrollment token? It will no longer accept new enrollments.")) return;
+    setRevoking(true);
     try {
-      await revokeEnrollmentToken(auth.orgId, tokenId, auth.accessToken);
+      await revokeEnrollmentToken(auth.orgId, revokeTarget.id, auth.accessToken);
       toast.success("Token revoked.");
+      setRevokeTarget(null);
       loadTokens();
     } catch {
       toast.error("Failed to revoke token.");
+    } finally {
+      setRevoking(false);
     }
   }
 
@@ -273,7 +279,7 @@ export default function EnrollmentPage() {
                         </td>
                         <td>
                           <button
-                            onClick={() => handleRevoke(t.id)}
+                            onClick={() => setRevokeTarget({ id: t.id, label: t.label })}
                             className="btn btn-ghost btn-xs text-error hover:bg-error/10"
                           >
                             Revoke
@@ -287,6 +293,58 @@ export default function EnrollmentPage() {
             </div>
           </Card>
         )}
+
+        {/* Revoke confirmation dialog */}
+        <AnimatePresence>
+          {revokeTarget && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+              onClick={() => !revoking && setRevokeTarget(null)}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-base-100 rounded-2xl shadow-xl p-6 mx-4 max-w-sm w-full"
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-error/15 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-error" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                      <line x1="12" y1="9" x2="12" y2="13" />
+                      <line x1="12" y1="17" x2="12.01" y2="17" />
+                    </svg>
+                  </div>
+                  <h3 className="font-semibold text-lg">Revoke Token</h3>
+                </div>
+                <p className="text-sm text-base-content/60 mb-5">
+                  Revoke <strong>{revokeTarget.label || "this token"}</strong>? It will no longer accept new enrollments. This action cannot be undone.
+                </p>
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => setRevokeTarget(null)}
+                    disabled={revoking}
+                    className="btn btn-ghost btn-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleRevoke}
+                    disabled={revoking}
+                    className="btn btn-error btn-sm"
+                  >
+                    {revoking && <span className="loading loading-spinner loading-xs" />}
+                    {revoking ? "Revoking..." : "Revoke"}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
     </div>
   );

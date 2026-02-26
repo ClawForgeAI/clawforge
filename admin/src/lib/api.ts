@@ -13,9 +13,10 @@ type FetchOptions = {
 };
 
 async function apiFetch<T>(path: string, opts: FetchOptions = {}): Promise<T> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
+  const headers: Record<string, string> = {};
+  if (opts.body) {
+    headers["Content-Type"] = "application/json";
+  }
   if (opts.token) {
     headers.Authorization = `Bearer ${opts.token}`;
   }
