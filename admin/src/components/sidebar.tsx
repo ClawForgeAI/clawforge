@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { clearAuth, getAuth } from "@/lib/auth";
 
@@ -57,14 +56,12 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
     <div className="flex flex-col h-full">
       {/* Logo area */}
       <div className="px-4 py-5 flex items-center gap-3">
-        <Image
-          src="/logo.png"
-          alt="ClawForge"
-          width={140}
-          height={36}
-          priority
-          className="brightness-0 invert"
-        />
+        <div className="w-9 h-9 rounded-lg bg-primary/20 flex items-center justify-center text-xl">
+          🛡
+        </div>
+        <span className="text-lg font-bold text-neutral-content tracking-tight">
+          ClawForge
+        </span>
       </div>
 
       {/* Navigation */}
