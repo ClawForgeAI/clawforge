@@ -62,7 +62,7 @@ function install(args) {
   console.log(`  orgId: ${values.org}`);
   console.log();
   console.log("Next steps:");
-  console.log("  1. Install the plugin: openclaw plugins install @openclaw/clawforge");
+  console.log("  1. Install the plugin: openclaw plugins install @clawforgeai/clawforge");
   console.log("  2. Start OpenClaw");
   console.log("  3. Run /clawforge-enroll <token> <email> to authenticate");
 }

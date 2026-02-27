@@ -11,29 +11,40 @@ Enterprise governance plugin for [OpenClaw](https://github.com/ClawForgeAI/clawf
 - **Kill Switch** — remote kill switch via heartbeat polling and real-time SSE events
 - **Offline Resilience** — configurable offline modes: `block`, `allow`, or `cached`
 
-## Installation
+## Getting Started
+
+### 1. Install the plugin
 
 ```bash
-npm install @clawforgeai/clawforge
+openclaw plugins install @clawforgeai/clawforge
 ```
 
-### Quick Setup
+### 2. Configure
 
-Use the bundled CLI to configure the plugin:
+Use the bundled CLI to point the plugin at your control plane:
 
 ```bash
 npx clawguard install --url https://clawforge.example.com --org your-org-id
 ```
 
-Then enroll a user inside an OpenClaw session:
+Or configure manually with `openclaw config set`:
+
+```bash
+openclaw config set plugins.entries.clawforge.config.controlPlaneUrl "https://clawforge.example.com"
+openclaw config set plugins.entries.clawforge.config.orgId "your-org-id"
+```
+
+### 3. Enroll
+
+Start OpenClaw and authenticate with an enrollment token:
 
 ```
-/clawforge-enroll <enrollment-token> <email>
+/clawforge-enroll <token> <email>
 ```
 
 ### Manual Configuration
 
-Add the plugin to your `~/.openclaw/openclaw.json`:
+You can also edit `~/.openclaw/openclaw.json` directly:
 
 ```json
 {
@@ -53,7 +64,7 @@ Add the plugin to your `~/.openclaw/openclaw.json`:
 
 ## Configuration
 
-All configuration options are set in the plugin's `config` block:
+All options are set in the plugin's `config` block:
 
 | Option | Type | Default | Description |
 |---|---|---|---|
@@ -81,16 +92,11 @@ The plugin registers the following OpenClaw slash commands:
 | `/clawforge-submit <skill>` | Submit a skill for org approval |
 | `/clawforge-status` | Display current governance status |
 
-## CLI
-
-The `clawguard` CLI is included for setup and teardown:
+## Uninstall
 
 ```bash
-# Configure the plugin
-clawguard install --url <controlPlaneUrl> --org <orgId>
-
-# Remove the plugin configuration
-clawguard uninstall
+npx clawguard uninstall
+openclaw plugins uninstall clawforge
 ```
 
 ## License
