@@ -3,21 +3,53 @@
   "version": "0.1.0",
   "description": "Enterprise governance plugin for OpenClaw – SSO, policy enforcement, audit, kill switch",
   "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "bin": {
-    "clawguard": "./bin/clawforge.mjs"
+    "clawguard": "bin/clawforge.mjs"
   },
   "files": [
-    "index.ts",
-    "src/",
+    "dist/",
     "bin/",
     "openclaw.plugin.json"
   ],
   "scripts": {
+    "build": "tsup",
+    "prepublishOnly": "pnpm run build",
     "test": "vitest run"
+  },
+  "license": "MIT",
+  "author": "ClawForgeAI",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ClawForgeAI/clawforge.git",
+    "directory": "plugin"
+  },
+  "homepage": "https://github.com/ClawForgeAI/clawforge/tree/main/plugin",
+  "keywords": [
+    "openclaw",
+    "plugin",
+    "enterprise",
+    "governance",
+    "sso",
+    "audit",
+    "policy",
+    "kill-switch"
+  ],
+  "peerDependencies": {
+    "openclaw": "*"
   },
   "devDependencies": {
     "@types/node": "^22.12.0",
     "openclaw": "*",
+    "tsup": "^8.5.1",
     "vitest": "^4.0.18"
   },
   "openclaw": {

@@ -1,0 +1,15 @@
+# Source (compiled output is in dist/)
+index.ts
+src/
+tsup.config.ts
+tsconfig.json
+vitest.config.ts
+
+# Tests
+*.test.ts
+__tests__/
+
+# Dev config
+.eslintrc*
+.prettierrc*
+node_modules/
