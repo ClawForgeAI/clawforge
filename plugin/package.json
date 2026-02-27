@@ -1,6 +1,6 @@
 {
   "name": "@clawforgeai/clawforge",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Enterprise governance plugin for OpenClaw – SSO, policy enforcement, audit, kill switch",
   "type": "module",
   "main": "./dist/index.js",
@@ -13,7 +13,7 @@
     }
   },
   "bin": {
-    "clawguard": "bin/clawforge.mjs"
+    "clawforge": "bin/clawforge.mjs"
   },
   "files": [
     "dist/",

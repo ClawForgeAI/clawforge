@@ -24,7 +24,7 @@ openclaw plugins install @clawforgeai/clawforge
 Use the bundled CLI to point the plugin at your control plane:
 
 ```bash
-npx clawguard install --url https://clawforge.example.com --org your-org-id
+npx clawforge install --url https://clawforge.example.com --org your-org-id
 ```
 
 Or configure manually with `openclaw config set`:
@@ -95,7 +95,7 @@ The plugin registers the following OpenClaw slash commands:
 ## Uninstall
 
 ```bash
-npx clawguard uninstall
+npx clawforge uninstall
 openclaw plugins uninstall clawforge
 ```
 
