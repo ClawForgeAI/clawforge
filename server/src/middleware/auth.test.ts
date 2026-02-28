@@ -172,7 +172,7 @@ describe("Auth Middleware", () => {
       });
 
       expect(res.statusCode).toBe(403);
-      expect(res.json()).toEqual({ error: "Admin access required" });
+      expect(res.json()).toEqual({ error: "Admin or viewer access required" });
     });
 
     it("allows admin access to admin-only routes", async () => {

@@ -20,6 +20,7 @@ import { heartbeatRoutes } from "../routes/heartbeat.js";
 // ---------------------------------------------------------------------------
 
 export const TEST_JWT_SECRET = "test-secret-for-unit-tests";
+export const JWT_SECRET = TEST_JWT_SECRET;
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -84,7 +85,14 @@ export const testPolicy = {
  *
  * Tests can override the final resolution with `mockResolvedValueOnce`.
  */
-export function createMockDb() {
+export type MockDb = {
+  select: (...args: unknown[]) => unknown;
+  insert: (...args: unknown[]) => unknown;
+  update: (...args: unknown[]) => unknown;
+  delete: (...args: unknown[]) => unknown;
+};
+
+export function createMockDb(): MockDb {
   // A chainable mock that resolves to an empty array by default.
   function createChain(resolvedValue: unknown = []) {
     const chain: Record<string, ReturnType<typeof vi.fn>> = {};
@@ -134,7 +142,7 @@ export function createMockDb() {
     return proxy;
   }
 
-  const db = {
+  const db: MockDb = {
     select: vi.fn(() => createChain([])),
     insert: vi.fn(() => createChain([])),
     update: vi.fn(() => createChain([])),
@@ -143,8 +151,6 @@ export function createMockDb() {
 
   return db;
 }
-
-export type MockDb = ReturnType<typeof createMockDb>;
 
 // ---------------------------------------------------------------------------
 // Test App Factory
@@ -167,6 +173,7 @@ export async function createTestApp(mockDb?: MockDb): Promise<FastifyInstance> {
 
   // Health check
   app.get("/health", async () => ({ status: "ok" }));
+  app.get("/health/ready", async () => ({ status: "healthy" }));
 
   // Auth middleware
   await registerAuthMiddleware(app);
