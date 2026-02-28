@@ -92,7 +92,7 @@ export async function createServer(config: ServerConfig) {
   app.get("/health", async () => ({ status: "ok" }));
 
   // Deep health check (readiness probe) (#41)
-  app.get("/health/ready", async (_request, reply) => {
+  const getReadyHealth = async () => {
     const checks: Record<string, { status: string; latency_ms?: number; error?: string }> = {};
     let allHealthy = true;
 
@@ -110,14 +110,19 @@ export async function createServer(config: ServerConfig) {
       };
     }
 
-    const response = {
+    const body = {
       status: allHealthy ? "healthy" : "unhealthy",
       timestamp: new Date().toISOString(),
       version: process.env.npm_package_version ?? "0.1.0",
       checks,
     };
 
-    return reply.code(allHealthy ? 200 : 503).send(response);
+    return { statusCode: allHealthy ? 200 : 503, body };
+  };
+
+  app.get("/health/ready", async (_request, reply) => {
+    const { statusCode, body } = await getReadyHealth();
+    return reply.code(statusCode).send(body);
   });
 
   // Routes
