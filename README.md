@@ -5,6 +5,12 @@
 <h1 align="center">ClawForge</h1>
 
 <p align="center">
+  <a href="https://github.com/ClawForgeAI/clawforge/actions/workflows/ci.yml">
+    <img src="https://github.com/ClawForgeAI/clawforge/actions/workflows/ci.yml/badge.svg" alt="CI Status" />
+  </a>
+</p>
+
+<p align="center">
   <img src="docs/images/demo.gif" alt="ClawForge Demo" width="700" />
 </p>
 
