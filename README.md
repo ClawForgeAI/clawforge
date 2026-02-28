@@ -5,8 +5,8 @@
 <h1 align="center">ClawForge</h1>
 
 <p align="center">
-  <a href="https://github.com/ClawForgeAI/clawforge/actions/workflows/ci.yml">
-    <img src="https://github.com/ClawForgeAI/clawforge/actions/workflows/ci.yml/badge.svg" alt="CI Status" />
+  <a href="https://github.com/ClawForgeAI/clawforge/actions/workflows/ci.yml?query=branch%3Amain">
+    <img src="https://github.com/ClawForgeAI/clawforge/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI Status" />
   </a>
 </p>
 
