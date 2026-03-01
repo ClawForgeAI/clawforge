@@ -16,7 +16,7 @@ const NAV_SECTIONS = [
   {
     title: "Governance",
     items: [
-      { href: "/policies", label: "Policy Editor", icon: ShieldIcon },
+      { href: "/policies", label: "AI Permissions", icon: ShieldIcon },
       { href: "/skills", label: "Skill Review", icon: SkillIcon },
       { href: "/kill-switch", label: "Kill Switch", icon: PowerIcon },
     ],

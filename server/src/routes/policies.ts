@@ -83,6 +83,10 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
       return reply.send({
         ...policy,
         tools: policy.toolsConfig ?? {},
+        killSwitch: {
+          active: policy.killSwitch ?? false,
+          message: policy.killSwitchMessage ?? undefined,
+        },
       });
     },
   );

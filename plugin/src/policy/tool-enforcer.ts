@@ -49,8 +49,10 @@ const TOOL_GROUPS: Record<string, string[]> = {
     "session_status",
   ],
   "group:ui": ["browser", "canvas"],
+  "group:media": ["image", "tts"],
   "group:automation": ["cron", "gateway"],
   "group:messaging": ["message"],
+  "group:agents": ["agents_list"],
   "group:nodes": ["nodes"],
 };
 
@@ -68,6 +70,76 @@ function expandGroups(list: string[]): Set<string> {
     }
   }
   return expanded;
+}
+
+/**
+ * Shell commands that perform filesystem read operations.
+ * When group:fs is denied, exec calls using these commands are also blocked
+ * to prevent bypassing filesystem restrictions via shell.
+ */
+const FS_READ_COMMANDS = new Set([
+  "ls", "cat", "head", "tail", "less", "more", "find", "locate",
+  "tree", "stat", "file", "du", "wc", "od", "xxd", "hexdump",
+  "strings", "readlink", "realpath", "basename", "dirname",
+  "diff", "cmp", "md5sum", "sha256sum", "shasum",
+]);
+
+/**
+ * Shell commands that perform filesystem write operations.
+ * When group:fs is denied, exec calls using these commands are also blocked.
+ */
+const FS_WRITE_COMMANDS = new Set([
+  "cp", "mv", "rm", "mkdir", "rmdir", "touch", "chmod", "chown",
+  "chgrp", "ln", "install", "mktemp", "truncate", "shred",
+  "tar", "zip", "unzip", "gzip", "gunzip", "bzip2",
+]);
+
+/** All filesystem-related shell commands. */
+const FS_ALL_COMMANDS = new Set([...FS_READ_COMMANDS, ...FS_WRITE_COMMANDS]);
+
+/**
+ * Extract the leading command name from a shell command string.
+ * Handles env vars, sudo prefixes, and piped/chained commands.
+ */
+function extractCommandNames(command: string): string[] {
+  const names: string[] = [];
+  // Split on pipes, &&, ||, and ; to get individual commands
+  const segments = command.split(/[|;&]/).map((s) => s.trim()).filter(Boolean);
+  for (const segment of segments) {
+    // Strip leading env vars (FOO=bar), sudo, env, etc.
+    const tokens = segment.split(/\s+/);
+    for (const token of tokens) {
+      if (token.includes("=") || token === "sudo" || token === "env" || token === "nohup") {
+        continue;
+      }
+      // Get just the binary name (strip path)
+      const bin = token.split("/").pop() ?? token;
+      if (bin) {
+        names.push(bin.toLowerCase());
+      }
+      break;
+    }
+  }
+  return names;
+}
+
+/**
+ * Check if an exec call should be blocked because it uses filesystem commands
+ * while group:fs is denied in the policy.
+ */
+function isExecBlockedByFsDeny(
+  denySet: Set<string>,
+  params: Record<string, unknown>,
+): boolean {
+  // Only apply if filesystem tools are denied (group:fs was expanded into these)
+  const fsToolsDenied = denySet.has("read") || denySet.has("write") || denySet.has("edit");
+  if (!fsToolsDenied) return false;
+
+  const command = (params.command ?? params.cmd ?? "") as string;
+  if (!command) return false;
+
+  const commandNames = extractCommandNames(command);
+  return commandNames.some((name) => FS_ALL_COMMANDS.has(name));
 }
 
 export type ToolEnforcerState = {
@@ -177,6 +249,24 @@ function enforcePolicy(
       return {
         block: true,
         blockReason: `ClawForge: Tool "${event.toolName}" is blocked by organization policy`,
+      };
+    }
+
+    // When filesystem tools are denied, also block exec calls that run
+    // filesystem commands (ls, cat, find, etc.) to prevent policy bypass.
+    if (toolName === "exec" && isExecBlockedByFsDeny(denySet, event.params)) {
+      const command = (event.params.command ?? event.params.cmd ?? "") as string;
+      auditLogger.enqueue({
+        eventType: "tool_call_attempt",
+        toolName,
+        outcome: "blocked",
+        agentId: ctx.agentId,
+        sessionKey: ctx.sessionKey,
+        metadata: { reason: modeReason ? `fs_deny_exec (${modeReason})` : "fs_deny_exec", command },
+      });
+      return {
+        block: true,
+        blockReason: `ClawForge: Shell command blocked — filesystem access is denied by organization policy`,
       };
     }
   }
