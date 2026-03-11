@@ -26,6 +26,13 @@ export const organizations = pgTable("organizations", {
     clientId: string;
     audience?: string;
   }>(),
+  settings: jsonb("settings").$type<{
+    auditRetentionDays?: number;
+    heartbeatOnlineThresholdMs?: number;
+    heartbeatOfflineThresholdMs?: number;
+    defaultNewUserRole?: "admin" | "viewer" | "user";
+    killSwitchDefaultMessage?: string;
+  }>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -43,7 +50,7 @@ export const users = pgTable(
       .references(() => organizations.id, { onDelete: "cascade" }),
     email: text("email").notNull(),
     name: text("name"),
-    role: text("role", { enum: ["admin", "viewer", "user"] })
+    role: text("role", { enum: ["super_admin", "admin", "policy_admin", "security_admin", "viewer", "user"] })
       .notNull()
       .default("user"),
     passwordHash: text("password_hash"),
@@ -252,7 +259,7 @@ export const apiKeys = pgTable(
     name: text("name").notNull(),
     keyHash: text("key_hash").notNull(),
     keyPrefix: text("key_prefix").notNull(),
-    role: text("role", { enum: ["admin", "viewer"] })
+    role: text("role", { enum: ["super_admin", "admin", "policy_admin", "security_admin", "viewer"] })
       .notNull()
       .default("viewer"),
     expiresAt: timestamp("expires_at", { withTimezone: true }),
@@ -267,5 +274,60 @@ export const apiKeys = pgTable(
   (table) => [
     index("api_keys_org_idx").on(table.orgId),
     uniqueIndex("api_keys_prefix_idx").on(table.keyPrefix),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Permissions (#61)
+// ---------------------------------------------------------------------------
+
+export const permissions = pgTable(
+  "permissions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    description: text("description"),
+    resource: text("resource").notNull(),
+    action: text("action").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("permissions_name_idx").on(table.name),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Roles (#61)
+// ---------------------------------------------------------------------------
+
+export const roles = pgTable(
+  "roles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id").references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    isBuiltIn: boolean("is_built_in").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("roles_org_name_idx").on(table.orgId, table.name),
+  ],
+);
+
+export const rolePermissions = pgTable(
+  "role_permissions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    roleId: uuid("role_id")
+      .notNull()
+      .references(() => roles.id, { onDelete: "cascade" }),
+    permissionId: uuid("permission_id")
+      .notNull()
+      .references(() => permissions.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    uniqueIndex("role_permissions_role_perm_idx").on(table.roleId, table.permissionId),
   ],
 );

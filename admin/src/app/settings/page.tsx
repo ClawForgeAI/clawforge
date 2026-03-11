@@ -9,7 +9,8 @@ import { Badge } from "@/components/badge";
 import { CardSkeleton } from "@/components/skeleton";
 import { useToast } from "@/components/toast";
 import { getAuth } from "@/lib/auth";
-import { getOrganization, updateOrganization, changePassword } from "@/lib/api";
+import { getOrganization, updateOrganization, changePassword, getOrgSettings, updateOrgSettings } from "@/lib/api";
+import type { OrgSettings } from "@/lib/api";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -23,6 +24,10 @@ export default function SettingsPage() {
   const [audience, setAudience] = useState("");
   const [orgId, setOrgId] = useState("");
   const [createdAt, setCreatedAt] = useState("");
+
+  // Org settings state (#45)
+  const [orgSettings, setOrgSettings] = useState<OrgSettings>({});
+  const [savingSettings, setSavingSettings] = useState(false);
 
   // Change password state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -52,6 +57,10 @@ export default function SettingsPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+
+    getOrgSettings(auth.orgId, auth.accessToken)
+      .then((data) => setOrgSettings(data.settings))
+      .catch(() => {});
   }, [router]);
 
   async function handleSave() {
@@ -83,6 +92,21 @@ export default function SettingsPage() {
       toast.error(err instanceof Error ? err.message : "Failed to save settings");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSaveSettings() {
+    const auth = getAuth();
+    if (!auth) return;
+    setSavingSettings(true);
+    try {
+      const result = await updateOrgSettings(auth.orgId, auth.accessToken, orgSettings);
+      setOrgSettings(result.settings);
+      toast.success("Organization settings saved.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save settings");
+    } finally {
+      setSavingSettings(false);
     }
   }
 
@@ -232,8 +256,95 @@ export default function SettingsPage() {
               </Card>
             </motion.div>
 
-            {/* Change Password */}
+            {/* Governance Settings (#45) */}
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+              <Card>
+                <div className="flex items-center justify-between mb-1">
+                  <CardTitle className="mb-0">Governance Settings</CardTitle>
+                  <button onClick={handleSaveSettings} disabled={savingSettings} className="btn btn-primary btn-xs">
+                    {savingSettings && <span className="loading loading-spinner loading-xs" />}
+                    {savingSettings ? "Saving..." : "Save"}
+                  </button>
+                </div>
+                <div className="space-y-4 mt-4">
+                  <div className="form-control">
+                    <label className="label"><span className="label-text text-xs font-medium">Audit Retention (days)</span></label>
+                    <input
+                      type="number"
+                      value={orgSettings.auditRetentionDays ?? ""}
+                      onChange={(e) => setOrgSettings({ ...orgSettings, auditRetentionDays: e.target.value ? parseInt(e.target.value, 10) : undefined })}
+                      placeholder="90"
+                      className="input input-bordered input-sm w-full max-w-xs"
+                      min={1}
+                      max={3650}
+                    />
+                    <label className="label"><span className="label-text-alt text-xs text-base-content/40">How long to retain audit logs before cleanup</span></label>
+                  </div>
+                  <div className="form-control">
+                    <label className="label"><span className="label-text text-xs font-medium">Default Role for New Users</span></label>
+                    <select
+                      value={orgSettings.defaultNewUserRole ?? "user"}
+                      onChange={(e) => setOrgSettings({ ...orgSettings, defaultNewUserRole: e.target.value as "admin" | "viewer" | "user" })}
+                      className="select select-bordered select-sm w-full max-w-xs"
+                    >
+                      <option value="user">User</option>
+                      <option value="viewer">Viewer</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                    <label className="label"><span className="label-text-alt text-xs text-base-content/40">Role assigned to newly enrolled users</span></label>
+                  </div>
+                  <div className="form-control">
+                    <label className="label"><span className="label-text text-xs font-medium">Kill Switch Default Message</span></label>
+                    <input
+                      type="text"
+                      value={orgSettings.killSwitchDefaultMessage ?? ""}
+                      onChange={(e) => setOrgSettings({ ...orgSettings, killSwitchDefaultMessage: e.target.value || undefined })}
+                      placeholder="All agent tool calls are currently blocked."
+                      className="input input-bordered input-sm w-full max-w-md"
+                    />
+                    <label className="label"><span className="label-text-alt text-xs text-base-content/40">Default message shown when kill switch is activated</span></label>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+
+            {/* Heartbeat Thresholds (#45) */}
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+              <Card>
+                <CardTitle>Heartbeat Thresholds</CardTitle>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="form-control">
+                    <label className="label"><span className="label-text text-xs font-medium">Online Threshold (minutes)</span></label>
+                    <input
+                      type="number"
+                      value={orgSettings.heartbeatOnlineThresholdMs ? orgSettings.heartbeatOnlineThresholdMs / 60000 : ""}
+                      onChange={(e) => setOrgSettings({ ...orgSettings, heartbeatOnlineThresholdMs: e.target.value ? parseFloat(e.target.value) * 60000 : undefined })}
+                      placeholder="5"
+                      className="input input-bordered input-sm w-full"
+                      min={0.5}
+                      step={0.5}
+                    />
+                    <label className="label"><span className="label-text-alt text-xs text-base-content/40">Client is considered online within this window</span></label>
+                  </div>
+                  <div className="form-control">
+                    <label className="label"><span className="label-text text-xs font-medium">Offline Threshold (minutes)</span></label>
+                    <input
+                      type="number"
+                      value={orgSettings.heartbeatOfflineThresholdMs ? orgSettings.heartbeatOfflineThresholdMs / 60000 : ""}
+                      onChange={(e) => setOrgSettings({ ...orgSettings, heartbeatOfflineThresholdMs: e.target.value ? parseFloat(e.target.value) * 60000 : undefined })}
+                      placeholder="10"
+                      className="input input-bordered input-sm w-full"
+                      min={1}
+                      step={0.5}
+                    />
+                    <label className="label"><span className="label-text-alt text-xs text-base-content/40">Client is considered offline after this window</span></label>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+
+            {/* Change Password */}
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
               <Card>
                 <CardTitle>Change Password</CardTitle>
                 <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">

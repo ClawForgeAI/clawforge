@@ -344,6 +344,28 @@ export function updateOrganization(
   });
 }
 
+// --- Org Settings (#45) ---
+
+export type OrgSettings = {
+  auditRetentionDays?: number;
+  heartbeatOnlineThresholdMs?: number;
+  heartbeatOfflineThresholdMs?: number;
+  defaultNewUserRole?: "admin" | "viewer" | "user";
+  killSwitchDefaultMessage?: string;
+};
+
+export function getOrgSettings(orgId: string, token: string) {
+  return apiFetch<{ settings: OrgSettings }>(`/api/v1/organizations/${orgId}/settings`, { token });
+}
+
+export function updateOrgSettings(orgId: string, token: string, body: Partial<OrgSettings>) {
+  return apiFetch<{ settings: OrgSettings }>(`/api/v1/organizations/${orgId}/settings`, {
+    method: "PUT",
+    token,
+    body,
+  });
+}
+
 // --- API Keys (#44) ---
 
 export type ApiKey = {
