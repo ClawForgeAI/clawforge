@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Sidebar } from "@/components/sidebar";
@@ -10,6 +10,8 @@ import { StatSkeleton, TableSkeleton } from "@/components/skeleton";
 import { getAuth } from "@/lib/auth";
 import { getPolicy, queryAudit, getPendingSkills, getUsers, getConnectedClients } from "@/lib/api";
 import type { EffectivePolicy, AuditEvent } from "@/lib/api";
+
+const POLL_INTERVAL_MS = 30_000;
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -21,50 +23,96 @@ export default function DashboardPage() {
   const [toolCallsBlocked, setToolCallsBlocked] = useState(0);
   const [onlineClients, setOnlineClients] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isLive, setIsLive] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("dashboard-live") !== "false";
+    }
+    return true;
+  });
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
+  function toggleLive() {
+    setIsLive((prev) => {
+      const next = !prev;
+      localStorage.setItem("dashboard-live", String(next));
+      return next;
+    });
+  }
+
+  const loadData = useCallback(async () => {
+    const auth = getAuth();
+    if (!auth) return;
+    const { orgId, accessToken } = auth;
+
+    const [policyData, auditData, skillsData, usersData, clientsData] = await Promise.allSettled([
+      getPolicy(orgId, accessToken),
+      queryAudit(orgId, accessToken, { limit: "20" }),
+      getPendingSkills(orgId, accessToken),
+      getUsers(orgId, accessToken),
+      getConnectedClients(orgId, accessToken),
+    ]);
+
+    if (policyData.status === "fulfilled") setPolicy(policyData.value);
+    if (auditData.status === "fulfilled") {
+      const events = auditData.value.events;
+      setRecentEvents(events);
+      setToolCallsAllowed(events.filter((e) => e.outcome === "allowed").length);
+      setToolCallsBlocked(events.filter((e) => e.outcome === "blocked").length);
+    }
+    if (skillsData.status === "fulfilled") setPendingCount(skillsData.value.submissions.length);
+    if (usersData.status === "fulfilled") setUserCount(usersData.value.users.length);
+    if (clientsData.status === "fulfilled") setOnlineClients(clientsData.value.summary.online);
+
+    setLoading(false);
+    setLastUpdated(new Date());
+  }, []);
+
+  // Initial load
   useEffect(() => {
     const auth = getAuth();
     if (!auth) {
       router.replace("/login");
       return;
     }
+    loadData();
+  }, [router, loadData]);
 
-    async function load() {
-      const auth = getAuth()!;
-      const { orgId, accessToken } = auth;
+  // Polling
+  useEffect(() => {
+    if (!isLive) return;
 
-      const [policyData, auditData, skillsData, usersData, clientsData] = await Promise.allSettled([
-        getPolicy(orgId, accessToken),
-        queryAudit(orgId, accessToken, { limit: "20" }),
-        getPendingSkills(orgId, accessToken),
-        getUsers(orgId, accessToken),
-        getConnectedClients(orgId, accessToken),
-      ]);
-
-      if (policyData.status === "fulfilled") setPolicy(policyData.value);
-      if (auditData.status === "fulfilled") {
-        const events = auditData.value.events;
-        setRecentEvents(events);
-        setToolCallsAllowed(events.filter((e) => e.outcome === "allowed").length);
-        setToolCallsBlocked(events.filter((e) => e.outcome === "blocked").length);
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        loadData();
       }
-      if (skillsData.status === "fulfilled") setPendingCount(skillsData.value.submissions.length);
-      if (usersData.status === "fulfilled") setUserCount(usersData.value.users.length);
-      if (clientsData.status === "fulfilled") setOnlineClients(clientsData.value.summary.online);
+    }, POLL_INTERVAL_MS);
 
-      setLoading(false);
-    }
-
-    load();
-  }, [router]);
+    return () => clearInterval(interval);
+  }, [isLive, loadData]);
 
   return (
     <div className="flex min-h-screen bg-base-200">
       <Sidebar />
       <main className="flex-1 p-4 lg:p-8 pt-16 lg:pt-8">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold">Dashboard</h2>
-          <p className="text-sm text-base-content/50 mt-1">Overview of your organization&apos;s governance status</p>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-2xl font-bold">Dashboard</h2>
+            <p className="text-sm text-base-content/50 mt-1">Overview of your organization&apos;s governance status</p>
+          </div>
+          <div className="flex items-center gap-3">
+            {lastUpdated && (
+              <span className="text-xs text-base-content/40">
+                Updated {lastUpdated.toLocaleTimeString()}
+              </span>
+            )}
+            <button
+              onClick={toggleLive}
+              className={`btn btn-sm gap-2 ${isLive ? "btn-success" : "btn-ghost"}`}
+            >
+              <span className={`w-2 h-2 rounded-full ${isLive ? "bg-success-content animate-pulse" : "bg-base-content/30"}`} />
+              {isLive ? "Live" : "Paused"}
+            </button>
+          </div>
         </div>
 
         {loading ? (

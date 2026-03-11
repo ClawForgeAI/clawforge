@@ -41,9 +41,27 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const [auth, setAuthState] = useState<ReturnType<typeof getAuth>>(null);
+  const [pendingSkillsCount, setPendingSkillsCount] = useState(0);
 
   useEffect(() => {
     setAuthState(getAuth());
+  }, []);
+
+  useEffect(() => {
+    async function fetchPendingCount() {
+      const auth = getAuth();
+      if (!auth) return;
+      try {
+        const { getPendingSkills } = await import("@/lib/api");
+        const data = await getPendingSkills(auth.orgId, auth.accessToken);
+        setPendingSkillsCount(data.submissions.length);
+      } catch {
+        // ignore
+      }
+    }
+    fetchPendingCount();
+    const interval = setInterval(fetchPendingCount, 30_000);
+    return () => clearInterval(interval);
   }, []);
 
   function handleSignOut() {
@@ -89,6 +107,9 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
                     >
                       <item.icon className="w-[18px] h-[18px] shrink-0" />
                       {item.label}
+                      {item.href === "/skills" && pendingSkillsCount > 0 && (
+                        <span className="badge badge-warning badge-xs ml-auto">{pendingSkillsCount}</span>
+                      )}
                     </Link>
                   </li>
                 );
