@@ -66,6 +66,8 @@ export const policies = pgTable(
     orgId: uuid("org_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull().default("Default Policy"),
+    isDefault: boolean("is_default").notNull().default(false),
     version: integer("version").notNull().default(1),
     toolsConfig: jsonb("tools_config").$type<{
       allow?: string[];
@@ -84,7 +86,33 @@ export const policies = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex("policies_org_id_idx").on(table.orgId),
+    index("policies_org_id_idx").on(table.orgId),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Policy Assignments (#23)
+// ---------------------------------------------------------------------------
+
+export const policyAssignments = pgTable(
+  "policy_assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    policyId: uuid("policy_id")
+      .notNull()
+      .references(() => policies.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: text("role"),
+    priority: integer("priority").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("policy_assignments_org_idx").on(table.orgId),
+    index("policy_assignments_user_idx").on(table.userId),
   ],
 );
 

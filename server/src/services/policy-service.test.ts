@@ -82,9 +82,12 @@ describe("PolicyService", () => {
     });
 
     it("returns an effective policy with org-wide approved skills", async () => {
-      // First select: policy query
-      // Second select: approved skills query
-      // We need to handle two sequential selects returning different values.
+      // getEffectivePolicy now does multiple selects:
+      // 1. user assignment (empty)
+      // 2. default policy lookup
+      // 3. fallback any policy
+      // 4. approved skills
+      // With the mock, all selects return the same value, so we sequence them.
       let callCount = 0;
       const policyRow = { ...testPolicy };
       const approvedSkillRows = [
@@ -104,7 +107,17 @@ describe("PolicyService", () => {
 
       db.select = vi.fn(() => {
         callCount++;
-        const results = callCount === 1 ? [policyRow] : approvedSkillRows;
+        // 1: user assignment -> empty
+        // 2: default policy -> policyRow
+        // 3: approved skills -> approvedSkillRows
+        let results: unknown[];
+        if (callCount <= 1) {
+          results = [];
+        } else if (callCount === 2) {
+          results = [policyRow];
+        } else {
+          results = approvedSkillRows;
+        }
         const obj: Record<string, unknown> = {};
         const methods = ["from", "where", "limit", "offset", "orderBy"];
         for (const m of methods) {
@@ -174,7 +187,14 @@ describe("PolicyService", () => {
 
       db.select = vi.fn(() => {
         callCount++;
-        const results = callCount === 1 ? [policyRow] : approvedSkillRows;
+        let results: unknown[];
+        if (callCount <= 1) {
+          results = [];
+        } else if (callCount === 2) {
+          results = [policyRow];
+        } else {
+          results = approvedSkillRows;
+        }
         const obj: Record<string, unknown> = {};
         const methods = ["from", "where", "limit", "offset", "orderBy"];
         for (const m of methods) {
@@ -203,8 +223,7 @@ describe("PolicyService", () => {
         auditLevel: "full" as const,
       };
 
-      // getOrgPolicy (select) returns empty, then insert returns the new row
-      let callCount = 0;
+      // getOrgPolicy (select) returns empty (default lookup + any lookup), then insert returns the new row
       db.select = vi.fn(() => {
         const obj: Record<string, unknown> = {};
         const methods = ["from", "where", "limit"];
@@ -227,7 +246,7 @@ describe("PolicyService", () => {
     it("updates an existing policy and increments version", async () => {
       const updatedPolicy = { ...testPolicy, version: 2, auditLevel: "full" as const };
 
-      // getOrgPolicy returns existing
+      // getOrgPolicy returns existing (default policy found)
       db.select = vi.fn(() => {
         const obj: Record<string, unknown> = {};
         const methods = ["from", "where", "limit"];
@@ -312,6 +331,48 @@ describe("PolicyService", () => {
 
       expect(result).toEqual(updated);
       expect(result.killSwitch).toBe(false);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // listOrgPolicies (#23)
+  // -------------------------------------------------------------------------
+
+  describe("listOrgPolicies", () => {
+    it("returns all policies for an org", async () => {
+      const policyList = [
+        { ...testPolicy, name: "Default Policy" },
+        { ...testPolicy, id: "00000000-0000-4000-8000-000000000101", name: "Engineering", isDefault: false },
+      ];
+
+      db._setSelectResult(policyList);
+
+      const result = await service.listOrgPolicies(TEST_ORG_ID);
+      expect(result).toEqual(policyList);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // createPolicy (#23)
+  // -------------------------------------------------------------------------
+
+  describe("createPolicy", () => {
+    it("creates a new named policy", async () => {
+      const newPolicy = {
+        ...testPolicy,
+        id: "00000000-0000-4000-8000-000000000102",
+        name: "Engineering",
+        isDefault: false,
+      };
+
+      db._setInsertResult([newPolicy]);
+
+      const result = await service.createPolicy(TEST_ORG_ID, {
+        name: "Engineering",
+      });
+
+      expect(result).toEqual(newPolicy);
+      expect(db.insert).toHaveBeenCalled();
     });
   });
 });

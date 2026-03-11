@@ -108,6 +108,71 @@ export function setKillSwitch(orgId: string, token: string, active: boolean, mes
   });
 }
 
+// --- Multiple Policies (#23) ---
+
+export type PolicySummary = {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  version: number;
+  auditLevel: string;
+  killSwitch: boolean;
+  updatedAt: string;
+};
+
+export type PolicyAssignment = {
+  id: string;
+  policyId: string;
+  userId?: string;
+  role?: string;
+  priority: number;
+  createdAt: string;
+};
+
+export function listPolicies(orgId: string, token: string) {
+  return apiFetch<{ policies: PolicySummary[] }>(`/api/v1/policies/${orgId}/list`, { token });
+}
+
+export function createPolicy(
+  orgId: string,
+  token: string,
+  body: { name: string; isDefault?: boolean; toolsConfig?: unknown; skillsConfig?: unknown; auditLevel?: string },
+) {
+  return apiFetch<PolicySummary>(`/api/v1/policies/${orgId}`, { method: "POST", token, body });
+}
+
+export function clonePolicy(orgId: string, policyId: string, token: string, name: string) {
+  return apiFetch<PolicySummary>(`/api/v1/policies/${orgId}/${policyId}/clone`, {
+    method: "POST",
+    token,
+    body: { name },
+  });
+}
+
+export function assignPolicy(
+  orgId: string,
+  policyId: string,
+  token: string,
+  body: { userId?: string; role?: string },
+) {
+  return apiFetch<PolicyAssignment>(`/api/v1/policies/${orgId}/${policyId}/assign`, {
+    method: "POST",
+    token,
+    body,
+  });
+}
+
+export function getPolicyAssignments(orgId: string, policyId: string, token: string) {
+  return apiFetch<{ assignments: PolicyAssignment[] }>(`/api/v1/policies/${orgId}/${policyId}/assignments`, { token });
+}
+
+export function removePolicyAssignment(orgId: string, assignmentId: string, token: string) {
+  return apiFetch<{ success: boolean }>(`/api/v1/policies/${orgId}/assignments/${assignmentId}`, {
+    method: "DELETE",
+    token,
+  });
+}
+
 // --- Skills ---
 
 export type SkillSubmission = {

@@ -9,7 +9,8 @@ import { Badge } from "@/components/badge";
 import { CardSkeleton } from "@/components/skeleton";
 import { useToast } from "@/components/toast";
 import { getAuth } from "@/lib/auth";
-import { getPolicy, updatePolicy } from "@/lib/api";
+import { getPolicy, updatePolicy, listPolicies, createPolicy as createPolicyApi } from "@/lib/api";
+import type { PolicySummary } from "@/lib/api";
 
 // --- Business-friendly capability definitions ---
 
@@ -325,6 +326,10 @@ export default function PoliciesPage() {
   const [expandedCap, setExpandedCap] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [policyList, setPolicyList] = useState<PolicySummary[]>([]);
+  const [selectedPolicyId, setSelectedPolicyId] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newPolicyName, setNewPolicyName] = useState("");
 
   useEffect(() => {
     const auth = getAuth();
@@ -332,6 +337,17 @@ export default function PoliciesPage() {
       router.replace("/login");
       return;
     }
+
+    // Load policy list (#23)
+    listPolicies(auth.orgId, auth.accessToken)
+      .then((data) => {
+        setPolicyList(data.policies);
+        if (data.policies.length > 0) {
+          const defaultPolicy = data.policies.find(p => p.isDefault) ?? data.policies[0];
+          setSelectedPolicyId(defaultPolicy.id);
+        }
+      })
+      .catch(() => {});
 
     getPolicy(auth.orgId, auth.accessToken)
       .then((policy) => {
@@ -483,6 +499,31 @@ export default function PoliciesPage() {
             </button>
           </div>
         </div>
+
+        {/* Policy selector (#23) */}
+        {policyList.length > 0 && (
+          <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
+            {policyList.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setSelectedPolicyId(p.id)}
+                className={`btn btn-sm whitespace-nowrap ${
+                  selectedPolicyId === p.id ? "btn-primary" : "btn-ghost"
+                }`}
+              >
+                {p.name}
+                {p.isDefault && <span className="badge badge-xs badge-outline ml-1">default</span>}
+              </button>
+            ))}
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="btn btn-sm btn-ghost btn-circle"
+              title="Create new policy"
+            >
+              +
+            </button>
+          </div>
+        )}
 
         {loading ? (
           <div className="space-y-4">
@@ -807,6 +848,43 @@ export default function PoliciesPage() {
                 )}
               </AnimatePresence>
             </Card>
+          </div>
+        )}
+        {/* Create Policy Modal (#23) */}
+        {showCreateModal && (
+          <div className="modal modal-open">
+            <div className="modal-box">
+              <h3 className="font-bold text-lg">Create New Policy</h3>
+              <div className="form-control mt-4">
+                <label className="label"><span className="label-text">Policy Name</span></label>
+                <input
+                  value={newPolicyName}
+                  onChange={(e) => setNewPolicyName(e.target.value)}
+                  placeholder="e.g., Engineering Team Policy"
+                  className="input input-bordered w-full"
+                />
+              </div>
+              <div className="modal-action">
+                <button className="btn btn-ghost" onClick={() => setShowCreateModal(false)}>Cancel</button>
+                <button
+                  className="btn btn-primary"
+                  disabled={!newPolicyName}
+                  onClick={async () => {
+                    const auth = getAuth();
+                    if (!auth) return;
+                    try {
+                      await createPolicyApi(auth.orgId, auth.accessToken, { name: newPolicyName });
+                      const data = await listPolicies(auth.orgId, auth.accessToken);
+                      setPolicyList(data.policies);
+                      setShowCreateModal(false);
+                      setNewPolicyName("");
+                    } catch {}
+                  }}
+                >
+                  Create
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </main>
