@@ -127,4 +127,95 @@ export async function organizationRoutes(app: FastifyInstance): Promise<void> {
       return reply.send({ organization: updated });
     },
   );
+
+  // -----------------------------------------------------------------
+  // Org Settings (#45)
+  // -----------------------------------------------------------------
+
+  const UpdateSettingsSchema = z.object({
+    auditRetentionDays: z.number().int().min(1).max(3650).optional(),
+    heartbeatOnlineThresholdMs: z.number().int().min(30000).max(3600000).optional(),
+    heartbeatOfflineThresholdMs: z.number().int().min(60000).max(86400000).optional(),
+    defaultNewUserRole: z.enum(["admin", "viewer", "user"]).optional(),
+    killSwitchDefaultMessage: z.string().max(500).optional(),
+  });
+
+  /**
+   * GET /api/v1/organizations/:orgId/settings
+   * Get org settings (admin or viewer).
+   */
+  app.get<{ Params: { orgId: string } }>(
+    "/api/v1/organizations/:orgId/settings",
+    async (request, reply) => {
+      requireAdminOrViewer(request, reply);
+      if (reply.sent) return;
+      const { orgId } = request.params;
+      requireOrg(request, reply, orgId);
+      if (reply.sent) return;
+
+      const [org] = await app.db
+        .select({ settings: organizations.settings })
+        .from(organizations)
+        .where(eq(organizations.id, orgId))
+        .limit(1);
+
+      if (!org) {
+        return reply.code(404).send({ error: "Organization not found" });
+      }
+
+      return reply.send({ settings: org.settings ?? {} });
+    },
+  );
+
+  /**
+   * PUT /api/v1/organizations/:orgId/settings
+   * Update org settings (admin only).
+   */
+  app.put<{ Params: { orgId: string } }>(
+    "/api/v1/organizations/:orgId/settings",
+    async (request, reply) => {
+      requireAdmin(request, reply);
+      if (reply.sent) return;
+      const { orgId } = request.params;
+      requireOrg(request, reply, orgId);
+      if (reply.sent) return;
+
+      const parseResult = UpdateSettingsSchema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.code(400).send({
+          error: "Invalid request body",
+          details: parseResult.error.issues,
+        });
+      }
+
+      const [org] = await app.db
+        .select({ settings: organizations.settings })
+        .from(organizations)
+        .where(eq(organizations.id, orgId))
+        .limit(1);
+
+      if (!org) {
+        return reply.code(404).send({ error: "Organization not found" });
+      }
+
+      const merged = { ...(org.settings ?? {}), ...parseResult.data };
+
+      const [updated] = await app.db
+        .update(organizations)
+        .set({ settings: merged, updatedAt: new Date() })
+        .where(eq(organizations.id, orgId))
+        .returning({ settings: organizations.settings });
+
+      logAdminAction(app.db, {
+        orgId,
+        userId: request.authUser!.userId,
+        action: "settings_updated",
+        resourceType: "organization",
+        resourceId: orgId,
+        details: { fields: Object.keys(parseResult.data) },
+      }).catch(() => {});
+
+      return reply.send({ settings: updated.settings });
+    },
+  );
 }
