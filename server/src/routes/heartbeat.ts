@@ -14,6 +14,7 @@ export async function heartbeatRoutes(app: FastifyInstance): Promise<void> {
    */
   app.get<{ Params: { orgId: string } }>(
     "/api/v1/heartbeat/:orgId",
+    { config: { rateLimit: { max: 100, timeWindow: "1 minute" } } },
     async (request, reply) => {
       requireAdminOrViewer(request, reply);
       if (reply.sent) return;
@@ -67,6 +68,7 @@ export async function heartbeatRoutes(app: FastifyInstance): Promise<void> {
     Querystring: { policyVersion?: string; clientVersion?: string };
   }>(
     "/api/v1/heartbeat/:orgId/:userId",
+    { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } },
     async (request, reply) => {
       const { orgId, userId } = request.params;
       requireOrg(request, reply, orgId);

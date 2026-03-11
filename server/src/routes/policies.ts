@@ -46,6 +46,7 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
    */
   app.get<{ Params: { orgId: string }; Querystring: { userId?: string } }>(
     "/api/v1/policies/:orgId/effective",
+    { config: { rateLimit: { max: 100, timeWindow: "1 minute" } } },
     async (request, reply) => {
       const { orgId } = request.params;
       requireOrg(request, reply, orgId);
@@ -68,6 +69,7 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
    */
   app.get<{ Params: { orgId: string } }>(
     "/api/v1/policies/:orgId",
+    { config: { rateLimit: { max: 100, timeWindow: "1 minute" } } },
     async (request, reply) => {
       requireAdminOrViewer(request, reply);
       if (reply.sent) return;
@@ -97,6 +99,7 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
    */
   app.put<{ Params: { orgId: string } }>(
     "/api/v1/policies/:orgId",
+    { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } },
     async (request, reply) => {
       requireAdmin(request, reply);
       if (reply.sent) return;
@@ -138,6 +141,7 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
    */
   app.put<{ Params: { orgId: string } }>(
     "/api/v1/policies/:orgId/kill-switch",
+    { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } },
     async (request, reply) => {
       requireAdmin(request, reply);
       if (reply.sent) return;
