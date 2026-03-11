@@ -28,6 +28,7 @@ const PUBLIC_ENDPOINTS = new Set([
   "/api/v1/auth/enroll",
   "/health",
   "/health/ready",
+  "/metrics",
 ]);
 
 /**

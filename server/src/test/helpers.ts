@@ -171,6 +171,17 @@ export async function createTestApp(mockDb?: MockDb): Promise<FastifyInstance> {
   const db = mockDb ?? createMockDb();
   app.decorate("db", db as unknown as FastifyInstance["db"]);
 
+  // Decorate with no-op metrics for tests (#76)
+  const noopCounter = { inc: () => {} };
+  const noopGauge = { set: () => {}, inc: () => {}, dec: () => {} };
+  app.decorate("metrics", {
+    heartbeatCounter: noopCounter,
+    auditEventsCounter: noopCounter,
+    activeInstancesGauge: noopGauge,
+    policyFetchCounter: noopCounter,
+    killSwitchGauge: noopGauge,
+  } as unknown as FastifyInstance["metrics"]);
+
   // Health check
   app.get("/health", async () => ({ status: "ok" }));
   app.get("/health/ready", async () => ({ status: "healthy" }));

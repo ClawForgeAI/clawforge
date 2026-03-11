@@ -13,7 +13,6 @@
     "db:migrate": "node --env-file=.env ./node_modules/.bin/drizzle-kit migrate",
     "db:seed": "tsx --env-file=.env src/db/seed.ts",
     "db:studio": "node --env-file=.env ./node_modules/.bin/drizzle-kit studio",
-    "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
@@ -25,6 +24,7 @@
     "fastify": "^5.2.1",
     "jose": "^6.0.11",
     "postgres": "^3.4.5",
+    "prom-client": "^15.1.3",
     "zod": "^3.24.2"
   },
   "devDependencies": {

@@ -54,6 +54,9 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
       const userId = request.query.userId ?? request.authUser!.userId;
       const policy = await policyService.getEffectivePolicy(orgId, userId);
 
+      // Track policy fetch metric (#76)
+      app.metrics.policyFetchCounter.inc();
+
       if (!policy) {
         return reply.code(404).send({ error: "No policy configured for this organization" });
       }
@@ -158,6 +161,9 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
         parseResult.data.active,
         parseResult.data.message,
       );
+
+      // Track kill switch metric (#76)
+      app.metrics.killSwitchGauge.set(parseResult.data.active ? 1 : 0);
 
       // Broadcast kill switch change to all connected SSE clients in the org.
       eventBus.broadcast(orgId, "kill_switch", {

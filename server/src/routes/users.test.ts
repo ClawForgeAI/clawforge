@@ -35,6 +35,9 @@ async function buildApp(db: any) {
   const app = Fastify({ logger: false });
   await app.register(jwtPlugin, { secret: JWT_SECRET });
   app.decorate("db", db as never);
+  const noopCounter = { inc: () => {} };
+  const noopGauge = { set: () => {}, inc: () => {}, dec: () => {} };
+  app.decorate("metrics", { heartbeatCounter: noopCounter, auditEventsCounter: noopCounter, activeInstancesGauge: noopGauge, policyFetchCounter: noopCounter, killSwitchGauge: noopGauge } as never);
   await registerAuthMiddleware(app);
   await app.register(userRoutes);
   await app.ready();

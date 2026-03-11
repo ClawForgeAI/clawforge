@@ -73,6 +73,10 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
       }
 
       await auditService.ingestEvents(events);
+
+      // Track audit ingestion metric (#76)
+      app.metrics.auditEventsCounter.inc(events.length);
+
       return reply.code(201).send({ ingested: events.length });
     },
   );
