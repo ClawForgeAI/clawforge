@@ -59,6 +59,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
    */
   app.post<{ Params: { orgId: string } }>(
     "/api/v1/users/:orgId",
+    { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } },
     async (request, reply) => {
       requireAdmin(request, reply);
       if (reply.sent) return;
@@ -125,6 +126,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
    */
   app.put<{ Params: { orgId: string; userId: string } }>(
     "/api/v1/users/:orgId/:userId",
+    { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } },
     async (request, reply) => {
       requireAdmin(request, reply);
       if (reply.sent) return;
@@ -204,6 +206,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
    */
   app.delete<{ Params: { orgId: string; userId: string } }>(
     "/api/v1/users/:orgId/:userId",
+    { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } },
     async (request, reply) => {
       requireAdmin(request, reply);
       if (reply.sent) return;
@@ -261,6 +264,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
    */
   app.put<{ Params: { orgId: string; userId: string } }>(
     "/api/v1/users/:orgId/:userId/password",
+    { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } },
     async (request, reply) => {
       requireAdmin(request, reply);
       if (reply.sent) return;

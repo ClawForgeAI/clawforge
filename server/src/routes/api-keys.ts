@@ -36,6 +36,7 @@ export async function apiKeyRoutes(app: FastifyInstance): Promise<void> {
    */
   app.post<{ Params: { orgId: string } }>(
     "/api/v1/api-keys/:orgId",
+    { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } },
     async (request, reply) => {
       requireAdmin(request, reply);
       if (reply.sent) return;
@@ -100,6 +101,7 @@ export async function apiKeyRoutes(app: FastifyInstance): Promise<void> {
    */
   app.get<{ Params: { orgId: string } }>(
     "/api/v1/api-keys/:orgId",
+    { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } },
     async (request, reply) => {
       requireAdmin(request, reply);
       if (reply.sent) return;
@@ -137,6 +139,7 @@ export async function apiKeyRoutes(app: FastifyInstance): Promise<void> {
    */
   app.delete<{ Params: { orgId: string; keyId: string } }>(
     "/api/v1/api-keys/:orgId/:keyId",
+    { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } },
     async (request, reply) => {
       requireAdmin(request, reply);
       if (reply.sent) return;
