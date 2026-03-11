@@ -171,7 +171,11 @@ export default function UsersPage() {
                       className="select select-bordered select-sm w-full"
                     >
                       <option value="user">User</option>
+                      <option value="viewer">Viewer</option>
+                      <option value="policy_admin">Policy Admin</option>
+                      <option value="security_admin">Security Admin</option>
                       <option value="admin">Admin</option>
+                      <option value="super_admin">Super Admin</option>
                     </select>
                   </div>
                   <div className="form-control">
@@ -256,7 +260,11 @@ export default function UsersPage() {
                           disabled={user.id === currentUserId}
                         >
                           <option value="user">user</option>
+                          <option value="viewer">viewer</option>
+                          <option value="policy_admin">policy admin</option>
+                          <option value="security_admin">security admin</option>
                           <option value="admin">admin</option>
+                          <option value="super_admin">super admin</option>
                         </select>
                       </td>
                       <td className="text-base-content/50 text-sm">{formatDate(user.lastSeenAt)}</td>

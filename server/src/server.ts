@@ -21,6 +21,7 @@ import { enrollmentRoutes } from "./routes/enrollment.js";
 import { organizationRoutes } from "./routes/organizations.js";
 import { eventRoutes } from "./routes/events.js";
 import { apiKeyRoutes } from "./routes/api-keys.js";
+import { roleRoutes } from "./routes/roles.js";
 import { startAuditRetentionJob, stopAuditRetentionJob } from "./services/audit-retention.js";
 
 // Extend Fastify instance to include db and raw sql.
@@ -136,6 +137,7 @@ export async function createServer(config: ServerConfig) {
   await app.register(organizationRoutes);
   await app.register(eventRoutes);
   await app.register(apiKeyRoutes);
+  await app.register(roleRoutes);
 
   // Start audit retention cleanup job (#39)
   if (config.auditRetentionDays && config.auditRetentionDays > 0) {
