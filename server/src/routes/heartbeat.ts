@@ -75,6 +75,9 @@ export async function heartbeatRoutes(app: FastifyInstance): Promise<void> {
       const db = app.db;
       const clientVersionParam = request.query.clientVersion;
 
+      // Track heartbeat metric (#76)
+      app.metrics.heartbeatCounter.inc();
+
       // Upsert heartbeat record.
       await db
         .insert(clientHeartbeats)

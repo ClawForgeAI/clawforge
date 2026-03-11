@@ -9,6 +9,7 @@ import rateLimit from "@fastify/rate-limit";
 import postgres from "postgres";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import type { Sql } from "postgres";
+import { Registry, Counter, Histogram, Gauge, collectDefaultMetrics } from "prom-client";
 import * as schema from "./db/schema.js";
 import { registerAuthMiddleware } from "./middleware/auth.js";
 import { authRoutes } from "./routes/auth.js";
@@ -23,11 +24,24 @@ import { eventRoutes } from "./routes/events.js";
 import { apiKeyRoutes } from "./routes/api-keys.js";
 import { startAuditRetentionJob, stopAuditRetentionJob } from "./services/audit-retention.js";
 
-// Extend Fastify instance to include db and raw sql.
+// ---------------------------------------------------------------------------
+// Metrics types
+// ---------------------------------------------------------------------------
+
+export type AppMetrics = {
+  heartbeatCounter: Counter;
+  auditEventsCounter: Counter;
+  activeInstancesGauge: Gauge;
+  policyFetchCounter: Counter;
+  killSwitchGauge: Gauge;
+};
+
+// Extend Fastify instance to include db, raw sql, and metrics.
 declare module "fastify" {
   interface FastifyInstance {
     db: PostgresJsDatabase<typeof schema>;
     sql: Sql;
+    metrics: AppMetrics;
   }
 }
 
@@ -41,11 +55,88 @@ export type ServerConfig = {
   auditRetentionDays?: number;
   auditCleanupIntervalHours?: number;
   auditCleanupBatchSize?: number;
+  logLevel?: string;
+  logFormat?: string; // 'json' or 'pretty'
 };
 
 export async function createServer(config: ServerConfig) {
   const app = Fastify({
-    logger: true,
+    logger: {
+      level: config.logLevel ?? "info",
+      formatters: {
+        level(label) {
+          return { level: label };
+        },
+      },
+    },
+  });
+
+  // ---------------------------------------------------------------------------
+  // Prometheus metrics (#76)
+  // ---------------------------------------------------------------------------
+
+  const metricsRegistry = new Registry();
+  collectDefaultMetrics({ register: metricsRegistry });
+
+  const httpRequestDuration = new Histogram({
+    name: "clawforge_http_request_duration_seconds",
+    help: "Duration of HTTP requests in seconds",
+    labelNames: ["method", "route", "status_code"],
+    registers: [metricsRegistry],
+  });
+
+  const heartbeatCounter = new Counter({
+    name: "clawforge_heartbeats_total",
+    help: "Total heartbeat pings received",
+    registers: [metricsRegistry],
+  });
+
+  const auditEventsCounter = new Counter({
+    name: "clawforge_audit_events_ingested_total",
+    help: "Total audit events ingested",
+    registers: [metricsRegistry],
+  });
+
+  const activeInstancesGauge = new Gauge({
+    name: "clawforge_active_instances",
+    help: "Number of active plugin instances (online clients)",
+    registers: [metricsRegistry],
+  });
+
+  const policyFetchCounter = new Counter({
+    name: "clawforge_policy_fetches_total",
+    help: "Total policy fetches",
+    registers: [metricsRegistry],
+  });
+
+  const killSwitchGauge = new Gauge({
+    name: "clawforge_kill_switch_active",
+    help: "Whether the kill switch is currently active (1=active, 0=inactive)",
+    registers: [metricsRegistry],
+  });
+
+  app.decorate("metrics", {
+    heartbeatCounter,
+    auditEventsCounter,
+    activeInstancesGauge,
+    policyFetchCounter,
+    killSwitchGauge,
+  });
+
+  // Track HTTP request duration on every response
+  app.addHook("onResponse", (request, reply, done) => {
+    const routeUrl = request.routeOptions?.url ?? request.url;
+    httpRequestDuration.observe(
+      { method: request.method, route: routeUrl, status_code: reply.statusCode },
+      reply.elapsedTime / 1000,
+    );
+    done();
+  });
+
+  // GET /metrics - Prometheus scrape endpoint
+  app.get("/metrics", async (_request, reply) => {
+    const metrics = await metricsRegistry.metrics();
+    return reply.type(metricsRegistry.contentType).send(metrics);
   });
 
   // CORS
