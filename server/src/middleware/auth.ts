@@ -6,12 +6,13 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { apiKeys } from "../db/schema.js";
+import { BUILT_IN_ROLES, type PermissionName } from "../rbac/permissions.js";
 
 export type AuthUser = {
   userId: string;
   orgId: string;
   email: string;
-  role: "admin" | "viewer" | "user";
+  role: "super_admin" | "admin" | "policy_admin" | "security_admin" | "viewer" | "user";
   isApiKey?: boolean;
 };
 
@@ -132,7 +133,7 @@ async function authenticateApiKey(
       userId: key.createdBy,
       orgId: key.orgId,
       email: `api-key:${key.name}`,
-      role: key.role as "admin" | "viewer",
+      role: key.role as AuthUser["role"],
       isApiKey: true,
     };
   } catch {
@@ -148,7 +149,7 @@ export function requireAdmin(request: FastifyRequest, reply: FastifyReply): void
     reply.code(401).send({ error: "Authentication required" });
     return;
   }
-  if (request.authUser.role !== "admin") {
+  if (request.authUser.role !== "admin" && request.authUser.role !== "super_admin") {
     reply.code(403).send({ error: "Admin access required" });
     return;
   }
@@ -162,8 +163,25 @@ export function requireAdminOrViewer(request: FastifyRequest, reply: FastifyRepl
     reply.code(401).send({ error: "Authentication required" });
     return;
   }
-  if (request.authUser.role !== "admin" && request.authUser.role !== "viewer") {
+  const allowedRoles = ["admin", "super_admin", "policy_admin", "security_admin", "viewer"];
+  if (!allowedRoles.includes(request.authUser.role)) {
     reply.code(403).send({ error: "Admin or viewer access required" });
+    return;
+  }
+}
+
+/**
+ * Guard: require specific permission (#61).
+ * Uses built-in role-to-permission mapping.
+ */
+export function requirePermission(request: FastifyRequest, reply: FastifyReply, permission: PermissionName): void {
+  if (!request.authUser) {
+    reply.code(401).send({ error: "Authentication required" });
+    return;
+  }
+  const rolePerms = BUILT_IN_ROLES[request.authUser.role]?.permissions ?? [];
+  if (!rolePerms.includes(permission)) {
+    reply.code(403).send({ error: `Permission '${permission}' required` });
     return;
   }
 }

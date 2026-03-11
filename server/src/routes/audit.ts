@@ -63,7 +63,7 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
         });
       }
 
-      if (authUser.role !== "admin") {
+      if (authUser.role !== "admin" && authUser.role !== "super_admin") {
         const invalidUser = events.find((e) => e.userId !== authUser.userId);
         if (invalidUser) {
           return reply.code(403).send({
