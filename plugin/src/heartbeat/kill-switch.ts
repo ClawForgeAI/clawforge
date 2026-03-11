@@ -4,9 +4,13 @@
  * Tracks connection state and applies configured offline behavior.
  */
 
+import { createRequire } from "node:module";
 import type { ClawForgePluginConfig, HeartbeatResponse, OfflineMode, SessionTokens } from "../types.js";
 import type { ToolEnforcerState } from "../policy/tool-enforcer.js";
 import type { ConnectionStateManager } from "../connection/connection-state.js";
+
+const require = createRequire(import.meta.url);
+const PLUGIN_VERSION: string = (require("../../package.json") as { version: string }).version;
 
 const DEFAULT_INTERVAL_MS = 30_000;
 const DEFAULT_FAILURE_THRESHOLD = 10;
@@ -77,7 +81,7 @@ export class KillSwitchManager {
     }
 
     try {
-      const url = `${this.controlPlaneUrl}/api/v1/heartbeat/${encodeURIComponent(this.orgId)}/${encodeURIComponent(this.userId)}`;
+      const url = `${this.controlPlaneUrl}/api/v1/heartbeat/${encodeURIComponent(this.orgId)}/${encodeURIComponent(this.userId)}?clientVersion=${encodeURIComponent(PLUGIN_VERSION)}`;
       const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${this.accessToken}`,
