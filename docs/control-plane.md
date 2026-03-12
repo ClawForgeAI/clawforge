@@ -73,10 +73,10 @@ SUPERADMIN_EMAIL=admin@example.com SUPERADMIN_PASSWORD=s3cure \
 ### Prerequisites (Manual Setup)
 
 | Dependency | Version |
-|---|---|
-| Node.js | ≥ 22 |
-| PostgreSQL | ≥ 15 |
-| pnpm | ≥ 9 |
+| ---------- | ------- |
+| Node.js    | ≥ 22    |
+| PostgreSQL | ≥ 15    |
+| pnpm       | ≥ 9     |
 
 ### Database
 
@@ -90,13 +90,13 @@ psql -c "CREATE DATABASE clawforge;"
 
 ### Environment Variables
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `DATABASE_URL` | Yes | `postgresql://localhost:5432/clawforge` | PostgreSQL connection string |
-| `JWT_SECRET` | **Yes** | `clawforge-dev-secret-change-in-production` | Secret for signing JWTs. **Must change in production.** |
-| `PORT` | No | `4100` | HTTP listen port |
-| `HOST` | No | `0.0.0.0` | Bind address |
-| `CORS_ORIGIN` | No | `*` (all origins) | Comma-separated allowed origins (e.g. `http://localhost:4200,https://admin.example.com`) |
+| Variable       | Required | Default                                     | Description                                                                              |
+| -------------- | -------- | ------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `DATABASE_URL` | Yes      | `postgresql://localhost:5432/clawforge`     | PostgreSQL connection string                                                             |
+| `JWT_SECRET`   | **Yes**  | `clawforge-dev-secret-change-in-production` | Secret for signing JWTs. **Must change in production.**                                  |
+| `PORT`         | No       | `4100`                                      | HTTP listen port                                                                         |
+| `HOST`         | No       | `0.0.0.0`                                   | Bind address                                                                             |
+| `CORS_ORIGIN`  | No       | `*` (all origins)                           | Comma-separated allowed origins (e.g. `http://localhost:4200,https://admin.example.com`) |
 
 Create a `.env` file:
 
@@ -141,11 +141,11 @@ cd server
 pnpm db:seed
 ```
 
-| Env Variable | Default | Description |
-|---|---|---|
-| `SUPERADMIN_EMAIL` | `admin@clawforge.local` | Admin email address |
-| `SUPERADMIN_PASSWORD` | `clawforge` | Admin password |
-| `SUPERADMIN_ORG_NAME` | `Default` | Organization name |
+| Env Variable          | Default                 | Description         |
+| --------------------- | ----------------------- | ------------------- |
+| `SUPERADMIN_EMAIL`    | `admin@clawforge.local` | Admin email address |
+| `SUPERADMIN_PASSWORD` | `clawforge`             | Admin password      |
+| `SUPERADMIN_ORG_NAME` | `Default`               | Organization name   |
 
 After seeding, you can log in with email/password via `POST /api/v1/auth/login`.
 
@@ -196,10 +196,10 @@ POST /api/v1/auth/login
 
 Additional endpoints:
 
-| Endpoint | Description |
-|---|---|
-| `GET /api/v1/auth/mode` | Returns available auth methods (currently `["password"]`) |
-| `POST /api/v1/auth/change-password` | Self-service password change (authenticated) |
+| Endpoint                            | Description                                               |
+| ----------------------------------- | --------------------------------------------------------- |
+| `GET /api/v1/auth/mode`             | Returns available auth methods (currently `["password"]`) |
+| `POST /api/v1/auth/change-password` | Self-service password change (authenticated)              |
 
 #### Enrollment Tokens
 
@@ -216,11 +216,11 @@ POST /api/v1/auth/enroll
 
 Token management (admin only):
 
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/v1/enrollment-tokens/:orgId` | Create token (optional: `label`, `expiresAt`, `maxUses`) |
-| `GET` | `/api/v1/enrollment-tokens/:orgId` | List active tokens |
-| `DELETE` | `/api/v1/enrollment-tokens/:orgId/:tokenId` | Revoke a token |
+| Method   | Path                                        | Description                                              |
+| -------- | ------------------------------------------- | -------------------------------------------------------- |
+| `POST`   | `/api/v1/enrollment-tokens/:orgId`          | Create token (optional: `label`, `expiresAt`, `maxUses`) |
+| `GET`    | `/api/v1/enrollment-tokens/:orgId`          | List active tokens                                       |
+| `DELETE` | `/api/v1/enrollment-tokens/:orgId/:tokenId` | Revoke a token                                           |
 
 #### SSO / OIDC (Optional)
 
@@ -263,18 +263,18 @@ Plugin stores session locally (~/.clawforge/session.json)
 
 **SSO Grant Types:**
 
-| Grant | Use Case | Required Fields |
-|---|---|---|
-| `authorization_code` | Interactive browser login (PKCE) | `code`, `codeVerifier`, `redirectUri` + `X-ClawForge-Org` header |
-| `id_token` | Direct token validation (headless/CI) | `idToken`, `orgId` |
-| `refresh_token` | Renew expired session | `refreshToken` |
+| Grant                | Use Case                              | Required Fields                                                  |
+| -------------------- | ------------------------------------- | ---------------------------------------------------------------- |
+| `authorization_code` | Interactive browser login (PKCE)      | `code`, `codeVerifier`, `redirectUri` + `X-ClawForge-Org` header |
+| `id_token`           | Direct token validation (headless/CI) | `idToken`, `orgId`                                               |
+| `refresh_token`      | Renew expired session                 | `refreshToken`                                                   |
 
 **Token Lifetimes:**
 
-| Token | Lifetime |
-|---|---|
-| Access token | 1 hour |
-| Refresh token | 30 days |
+| Token         | Lifetime |
+| ------------- | -------- |
+| Access token  | 1 hour   |
+| Refresh token | 30 days  |
 
 **IdP Configuration:**
 
@@ -323,11 +323,11 @@ VALUES (
 
 Users can be created via seed, enrollment tokens, or SSO login. The `users` table tracks:
 
-| Field | Description |
-|---|---|
-| `email` | From OIDC `email` claim |
-| `name` | From OIDC `name` claim |
-| `role` | `admin` or `user` |
+| Field        | Description                            |
+| ------------ | -------------------------------------- |
+| `email`      | From OIDC `email` claim                |
+| `name`       | From OIDC `name` claim                 |
+| `role`       | `admin` or `user`                      |
 | `lastSeenAt` | Updated on each token exchange/refresh |
 
 Users are scoped to an org via a unique `(orgId, email)` index.
@@ -371,11 +371,11 @@ Policies define what OpenClaw gateways are allowed to do. Each org has **one act
 
 #### Tool Configuration
 
-| Field | Type | Description |
-|---|---|---|
-| `allow` | `string[]` | Whitelist — only these tools are permitted (if set) |
-| `deny` | `string[]` | Blacklist — these tools are always blocked |
-| `profile` | `string` | Named enforcement profile (for custom logic) |
+| Field     | Type       | Description                                         |
+| --------- | ---------- | --------------------------------------------------- |
+| `allow`   | `string[]` | Whitelist — only these tools are permitted (if set) |
+| `deny`    | `string[]` | Blacklist — these tools are always blocked          |
+| `profile` | `string`   | Named enforcement profile (for custom logic)        |
 
 **Evaluation order:** deny list checked first → allow list checked second → default allow if neither list is set.
 
@@ -477,9 +477,9 @@ Admin reviews in admin console
 
 #### Approval Scopes
 
-| Scope | Effect |
-|---|---|
-| `org` | Skill is available to all users in the organization |
+| Scope  | Effect                                                              |
+| ------ | ------------------------------------------------------------------- |
+| `org`  | Skill is available to all users in the organization                 |
 | `self` | Skill is available only to the specific user (or a designated user) |
 
 #### Submission Record
@@ -541,33 +541,33 @@ Every tool call, session event, and (at `full` level) LLM interaction is logged.
 
 #### Audit Levels
 
-| Level | What's Logged |
-|---|---|
-| `full` | Tool calls + session lifecycle + LLM input/output (provider, model, usage stats) |
-| `metadata` | Tool calls + session lifecycle (no LLM content) |
-| `off` | Nothing sent to control plane |
+| Level      | What's Logged                                                                    |
+| ---------- | -------------------------------------------------------------------------------- |
+| `full`     | Tool calls + session lifecycle + LLM input/output (provider, model, usage stats) |
+| `metadata` | Tool calls + session lifecycle (no LLM content)                                  |
+| `off`      | Nothing sent to control plane                                                    |
 
 #### Event Types
 
-| Event | Trigger |
-|---|---|
-| `tool_call_attempt` | Before a tool call (includes allowed/blocked outcome) |
-| `tool_call_result` | After a tool call completes (includes duration, error if any) |
-| `session_start` | New session created |
-| `session_end` | Session ended (includes message count, duration) |
-| `llm_input` | LLM request sent (full level only — provider, model, image count) |
-| `llm_output` | LLM response received (full level only — provider, model, token usage) |
-| `kill_switch_activated` | Kill switch blocked a tool call |
-| `policy_refresh` | Policy was refreshed from control plane |
+| Event                   | Trigger                                                                |
+| ----------------------- | ---------------------------------------------------------------------- |
+| `tool_call_attempt`     | Before a tool call (includes allowed/blocked outcome)                  |
+| `tool_call_result`      | After a tool call completes (includes duration, error if any)          |
+| `session_start`         | New session created                                                    |
+| `session_end`           | Session ended (includes message count, duration)                       |
+| `llm_input`             | LLM request sent (full level only — provider, model, image count)      |
+| `llm_output`            | LLM response received (full level only — provider, model, token usage) |
+| `kill_switch_activated` | Kill switch blocked a tool call                                        |
+| `policy_refresh`        | Policy was refreshed from control plane                                |
 
 #### Client-Side Batching
 
 The plugin buffers events and flushes them in configurable batches:
 
-| Config | Description |
-|---|---|
-| `auditBatchSize` | Max events per flush (default varies) |
-| `auditFlushIntervalMs` | Flush interval in milliseconds |
+| Config                 | Description                           |
+| ---------------------- | ------------------------------------- |
+| `auditBatchSize`       | Max events per flush (default varies) |
+| `auditFlushIntervalMs` | Flush interval in milliseconds        |
 
 On gateway shutdown, the buffer is flushed before exit.
 
@@ -711,121 +711,121 @@ organizations (1) ──┬── (N) users
 
 #### `organizations`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | UUID (PK) | Auto-generated |
-| `name` | TEXT | Org display name |
-| `sso_config` | JSONB | `{issuerUrl, clientId, audience?}` |
-| `created_at` | TIMESTAMPTZ | |
-| `updated_at` | TIMESTAMPTZ | |
+| Column       | Type        | Description                        |
+| ------------ | ----------- | ---------------------------------- |
+| `id`         | UUID (PK)   | Auto-generated                     |
+| `name`       | TEXT        | Org display name                   |
+| `sso_config` | JSONB       | `{issuerUrl, clientId, audience?}` |
+| `created_at` | TIMESTAMPTZ |                                    |
+| `updated_at` | TIMESTAMPTZ |                                    |
 
 #### `users`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | UUID (PK) | Auto-generated |
-| `org_id` | UUID (FK → organizations) | |
-| `email` | TEXT | Unique per org |
-| `name` | TEXT | From OIDC claims or enrollment |
-| `role` | TEXT | `admin` or `user` |
-| `password_hash` | TEXT | Bcrypt hash (null for SSO-only users) |
-| `last_seen_at` | TIMESTAMPTZ | Updated on auth |
-| `created_at` | TIMESTAMPTZ | |
+| Column          | Type                      | Description                           |
+| --------------- | ------------------------- | ------------------------------------- |
+| `id`            | UUID (PK)                 | Auto-generated                        |
+| `org_id`        | UUID (FK → organizations) |                                       |
+| `email`         | TEXT                      | Unique per org                        |
+| `name`          | TEXT                      | From OIDC claims or enrollment        |
+| `role`          | TEXT                      | `admin` or `user`                     |
+| `password_hash` | TEXT                      | Bcrypt hash (null for SSO-only users) |
+| `last_seen_at`  | TIMESTAMPTZ               | Updated on auth                       |
+| `created_at`    | TIMESTAMPTZ               |                                       |
 
 Unique index: `(org_id, email)`
 
 #### `policies`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | UUID (PK) | Auto-generated |
-| `org_id` | UUID (FK, unique) | One policy per org |
-| `version` | INT | Incremented on each update |
-| `tools_config` | JSONB | `{allow?, deny?, profile?}` |
-| `skills_config` | JSONB | `{requireApproval, approved[]}` |
-| `kill_switch` | BOOLEAN | |
-| `kill_switch_message` | TEXT | Shown to users when active |
-| `audit_level` | TEXT | `full`, `metadata`, or `off` |
-| `updated_at` | TIMESTAMPTZ | |
+| Column                | Type              | Description                     |
+| --------------------- | ----------------- | ------------------------------- |
+| `id`                  | UUID (PK)         | Auto-generated                  |
+| `org_id`              | UUID (FK, unique) | One policy per org              |
+| `version`             | INT               | Incremented on each update      |
+| `tools_config`        | JSONB             | `{allow?, deny?, profile?}`     |
+| `skills_config`       | JSONB             | `{requireApproval, approved[]}` |
+| `kill_switch`         | BOOLEAN           |                                 |
+| `kill_switch_message` | TEXT              | Shown to users when active      |
+| `audit_level`         | TEXT              | `full`, `metadata`, or `off`    |
+| `updated_at`          | TIMESTAMPTZ       |                                 |
 
 #### `skill_submissions`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | UUID (PK) | |
-| `org_id` | UUID (FK) | |
-| `submitted_by` | UUID (FK → users) | |
-| `skill_name` | TEXT | |
-| `skill_key` | TEXT | Optional unique key |
-| `metadata` | JSONB | Arbitrary key-value data |
-| `manifest_content` | TEXT | Full SKILL.md content |
-| `scan_results` | JSONB | `{scannedFiles, critical, warn, info, findings[]}` |
-| `status` | TEXT | `pending`, `approved-org`, `approved-self`, `rejected` |
-| `reviewed_by` | UUID (FK → users) | |
-| `review_notes` | TEXT | |
-| `created_at` | TIMESTAMPTZ | |
-| `updated_at` | TIMESTAMPTZ | |
+| Column             | Type              | Description                                            |
+| ------------------ | ----------------- | ------------------------------------------------------ |
+| `id`               | UUID (PK)         |                                                        |
+| `org_id`           | UUID (FK)         |                                                        |
+| `submitted_by`     | UUID (FK → users) |                                                        |
+| `skill_name`       | TEXT              |                                                        |
+| `skill_key`        | TEXT              | Optional unique key                                    |
+| `metadata`         | JSONB             | Arbitrary key-value data                               |
+| `manifest_content` | TEXT              | Full SKILL.md content                                  |
+| `scan_results`     | JSONB             | `{scannedFiles, critical, warn, info, findings[]}`     |
+| `status`           | TEXT              | `pending`, `approved-org`, `approved-self`, `rejected` |
+| `reviewed_by`      | UUID (FK → users) |                                                        |
+| `review_notes`     | TEXT              |                                                        |
+| `created_at`       | TIMESTAMPTZ       |                                                        |
+| `updated_at`       | TIMESTAMPTZ       |                                                        |
 
 Index: `(org_id, status)`
 
 #### `approved_skills`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | UUID (PK) | |
-| `org_id` | UUID (FK) | |
-| `skill_name` | TEXT | |
-| `skill_key` | TEXT | |
-| `scope` | TEXT | `org` or `self` |
+| Column              | Type              | Description          |
+| ------------------- | ----------------- | -------------------- |
+| `id`                | UUID (PK)         |                      |
+| `org_id`            | UUID (FK)         |                      |
+| `skill_name`        | TEXT              |                      |
+| `skill_key`         | TEXT              |                      |
+| `scope`             | TEXT              | `org` or `self`      |
 | `approved_for_user` | UUID (FK → users) | Set for `self` scope |
-| `created_at` | TIMESTAMPTZ | |
+| `created_at`        | TIMESTAMPTZ       |                      |
 
 Index: `(org_id)`
 
 #### `audit_events`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | UUID | |
-| `org_id` | UUID (FK) | |
-| `user_id` | UUID | |
-| `event_type` | TEXT | See event types above |
-| `tool_name` | TEXT | For tool-related events |
-| `outcome` | TEXT | `allowed`, `blocked`, `error`, `success` |
-| `agent_id` | TEXT | |
-| `session_key` | TEXT | |
-| `metadata` | JSONB | |
-| `timestamp` | TIMESTAMPTZ | Event time |
+| Column        | Type        | Description                              |
+| ------------- | ----------- | ---------------------------------------- |
+| `id`          | UUID        |                                          |
+| `org_id`      | UUID (FK)   |                                          |
+| `user_id`     | UUID        |                                          |
+| `event_type`  | TEXT        | See event types above                    |
+| `tool_name`   | TEXT        | For tool-related events                  |
+| `outcome`     | TEXT        | `allowed`, `blocked`, `error`, `success` |
+| `agent_id`    | TEXT        |                                          |
+| `session_key` | TEXT        |                                          |
+| `metadata`    | JSONB       |                                          |
+| `timestamp`   | TIMESTAMPTZ | Event time                               |
 
 Indexes: `(org_id, timestamp)`, `(org_id, user_id)`
 Partitioned by range on `timestamp` (after migration 0001).
 
 #### `client_heartbeats`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | UUID (PK) | |
-| `org_id` | UUID (FK) | |
-| `user_id` | UUID (FK → users) | |
-| `last_heartbeat_at` | TIMESTAMPTZ | |
-| `client_version` | TEXT | |
+| Column              | Type              | Description |
+| ------------------- | ----------------- | ----------- |
+| `id`                | UUID (PK)         |             |
+| `org_id`            | UUID (FK)         |             |
+| `user_id`           | UUID (FK → users) |             |
+| `last_heartbeat_at` | TIMESTAMPTZ       |             |
+| `client_version`    | TEXT              |             |
 
 Unique index: `(org_id, user_id)` — upserted on each heartbeat.
 
 #### `enrollment_tokens`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | UUID (PK) | Auto-generated |
-| `org_id` | UUID (FK → organizations) | |
-| `token` | TEXT (unique) | Base64url token string |
-| `label` | TEXT | Optional human-readable label |
-| `expires_at` | TIMESTAMPTZ | Optional expiry |
-| `max_uses` | INT | Optional usage cap |
-| `used_count` | INT | Current usage count (default 0) |
-| `created_by` | UUID (FK → users) | Admin who created the token |
-| `revoked_at` | TIMESTAMPTZ | Set when revoked |
-| `created_at` | TIMESTAMPTZ | |
+| Column       | Type                      | Description                     |
+| ------------ | ------------------------- | ------------------------------- |
+| `id`         | UUID (PK)                 | Auto-generated                  |
+| `org_id`     | UUID (FK → organizations) |                                 |
+| `token`      | TEXT (unique)             | Base64url token string          |
+| `label`      | TEXT                      | Optional human-readable label   |
+| `expires_at` | TIMESTAMPTZ               | Optional expiry                 |
+| `max_uses`   | INT                       | Optional usage cap              |
+| `used_count` | INT                       | Current usage count (default 0) |
+| `created_by` | UUID (FK → users)         | Admin who created the token     |
+| `revoked_at` | TIMESTAMPTZ               | Set when revoked                |
+| `created_at` | TIMESTAMPTZ               |                                 |
 
 Indexes: `(org_id)`, unique on `(token)`
 
@@ -843,15 +843,16 @@ No authentication required.
 
 ### Authentication
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `POST` | `/api/v1/auth/login` | None | Email/password login |
-| `POST` | `/api/v1/auth/exchange` | None | SSO token exchange (see grant types below) |
-| `POST` | `/api/v1/auth/enroll` | None | Enroll with enrollment token |
-| `GET` | `/api/v1/auth/mode` | None | Available auth methods |
-| `POST` | `/api/v1/auth/change-password` | User | Self-service password change |
+| Method | Path                           | Auth | Description                                |
+| ------ | ------------------------------ | ---- | ------------------------------------------ |
+| `POST` | `/api/v1/auth/login`           | None | Email/password login                       |
+| `POST` | `/api/v1/auth/exchange`        | None | SSO token exchange (see grant types below) |
+| `POST` | `/api/v1/auth/enroll`          | None | Enroll with enrollment token               |
+| `GET`  | `/api/v1/auth/mode`            | None | Available auth methods                     |
+| `POST` | `/api/v1/auth/change-password` | User | Self-service password change               |
 
 **Email/Password Login:**
+
 ```json
 {
   "email": "admin@clawforge.local",
@@ -861,6 +862,7 @@ No authentication required.
 ```
 
 **Enrollment:**
+
 ```json
 {
   "token": "enrollment-token-string",
@@ -870,6 +872,7 @@ No authentication required.
 ```
 
 **SSO — Authorization Code:**
+
 ```json
 {
   "grantType": "authorization_code",
@@ -878,9 +881,11 @@ No authentication required.
   "redirectUri": "http://localhost:19832/clawforge/callback"
 }
 ```
+
 Header: `X-ClawForge-Org: <org-uuid>`
 
 **SSO — ID Token (headless):**
+
 ```json
 {
   "grantType": "id_token",
@@ -890,6 +895,7 @@ Header: `X-ClawForge-Org: <org-uuid>`
 ```
 
 **Refresh:**
+
 ```json
 {
   "grantType": "refresh_token",
@@ -898,6 +904,7 @@ Header: `X-ClawForge-Org: <org-uuid>`
 ```
 
 **Response (all auth endpoints):**
+
 ```json
 {
   "accessToken": "eyJ...",
@@ -912,50 +919,50 @@ Header: `X-ClawForge-Org: <org-uuid>`
 
 ### Enrollment Tokens
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `POST` | `/api/v1/enrollment-tokens/:orgId` | Admin | Create enrollment token |
-| `GET` | `/api/v1/enrollment-tokens/:orgId` | Admin | List active tokens |
-| `DELETE` | `/api/v1/enrollment-tokens/:orgId/:tokenId` | Admin | Revoke a token |
+| Method   | Path                                        | Auth  | Description             |
+| -------- | ------------------------------------------- | ----- | ----------------------- |
+| `POST`   | `/api/v1/enrollment-tokens/:orgId`          | Admin | Create enrollment token |
+| `GET`    | `/api/v1/enrollment-tokens/:orgId`          | Admin | List active tokens      |
+| `DELETE` | `/api/v1/enrollment-tokens/:orgId/:tokenId` | Admin | Revoke a token          |
 
 ### Policies
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/v1/policies/:orgId/effective` | User | Effective policy (merged with user skills) |
-| `GET` | `/api/v1/policies/:orgId` | Admin | Raw org policy |
-| `PUT` | `/api/v1/policies/:orgId` | Admin | Update policy (bumps version) |
-| `PUT` | `/api/v1/policies/:orgId/kill-switch` | Admin | Toggle kill switch |
+| Method | Path                                  | Auth  | Description                                |
+| ------ | ------------------------------------- | ----- | ------------------------------------------ |
+| `GET`  | `/api/v1/policies/:orgId/effective`   | User  | Effective policy (merged with user skills) |
+| `GET`  | `/api/v1/policies/:orgId`             | Admin | Raw org policy                             |
+| `PUT`  | `/api/v1/policies/:orgId`             | Admin | Update policy (bumps version)              |
+| `PUT`  | `/api/v1/policies/:orgId/kill-switch` | Admin | Toggle kill switch                         |
 
 ### Skills
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `POST` | `/api/v1/skills/:orgId/submit` | User | Submit skill + scan results |
-| `GET` | `/api/v1/skills/:orgId/review` | Admin | List pending submissions |
-| `PUT` | `/api/v1/skills/:orgId/review/:id` | Admin | Approve/reject with notes |
-| `GET` | `/api/v1/skills/:orgId/approved` | User | List approved skills |
+| Method | Path                               | Auth  | Description                 |
+| ------ | ---------------------------------- | ----- | --------------------------- |
+| `POST` | `/api/v1/skills/:orgId/submit`     | User  | Submit skill + scan results |
+| `GET`  | `/api/v1/skills/:orgId/review`     | Admin | List pending submissions    |
+| `PUT`  | `/api/v1/skills/:orgId/review/:id` | Admin | Approve/reject with notes   |
+| `GET`  | `/api/v1/skills/:orgId/approved`   | User  | List approved skills        |
 
 ### Audit
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `POST` | `/api/v1/audit/:orgId/events` | User | Ingest event batch |
-| `GET` | `/api/v1/audit/:orgId/query` | Admin | Query with filters |
+| Method | Path                          | Auth  | Description        |
+| ------ | ----------------------------- | ----- | ------------------ |
+| `POST` | `/api/v1/audit/:orgId/events` | User  | Ingest event batch |
+| `GET`  | `/api/v1/audit/:orgId/query`  | Admin | Query with filters |
 
 Query params: `userId`, `eventType`, `toolName`, `outcome`, `from` (ISO), `to` (ISO), `limit`, `offset`
 
 ### Heartbeat
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/v1/heartbeat/:orgId/:userId` | User | Heartbeat + kill switch status |
+| Method | Path                               | Auth | Description                    |
+| ------ | ---------------------------------- | ---- | ------------------------------ |
+| `GET`  | `/api/v1/heartbeat/:orgId/:userId` | User | Heartbeat + kill switch status |
 
 ### Users
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/v1/users/:orgId` | Admin | List org users |
+| Method | Path                   | Auth  | Description    |
+| ------ | ---------------------- | ----- | -------------- |
+| `GET`  | `/api/v1/users/:orgId` | Admin | List org users |
 
 ---
 

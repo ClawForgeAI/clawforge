@@ -14,10 +14,7 @@ export type AdminAction = {
   details?: Record<string, unknown>;
 };
 
-export async function logAdminAction(
-  db: PostgresJsDatabase<typeof schema>,
-  action: AdminAction,
-) {
+export async function logAdminAction(db: PostgresJsDatabase<typeof schema>, action: AdminAction) {
   await db.insert(auditEvents).values({
     orgId: action.orgId,
     userId: action.userId,

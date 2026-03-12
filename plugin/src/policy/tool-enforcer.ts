@@ -78,10 +78,32 @@ function expandGroups(list: string[]): Set<string> {
  * to prevent bypassing filesystem restrictions via shell.
  */
 const FS_READ_COMMANDS = new Set([
-  "ls", "cat", "head", "tail", "less", "more", "find", "locate",
-  "tree", "stat", "file", "du", "wc", "od", "xxd", "hexdump",
-  "strings", "readlink", "realpath", "basename", "dirname",
-  "diff", "cmp", "md5sum", "sha256sum", "shasum",
+  "ls",
+  "cat",
+  "head",
+  "tail",
+  "less",
+  "more",
+  "find",
+  "locate",
+  "tree",
+  "stat",
+  "file",
+  "du",
+  "wc",
+  "od",
+  "xxd",
+  "hexdump",
+  "strings",
+  "readlink",
+  "realpath",
+  "basename",
+  "dirname",
+  "diff",
+  "cmp",
+  "md5sum",
+  "sha256sum",
+  "shasum",
 ]);
 
 /**
@@ -89,9 +111,26 @@ const FS_READ_COMMANDS = new Set([
  * When group:fs is denied, exec calls using these commands are also blocked.
  */
 const FS_WRITE_COMMANDS = new Set([
-  "cp", "mv", "rm", "mkdir", "rmdir", "touch", "chmod", "chown",
-  "chgrp", "ln", "install", "mktemp", "truncate", "shred",
-  "tar", "zip", "unzip", "gzip", "gunzip", "bzip2",
+  "cp",
+  "mv",
+  "rm",
+  "mkdir",
+  "rmdir",
+  "touch",
+  "chmod",
+  "chown",
+  "chgrp",
+  "ln",
+  "install",
+  "mktemp",
+  "truncate",
+  "shred",
+  "tar",
+  "zip",
+  "unzip",
+  "gzip",
+  "gunzip",
+  "bzip2",
 ]);
 
 /** All filesystem-related shell commands. */
@@ -104,7 +143,10 @@ const FS_ALL_COMMANDS = new Set([...FS_READ_COMMANDS, ...FS_WRITE_COMMANDS]);
 function extractCommandNames(command: string): string[] {
   const names: string[] = [];
   // Split on pipes, &&, ||, and ; to get individual commands
-  const segments = command.split(/[|;&]/).map((s) => s.trim()).filter(Boolean);
+  const segments = command
+    .split(/[|;&]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
   for (const segment of segments) {
     // Strip leading env vars (FOO=bar), sudo, env, etc.
     const tokens = segment.split(/\s+/);
@@ -127,10 +169,7 @@ function extractCommandNames(command: string): string[] {
  * Check if an exec call should be blocked because it uses filesystem commands
  * while group:fs is denied in the policy.
  */
-function isExecBlockedByFsDeny(
-  denySet: Set<string>,
-  params: Record<string, unknown>,
-): boolean {
+function isExecBlockedByFsDeny(denySet: Set<string>, params: Record<string, unknown>): boolean {
   // Only apply if filesystem tools are denied (group:fs was expanded into these)
   const fsToolsDenied = denySet.has("read") || denySet.has("write") || denySet.has("edit");
   if (!fsToolsDenied) return false;
@@ -162,10 +201,7 @@ export function createToolEnforcerHook(
   state: ToolEnforcerState,
   auditLogger: AuditLogger,
   connectionStateManager?: ConnectionStateManager,
-): (
-  event: PluginHookBeforeToolCallEvent,
-  ctx: PluginHookToolContext,
-) => PluginHookBeforeToolCallResult | undefined {
+): (event: PluginHookBeforeToolCallEvent, ctx: PluginHookToolContext) => PluginHookBeforeToolCallResult | undefined {
   return (
     event: PluginHookBeforeToolCallEvent,
     ctx: PluginHookToolContext,
@@ -193,8 +229,7 @@ export function createToolEnforcerHook(
 
     // 1. Kill switch check
     if (state.killSwitchActive) {
-      const reason =
-        state.killSwitchMessage ?? "ClawForge: All tool calls blocked by organization kill switch";
+      const reason = state.killSwitchMessage ?? "ClawForge: All tool calls blocked by organization kill switch";
       auditLogger.enqueue({
         eventType: "tool_call_attempt",
         toolName,

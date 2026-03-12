@@ -11,14 +11,30 @@ vi.mock("../services/admin-audit.js", () => ({
 
 function makeChain(result: unknown[] = []) {
   const c: any = {};
-  for (const m of ["select", "from", "where", "limit", "orderBy", "set", "values", "returning", "insert", "update", "delete"]) {
+  for (const m of [
+    "select",
+    "from",
+    "where",
+    "limit",
+    "orderBy",
+    "set",
+    "values",
+    "returning",
+    "insert",
+    "update",
+    "delete",
+  ]) {
     c[m] = vi.fn().mockReturnValue(c);
   }
   c.then = (resolve: (v: unknown) => void) => resolve(result);
   return c;
 }
 
-function createTestDb(selectResults: unknown[][] = [[]], insertResults: unknown[][] = [[]], updateResults: unknown[][] = [[]]) {
+function createTestDb(
+  selectResults: unknown[][] = [[]],
+  insertResults: unknown[][] = [[]],
+  updateResults: unknown[][] = [[]],
+) {
   let selectCall = 0;
   let insertCall = 0;
   let updateCall = 0;

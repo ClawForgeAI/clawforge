@@ -24,9 +24,17 @@ import {
 function mockDbChain(result: unknown[]) {
   const obj: Record<string, unknown> = {};
   const methods = [
-    "from", "where", "limit", "offset", "orderBy",
-    "values", "set", "returning", "onConflictDoUpdate",
-    "innerJoin", "leftJoin",
+    "from",
+    "where",
+    "limit",
+    "offset",
+    "orderBy",
+    "values",
+    "set",
+    "returning",
+    "onConflictDoUpdate",
+    "innerJoin",
+    "leftJoin",
   ];
   for (const m of methods) {
     obj[m] = vi.fn().mockReturnValue(obj);
@@ -117,7 +125,7 @@ describe("Heartbeat Routes", () => {
       };
 
       // insert for heartbeat upsert, select for policy
-      let callCount = 0;
+      const callCount = 0;
       mockDb.insert = vi.fn(() => mockDbChain([]) as ReturnType<MockDb["insert"]>);
       mockDb.select = vi.fn(() => mockDbChain([policyWithKillSwitch]) as ReturnType<MockDb["select"]>);
 

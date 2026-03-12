@@ -11,10 +11,12 @@ import type { OrgPolicy } from "../types.js";
  * shouldIncludeSkill() in src/agents/skills/config.ts picks up
  * the org-approved skill list.
  */
-export function buildSkillsEnterpriseConfig(policy: OrgPolicy): {
-  requireApproval: boolean;
-  approvedSkills: string[];
-} | undefined {
+export function buildSkillsEnterpriseConfig(policy: OrgPolicy):
+  | {
+      requireApproval: boolean;
+      approvedSkills: string[];
+    }
+  | undefined {
   if (!policy.skills.requireApproval) {
     return undefined;
   }

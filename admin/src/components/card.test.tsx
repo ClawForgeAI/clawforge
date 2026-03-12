@@ -4,12 +4,20 @@ import { Card, CardTitle, StatCard } from "./card";
 
 describe("Card", () => {
   it("renders children", () => {
-    render(<Card><p>Card content</p></Card>);
+    render(
+      <Card>
+        <p>Card content</p>
+      </Card>,
+    );
     expect(screen.getByText("Card content")).toBeInTheDocument();
   });
 
   it("applies base card styles", () => {
-    render(<Card><span>test</span></Card>);
+    render(
+      <Card>
+        <span>test</span>
+      </Card>,
+    );
     const card = screen.getByText("test").parentElement!;
     expect(card.className).toContain("bg-card");
     expect(card.className).toContain("rounded-lg");
@@ -18,7 +26,11 @@ describe("Card", () => {
   });
 
   it("applies additional className", () => {
-    render(<Card className="mt-4"><span>test</span></Card>);
+    render(
+      <Card className="mt-4">
+        <span>test</span>
+      </Card>,
+    );
     const card = screen.getByText("test").parentElement!;
     expect(card.className).toContain("mt-4");
   });

@@ -35,10 +35,7 @@ async function seed() {
       return;
     }
 
-    const [org] = await db
-      .insert(schema.organizations)
-      .values({ name: ORG_NAME })
-      .returning();
+    const [org] = await db.insert(schema.organizations).values({ name: ORG_NAME }).returning();
 
     console.log(`Created organization: "${org.name}" (${org.id})`);
 

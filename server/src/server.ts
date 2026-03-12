@@ -69,7 +69,12 @@ export async function createServer(config: ServerConfig) {
         return request.authUser?.userId ?? request.ip;
       },
       addHeadersOnExceeding: { "x-ratelimit-limit": true, "x-ratelimit-remaining": true, "x-ratelimit-reset": true },
-      addHeaders: { "x-ratelimit-limit": true, "x-ratelimit-remaining": true, "x-ratelimit-reset": true, "retry-after": true },
+      addHeaders: {
+        "x-ratelimit-limit": true,
+        "x-ratelimit-remaining": true,
+        "x-ratelimit-reset": true,
+        "retry-after": true,
+      },
     });
   }
 

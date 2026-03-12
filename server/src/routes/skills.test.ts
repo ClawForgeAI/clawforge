@@ -200,7 +200,10 @@ describe("skill routes", () => {
   describe("GET /api/v1/skills/:orgId/approved/history", () => {
     it("lists full approval history for admin", async () => {
       const app = await buildApp();
-      const all = [{ id: "a1", skillName: "s1" }, { id: "a2", skillName: "s2", revokedAt: "2025-01-01" }];
+      const all = [
+        { id: "a1", skillName: "s1" },
+        { id: "a2", skillName: "s2", revokedAt: "2025-01-01" },
+      ];
       mockListAllApproved.mockResolvedValueOnce(all);
 
       const res = await app.inject({

@@ -4,11 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { PolicyService } from "./policy-service.js";
-import {
-  TEST_ORG_ID,
-  TEST_USER_ID,
-  testPolicy,
-} from "../test/helpers.js";
+import { TEST_ORG_ID, TEST_USER_ID, testPolicy } from "../test/helpers.js";
 
 // ---------------------------------------------------------------------------
 // Mock DB helper specific to PolicyService
@@ -22,17 +18,7 @@ function createPolicyMockDb() {
 
   function chain(resultRef: () => unknown[]) {
     const obj: Record<string, unknown> = {};
-    const methods = [
-      "from",
-      "where",
-      "limit",
-      "offset",
-      "orderBy",
-      "values",
-      "set",
-      "returning",
-      "onConflictDoUpdate",
-    ];
+    const methods = ["from", "where", "limit", "offset", "orderBy", "values", "set", "returning", "onConflictDoUpdate"];
     for (const m of methods) {
       obj[m] = vi.fn().mockReturnValue(obj);
     }
@@ -204,7 +190,7 @@ describe("PolicyService", () => {
       };
 
       // getOrgPolicy (select) returns empty, then insert returns the new row
-      let callCount = 0;
+      const callCount = 0;
       db.select = vi.fn(() => {
         const obj: Record<string, unknown> = {};
         const methods = ["from", "where", "limit"];

@@ -92,33 +92,36 @@ export default function KillSwitchPage() {
         ) : (
           <div className="space-y-6 max-w-2xl">
             {/* Status */}
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
               <Card className={active ? "border-error/30 bg-error/5" : "border-success/30 bg-success/5"}>
                 <div className="flex items-center gap-4">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
-                    active ? "bg-error/15" : "bg-success/15"
-                  }`}>
-                    <svg className={`w-7 h-7 ${active ? "text-error" : "text-success"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <div
+                    className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
+                      active ? "bg-error/15" : "bg-success/15"
+                    }`}
+                  >
+                    <svg
+                      className={`w-7 h-7 ${active ? "text-error" : "text-success"}`}
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
                       <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
                       <line x1="12" y1="2" x2="12" y2="12" />
                     </svg>
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-lg font-bold">
-                      {active ? "Kill Switch is ACTIVE" : "Kill Switch is OFF"}
-                    </h3>
+                    <h3 className="text-lg font-bold">{active ? "Kill Switch is ACTIVE" : "Kill Switch is OFF"}</h3>
                     <p className="text-sm text-base-content/50 mt-0.5">
                       {active
                         ? "All agent tool calls are currently blocked across the organization."
                         : "Agents are operating normally under policy rules."}
                     </p>
                   </div>
-                  {active && (
-                    <div className="w-3 h-3 rounded-full bg-error animate-pulse" />
-                  )}
+                  {active && <div className="w-3 h-3 rounded-full bg-error animate-pulse" />}
                 </div>
               </Card>
             </motion.div>
@@ -128,13 +131,23 @@ export default function KillSwitchPage() {
               <CardTitle>Impact</CardTitle>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+                  <svg
+                    className="w-5 h-5 text-primary"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
                   </svg>
                 </div>
                 <p className="text-sm text-base-content/60">
                   {active ? "Currently affecting" : "Will affect"}{" "}
-                  <span className="font-bold text-base-content text-lg">{userCount}</span> user{userCount !== 1 ? "s" : ""} in this organization.
+                  <span className="font-bold text-base-content text-lg">{userCount}</span> user
+                  {userCount !== 1 ? "s" : ""} in this organization.
                 </p>
               </div>
             </Card>
@@ -163,17 +176,17 @@ export default function KillSwitchPage() {
                   className="btn btn-success btn-lg gap-2"
                 >
                   {toggling && <span className="loading loading-spinner loading-sm" />}
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0M12 2v10" /></svg>
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0M12 2v10" />
+                  </svg>
                   {toggling ? "Updating..." : "Deactivate Kill Switch"}
                 </button>
               ) : (
-                <button
-                  onClick={() => requestToggle(true)}
-                  disabled={toggling}
-                  className="btn btn-error btn-lg gap-2"
-                >
+                <button onClick={() => requestToggle(true)} disabled={toggling} className="btn btn-error btn-lg gap-2">
                   {toggling && <span className="loading loading-spinner loading-sm" />}
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0M12 2v10" /></svg>
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0M12 2v10" />
+                  </svg>
                   {toggling ? "Updating..." : "Activate Kill Switch"}
                 </button>
               )}
@@ -198,10 +211,18 @@ export default function KillSwitchPage() {
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="card-body">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-2 ${
-                        pendingAction ? "bg-error/10" : "bg-success/10"
-                      }`}>
-                        <svg className={`w-6 h-6 ${pendingAction ? "text-error" : "text-success"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <div
+                        className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-2 ${
+                          pendingAction ? "bg-error/10" : "bg-success/10"
+                        }`}
+                      >
+                        <svg
+                          className={`w-6 h-6 ${pendingAction ? "text-error" : "text-success"}`}
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
                           <path d="M18.36 6.64a9 9 0 1 1-12.73 0M12 2v10" />
                         </svg>
                       </div>
@@ -214,10 +235,7 @@ export default function KillSwitchPage() {
                           : "This will restore normal agent operations under existing policy rules."}
                       </p>
                       <div className="card-actions justify-end mt-4">
-                        <button
-                          onClick={() => setShowConfirm(false)}
-                          className="btn btn-ghost btn-sm"
-                        >
+                        <button onClick={() => setShowConfirm(false)} className="btn btn-ghost btn-sm">
                           Cancel
                         </button>
                         <button

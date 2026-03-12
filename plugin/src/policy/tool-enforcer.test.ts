@@ -110,12 +110,8 @@ describe("tool-enforcer", () => {
       state.policy = makePolicy({ tools: { deny: ["group:runtime"] } });
       const hook = createToolEnforcerHook(state, auditLogger);
 
-      expect(hook({ toolName: "exec", params: {} }, makeCtx())).toEqual(
-        expect.objectContaining({ block: true }),
-      );
-      expect(hook({ toolName: "process", params: {} }, makeCtx())).toEqual(
-        expect.objectContaining({ block: true }),
-      );
+      expect(hook({ toolName: "exec", params: {} }, makeCtx())).toEqual(expect.objectContaining({ block: true }));
+      expect(hook({ toolName: "process", params: {} }, makeCtx())).toEqual(expect.objectContaining({ block: true }));
       expect(hook({ toolName: "read", params: {} }, makeCtx())).toBeUndefined();
     });
 
@@ -158,9 +154,7 @@ describe("tool-enforcer", () => {
       expect(hook({ toolName: "read", params: {} }, makeCtx())).toBeUndefined();
       expect(hook({ toolName: "write", params: {} }, makeCtx())).toBeUndefined();
       expect(hook({ toolName: "edit", params: {} }, makeCtx())).toBeUndefined();
-      expect(hook({ toolName: "exec", params: {} }, makeCtx())).toEqual(
-        expect.objectContaining({ block: true }),
-      );
+      expect(hook({ toolName: "exec", params: {} }, makeCtx())).toEqual(expect.objectContaining({ block: true }));
     });
   });
 
@@ -183,10 +177,7 @@ describe("tool-enforcer", () => {
       state.policy = makePolicy({ tools: { deny: ["group:fs"] } });
       const hook = createToolEnforcerHook(state, auditLogger);
 
-      const result = hook(
-        { toolName: "exec", params: { command: "ls ~/Documents" } },
-        makeCtx(),
-      );
+      const result = hook({ toolName: "exec", params: { command: "ls ~/Documents" } }, makeCtx());
 
       expect(result?.block).toBe(true);
       expect(result?.blockReason).toContain("filesystem access is denied");
@@ -196,10 +187,7 @@ describe("tool-enforcer", () => {
       state.policy = makePolicy({ tools: { deny: ["read"] } });
       const hook = createToolEnforcerHook(state, auditLogger);
 
-      const result = hook(
-        { toolName: "exec", params: { command: "cat /etc/passwd" } },
-        makeCtx(),
-      );
+      const result = hook({ toolName: "exec", params: { command: "cat /etc/passwd" } }, makeCtx());
 
       expect(result?.block).toBe(true);
     });
@@ -208,10 +196,7 @@ describe("tool-enforcer", () => {
       state.policy = makePolicy({ tools: { deny: ["group:fs"] } });
       const hook = createToolEnforcerHook(state, auditLogger);
 
-      const result = hook(
-        { toolName: "exec", params: { command: "find / -name '*.txt'" } },
-        makeCtx(),
-      );
+      const result = hook({ toolName: "exec", params: { command: "find / -name '*.txt'" } }, makeCtx());
 
       expect(result?.block).toBe(true);
     });
@@ -220,10 +205,7 @@ describe("tool-enforcer", () => {
       state.policy = makePolicy({ tools: { deny: ["group:fs"] } });
       const hook = createToolEnforcerHook(state, auditLogger);
 
-      const result = hook(
-        { toolName: "exec", params: { command: "echo hello | cat > /tmp/test" } },
-        makeCtx(),
-      );
+      const result = hook({ toolName: "exec", params: { command: "echo hello | cat > /tmp/test" } }, makeCtx());
 
       expect(result?.block).toBe(true);
     });
@@ -232,22 +214,15 @@ describe("tool-enforcer", () => {
       state.policy = makePolicy({ tools: { deny: ["group:fs"] } });
       const hook = createToolEnforcerHook(state, auditLogger);
 
-      expect(
-        hook({ toolName: "exec", params: { command: "cp file1 file2" } }, makeCtx())?.block,
-      ).toBe(true);
-      expect(
-        hook({ toolName: "exec", params: { command: "mv old new" } }, makeCtx())?.block,
-      ).toBe(true);
+      expect(hook({ toolName: "exec", params: { command: "cp file1 file2" } }, makeCtx())?.block).toBe(true);
+      expect(hook({ toolName: "exec", params: { command: "mv old new" } }, makeCtx())?.block).toBe(true);
     });
 
     it("allows non-fs exec commands when group:fs is denied", () => {
       state.policy = makePolicy({ tools: { deny: ["group:fs"] } });
       const hook = createToolEnforcerHook(state, auditLogger);
 
-      const result = hook(
-        { toolName: "exec", params: { command: "echo hello" } },
-        makeCtx(),
-      );
+      const result = hook({ toolName: "exec", params: { command: "echo hello" } }, makeCtx());
 
       expect(result).toBeUndefined();
     });
@@ -256,10 +231,7 @@ describe("tool-enforcer", () => {
       state.policy = makePolicy({ tools: { deny: ["web_search"] } });
       const hook = createToolEnforcerHook(state, auditLogger);
 
-      const result = hook(
-        { toolName: "exec", params: { command: "ls ~/Documents" } },
-        makeCtx(),
-      );
+      const result = hook({ toolName: "exec", params: { command: "ls ~/Documents" } }, makeCtx());
 
       expect(result).toBeUndefined();
     });
@@ -268,10 +240,7 @@ describe("tool-enforcer", () => {
       state.policy = makePolicy({ tools: { deny: ["group:fs"] } });
       const hook = createToolEnforcerHook(state, auditLogger);
 
-      const result = hook(
-        { toolName: "exec", params: { command: "sudo ls /root" } },
-        makeCtx(),
-      );
+      const result = hook({ toolName: "exec", params: { command: "sudo ls /root" } }, makeCtx());
 
       expect(result?.block).toBe(true);
     });

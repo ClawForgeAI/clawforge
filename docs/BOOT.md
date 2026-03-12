@@ -38,10 +38,10 @@ ClawForge solves this by providing a **single admin panel** that connects to eve
 
 ## Key Actors
 
-| Actor | Description |
-|---|---|
-| **Org Admin** | Uses the ClawForge admin console (web UI) to manage policies, review skills, query audits, and control the kill switch. Has full visibility over all connected OpenClaw instances. |
-| **Employee / User** | Runs OpenClaw on their machine for day-to-day work. Their instance connects to the org's ClawForge control plane and follows the policies set by the admin. They can submit skills for approval and see their own status. |
+| Actor                 | Description                                                                                                                                                                                                                                   |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Org Admin**         | Uses the ClawForge admin console (web UI) to manage policies, review skills, query audits, and control the kill switch. Has full visibility over all connected OpenClaw instances.                                                            |
+| **Employee / User**   | Runs OpenClaw on their machine for day-to-day work. Their instance connects to the org's ClawForge control plane and follows the policies set by the admin. They can submit skills for approval and see their own status.                     |
 | **OpenClaw Instance** | The AI assistant running on an employee's machine. It connects to ClawForge via the `@ClawForgeAI/clawforge` plugin, authenticates the user, fetches policies, enforces tool restrictions, uploads audit events, and checks in via heartbeat. |
 
 ---
@@ -79,21 +79,24 @@ Employee Machine A          Employee Machine B          Employee Machine C
 
 ## Architecture (Three Packages)
 
-| Package | Role | Runs On |
-|---|---|---|
-| `@ClawForgeAI/clawforge` | OpenClaw plugin — hooks into the AI assistant lifecycle, enforces policies client-side, uploads audit events, polls heartbeat | Employee's machine |
-| `@ClawForgeAI/clawforge-server` | Control plane API — manages auth, policies, skill reviews, audit storage, heartbeat, kill switch | Org's server / cloud |
-| `@ClawForgeAI/clawforge-admin` | Admin web console — UI for managing everything | Org's server / cloud (accessed via browser) |
+| Package                         | Role                                                                                                                          | Runs On                                     |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `@ClawForgeAI/clawforge`        | OpenClaw plugin — hooks into the AI assistant lifecycle, enforces policies client-side, uploads audit events, polls heartbeat | Employee's machine                          |
+| `@ClawForgeAI/clawforge-server` | Control plane API — manages auth, policies, skill reviews, audit storage, heartbeat, kill switch                              | Org's server / cloud                        |
+| `@ClawForgeAI/clawforge-admin`  | Admin web console — UI for managing everything                                                                                | Org's server / cloud (accessed via browser) |
 
 ---
 
 ## Core Concepts
 
 ### Organization
+
 The top-level tenant. An org groups users, policies, skills, and audit logs. Everything in ClawForge is scoped to an org.
 
 ### Policy
+
 Each org has one active, versioned policy that defines:
+
 - **Tool allow/deny lists** — Which tools can the AI assistant use?
 - **Skill approval requirements** — Must skills be reviewed before use?
 - **Audit level** — How much is logged? (`full` / `metadata` / `off`)
@@ -102,17 +105,22 @@ Each org has one active, versioned policy that defines:
 Policies are fetched by each OpenClaw instance and enforced locally. When the admin updates a policy, connected instances detect the new version on their next heartbeat and refresh.
 
 ### Enrollment
+
 How an employee's OpenClaw instance joins the org. Currently via SSO/OIDC login (`/clawforge-login`). The user authenticates, the control plane links them to the org, and the plugin stores a session locally.
 
 ### Heartbeat
+
 Each connected instance periodically polls the control plane. The heartbeat serves two purposes:
+
 1. **Liveness** — The admin sees which instances are online.
 2. **State sync** — The instance learns about kill switch changes and policy updates.
 
 ### Audit Trail
+
 Every tool call, session event, and (optionally) LLM interaction is batched and uploaded to the control plane. The admin can query and filter these logs in the console.
 
 ### Kill Switch
+
 An emergency mechanism. When activated, **all** tool calls are blocked across every connected instance in the org. Propagates via heartbeat.
 
 ---
@@ -129,6 +137,7 @@ An emergency mechanism. When activated, **all** tool calls are blocked across ev
 ## Current State & Known Gaps
 
 ### Implemented
+
 - SSO/OIDC and email/password authentication
 - Org-level policy management (tools, skills, audit level, kill switch)
 - Skill submission, security scanning, and admin review workflow
@@ -138,6 +147,7 @@ An emergency mechanism. When activated, **all** tool calls are blocked across ev
 - Client heartbeat tracking
 
 ### Not Yet Implemented
+
 - Enrollment tokens (admin generates a token, employee uses it to join the org without SSO)
 - User CRUD API (invite, remove, change role)
 - Multi-org management in the admin UI

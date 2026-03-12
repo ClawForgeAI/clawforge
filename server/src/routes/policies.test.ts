@@ -26,10 +26,7 @@ import {
  */
 function mockDbChain(result: unknown[]) {
   const obj: Record<string, unknown> = {};
-  const methods = [
-    "from", "where", "limit", "offset", "orderBy",
-    "values", "set", "returning", "onConflictDoUpdate",
-  ];
+  const methods = ["from", "where", "limit", "offset", "orderBy", "values", "set", "returning", "onConflictDoUpdate"];
   for (const m of methods) {
     obj[m] = vi.fn().mockReturnValue(obj);
   }

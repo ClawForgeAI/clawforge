@@ -246,9 +246,7 @@ describe("AuditLogger", () => {
       expect(logger.bufferSize).toBe(5);
 
       // Should have warned about exceeding buffer.
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining("exceeded max size"),
-      );
+      expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining("exceeded max size"));
     });
 
     it("warns when buffer approaches 80% capacity", () => {
@@ -269,9 +267,7 @@ describe("AuditLogger", () => {
         });
       }
 
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining("approaching capacity"),
-      );
+      expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining("approaching capacity"));
     });
 
     it("does not warn below 80% capacity", () => {
@@ -293,8 +289,8 @@ describe("AuditLogger", () => {
       }
 
       // No capacity warning should have been emitted.
-      const capacityWarnings = mockLogger.warn.mock.calls.filter(
-        (call: string[]) => call[0].includes("approaching capacity"),
+      const capacityWarnings = mockLogger.warn.mock.calls.filter((call: string[]) =>
+        call[0].includes("approaching capacity"),
       );
       expect(capacityWarnings.length).toBe(0);
     });

@@ -1,17 +1,7 @@
-export function Card({
-  children,
-  className = "",
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
+export function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div
-      className={`card bg-base-100 shadow-sm border border-base-300/50 animate-fade-in-up ${className}`}
-    >
-      <div className="card-body p-5">
-        {children}
-      </div>
+    <div className={`card bg-base-100 shadow-sm border border-base-300/50 animate-fade-in-up ${className}`}>
+      <div className="card-body p-5">{children}</div>
     </div>
   );
 }
@@ -60,9 +50,7 @@ export function StatCard({
         <div className="flex items-center justify-between">
           <p className="text-xs font-medium text-base-content/50 uppercase tracking-wider">{label}</p>
           {icon && (
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${iconBg[variant]}`}>
-              {icon}
-            </div>
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${iconBg[variant]}`}>{icon}</div>
           )}
         </div>
         <p className={`text-2xl font-bold tabular-nums ${colors[variant]}`}>

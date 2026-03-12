@@ -32,95 +32,84 @@ export async function enrollmentRoutes(app: FastifyInstance): Promise<void> {
    * POST /api/v1/enrollment-tokens/:orgId
    * Create a new enrollment token (admin only).
    */
-  app.post<{ Params: { orgId: string } }>(
-    "/api/v1/enrollment-tokens/:orgId",
-    async (request, reply) => {
-      requireAdmin(request, reply);
-      if (reply.sent) return;
-      const { orgId } = request.params;
-      requireOrg(request, reply, orgId);
-      if (reply.sent) return;
+  app.post<{ Params: { orgId: string } }>("/api/v1/enrollment-tokens/:orgId", async (request, reply) => {
+    requireAdmin(request, reply);
+    if (reply.sent) return;
+    const { orgId } = request.params;
+    requireOrg(request, reply, orgId);
+    if (reply.sent) return;
 
-      const parseResult = CreateTokenSchema.safeParse(request.body);
-      if (!parseResult.success) {
-        return reply.code(400).send({
-          error: "Invalid request body",
-          details: parseResult.error.issues,
-        });
-      }
-
-      const { label, expiresAt, maxUses } = parseResult.data;
-      const token = generateToken();
-
-      const [created] = await app.db
-        .insert(enrollmentTokens)
-        .values({
-          orgId,
-          token,
-          label: label ?? null,
-          expiresAt: expiresAt ? new Date(expiresAt) : null,
-          maxUses: maxUses ?? null,
-          createdBy: request.authUser!.userId,
-        })
-        .returning();
-
-      logAdminAction(app.db, {
-        orgId,
-        userId: request.authUser!.userId,
-        action: "enrollment_token_created",
-        resourceType: "enrollment_token",
-        resourceId: created.id,
-        details: { label, maxUses },
-      }).catch(() => {});
-
-      return reply.code(201).send({
-        id: created.id,
-        token: created.token,
-        label: created.label,
-        expiresAt: created.expiresAt,
-        maxUses: created.maxUses,
-        usedCount: created.usedCount,
-        createdAt: created.createdAt,
+    const parseResult = CreateTokenSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      return reply.code(400).send({
+        error: "Invalid request body",
+        details: parseResult.error.issues,
       });
-    },
-  );
+    }
+
+    const { label, expiresAt, maxUses } = parseResult.data;
+    const token = generateToken();
+
+    const [created] = await app.db
+      .insert(enrollmentTokens)
+      .values({
+        orgId,
+        token,
+        label: label ?? null,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        maxUses: maxUses ?? null,
+        createdBy: request.authUser!.userId,
+      })
+      .returning();
+
+    logAdminAction(app.db, {
+      orgId,
+      userId: request.authUser!.userId,
+      action: "enrollment_token_created",
+      resourceType: "enrollment_token",
+      resourceId: created.id,
+      details: { label, maxUses },
+    }).catch(() => {});
+
+    return reply.code(201).send({
+      id: created.id,
+      token: created.token,
+      label: created.label,
+      expiresAt: created.expiresAt,
+      maxUses: created.maxUses,
+      usedCount: created.usedCount,
+      createdAt: created.createdAt,
+    });
+  });
 
   /**
    * GET /api/v1/enrollment-tokens/:orgId
    * List active enrollment tokens (admin only).
    */
-  app.get<{ Params: { orgId: string } }>(
-    "/api/v1/enrollment-tokens/:orgId",
-    async (request, reply) => {
-      requireAdmin(request, reply);
-      if (reply.sent) return;
-      const { orgId } = request.params;
-      requireOrg(request, reply, orgId);
-      if (reply.sent) return;
+  app.get<{ Params: { orgId: string } }>("/api/v1/enrollment-tokens/:orgId", async (request, reply) => {
+    requireAdmin(request, reply);
+    if (reply.sent) return;
+    const { orgId } = request.params;
+    requireOrg(request, reply, orgId);
+    if (reply.sent) return;
 
-      const tokens = await app.db
-        .select({
-          id: enrollmentTokens.id,
-          token: enrollmentTokens.token,
-          label: enrollmentTokens.label,
-          expiresAt: enrollmentTokens.expiresAt,
-          maxUses: enrollmentTokens.maxUses,
-          usedCount: enrollmentTokens.usedCount,
-          revokedAt: enrollmentTokens.revokedAt,
-          createdAt: enrollmentTokens.createdAt,
-        })
-        .from(enrollmentTokens)
-        .where(
-          and(
-            eq(enrollmentTokens.orgId, orgId),
-            isNull(enrollmentTokens.revokedAt),
-          ),
-        )
-        .orderBy(enrollmentTokens.createdAt);
+    const tokens = await app.db
+      .select({
+        id: enrollmentTokens.id,
+        token: enrollmentTokens.token,
+        label: enrollmentTokens.label,
+        expiresAt: enrollmentTokens.expiresAt,
+        maxUses: enrollmentTokens.maxUses,
+        usedCount: enrollmentTokens.usedCount,
+        revokedAt: enrollmentTokens.revokedAt,
+        createdAt: enrollmentTokens.createdAt,
+      })
+      .from(enrollmentTokens)
+      .where(and(eq(enrollmentTokens.orgId, orgId), isNull(enrollmentTokens.revokedAt)))
+      .orderBy(enrollmentTokens.createdAt);
 
-      return reply.send({ tokens });
-    },
-  );
+    return reply.send({ tokens });
+  });
 
   /**
    * DELETE /api/v1/enrollment-tokens/:orgId/:tokenId
@@ -138,12 +127,7 @@ export async function enrollmentRoutes(app: FastifyInstance): Promise<void> {
       const [updated] = await app.db
         .update(enrollmentTokens)
         .set({ revokedAt: new Date() })
-        .where(
-          and(
-            eq(enrollmentTokens.id, tokenId),
-            eq(enrollmentTokens.orgId, orgId),
-          ),
-        )
+        .where(and(eq(enrollmentTokens.id, tokenId), eq(enrollmentTokens.orgId, orgId)))
         .returning();
 
       if (!updated) {
@@ -180,11 +164,7 @@ export async function enrollmentRoutes(app: FastifyInstance): Promise<void> {
     const db = app.db;
 
     // Find the token.
-    const [enrollToken] = await db
-      .select()
-      .from(enrollmentTokens)
-      .where(eq(enrollmentTokens.token, token))
-      .limit(1);
+    const [enrollToken] = await db.select().from(enrollmentTokens).where(eq(enrollmentTokens.token, token)).limit(1);
 
     if (!enrollToken) {
       return reply.code(401).send({ error: "Invalid enrollment token" });

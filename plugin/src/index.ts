@@ -15,11 +15,7 @@ import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type { ClawForgePluginConfig, OrgPolicy } from "./types.js";
 import { loadSession, isSessionValid, saveSession } from "./auth/token-store.js";
 import { fetchEffectivePolicy, refreshSessionToken } from "./policy/org-policy-client.js";
-import {
-  loadCachedPolicy,
-  saveCachedPolicy,
-  loadCachedPolicyFallback,
-} from "./policy/org-policy-cache.js";
+import { loadCachedPolicy, saveCachedPolicy, loadCachedPolicyFallback } from "./policy/org-policy-cache.js";
 import { createToolEnforcerHook, type ToolEnforcerState } from "./policy/tool-enforcer.js";
 import { buildSkillsEnterpriseConfig } from "./policy/skill-filter.js";
 import { AuditLogger } from "./audit/audit-logger.js";
@@ -37,10 +33,7 @@ let sharedAuditLogger: AuditLogger | null = null;
 /**
  * Initialize the ClawForge plugin: authenticate, fetch policy, set up hooks.
  */
-async function initializeClawForge(
-  api: OpenClawPluginApi,
-  pluginConfig: ClawForgePluginConfig,
-): Promise<void> {
+async function initializeClawForge(api: OpenClawPluginApi, pluginConfig: ClawForgePluginConfig): Promise<void> {
   const logger = api.logger;
 
   // --- 1. Authenticate ---
@@ -391,7 +384,7 @@ export function register(api: OpenClawPluginApi): void {
           return { text: `Enrollment failed (${res.status}): ${body}` };
         }
 
-        const data = await res.json() as {
+        const data = (await res.json()) as {
           accessToken: string;
           refreshToken: string;
           expiresAt: number;

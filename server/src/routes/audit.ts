@@ -38,44 +38,41 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
   const auditService = new AuditService(app.db);
 
   // POST /api/v1/audit/:orgId/events - Ingest (keep existing)
-  app.post<{ Params: { orgId: string } }>(
-    "/api/v1/audit/:orgId/events",
-    async (request, reply) => {
-      const { orgId } = request.params;
-      requireOrg(request, reply, orgId);
-      if (reply.sent) return;
+  app.post<{ Params: { orgId: string } }>("/api/v1/audit/:orgId/events", async (request, reply) => {
+    const { orgId } = request.params;
+    requireOrg(request, reply, orgId);
+    if (reply.sent) return;
 
-      const parseResult = IngestBodySchema.safeParse(request.body);
-      if (!parseResult.success) {
-        return reply.code(400).send({
-          error: "Invalid request body",
-          details: parseResult.error.issues,
+    const parseResult = IngestBodySchema.safeParse(request.body);
+    if (!parseResult.success) {
+      return reply.code(400).send({
+        error: "Invalid request body",
+        details: parseResult.error.issues,
+      });
+    }
+
+    const authUser = request.authUser!;
+    const events = parseResult.data.events;
+
+    const invalidOrg = events.find((e) => e.orgId !== orgId);
+    if (invalidOrg) {
+      return reply.code(400).send({
+        error: "Event orgId mismatch: all events must belong to the route orgId",
+      });
+    }
+
+    if (authUser.role !== "admin") {
+      const invalidUser = events.find((e) => e.userId !== authUser.userId);
+      if (invalidUser) {
+        return reply.code(403).send({
+          error: "Non-admin users can only submit audit events for their own userId",
         });
       }
+    }
 
-      const authUser = request.authUser!;
-      const events = parseResult.data.events;
-
-      const invalidOrg = events.find((e) => e.orgId !== orgId);
-      if (invalidOrg) {
-        return reply.code(400).send({
-          error: "Event orgId mismatch: all events must belong to the route orgId",
-        });
-      }
-
-      if (authUser.role !== "admin") {
-        const invalidUser = events.find((e) => e.userId !== authUser.userId);
-        if (invalidUser) {
-          return reply.code(403).send({
-            error: "Non-admin users can only submit audit events for their own userId",
-          });
-        }
-      }
-
-      await auditService.ingestEvents(events);
-      return reply.code(201).send({ ingested: events.length });
-    },
-  );
+    await auditService.ingestEvents(events);
+    return reply.code(201).send({ ingested: events.length });
+  });
 
   // GET /api/v1/audit/:orgId/query - Query with pagination (#38: viewers can query)
   app.get<{
@@ -112,10 +109,7 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
       cursor: query.cursor,
     };
 
-    const [events, total] = await Promise.all([
-      auditService.queryEvents(params),
-      auditService.countEvents(params),
-    ]);
+    const [events, total] = await Promise.all([auditService.queryEvents(params), auditService.countEvents(params)]);
 
     const limit = params.limit ?? 100;
     const nextCursor = events.length === limit ? events[events.length - 1]?.id : undefined;
@@ -143,48 +137,42 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
   );
 
   // GET /api/v1/audit/:orgId/stats - Audit stats (#39)
-  app.get<{ Params: { orgId: string } }>(
-    "/api/v1/audit/:orgId/stats",
-    async (request, reply) => {
-      requireAdminOrViewer(request, reply);
-      if (reply.sent) return;
-      const { orgId } = request.params;
-      requireOrg(request, reply, orgId);
-      if (reply.sent) return;
+  app.get<{ Params: { orgId: string } }>("/api/v1/audit/:orgId/stats", async (request, reply) => {
+    requireAdminOrViewer(request, reply);
+    if (reply.sent) return;
+    const { orgId } = request.params;
+    requireOrg(request, reply, orgId);
+    if (reply.sent) return;
 
-      const stats = await getAuditStats(app.db, orgId);
-      const retentionDays = parseInt(process.env.AUDIT_RETENTION_DAYS ?? "0", 10);
+    const stats = await getAuditStats(app.db, orgId);
+    const retentionDays = parseInt(process.env.AUDIT_RETENTION_DAYS ?? "0", 10);
 
-      return reply.send({
-        ...stats,
-        retentionDays: retentionDays > 0 ? retentionDays : null,
-      });
-    },
-  );
+    return reply.send({
+      ...stats,
+      retentionDays: retentionDays > 0 ? retentionDays : null,
+    });
+  });
 
   // DELETE /api/v1/audit/:orgId/retention - Retention cleanup
-  app.delete<{ Params: { orgId: string } }>(
-    "/api/v1/audit/:orgId/retention",
-    async (request, reply) => {
-      requireAdmin(request, reply);
-      if (reply.sent) return;
-      const { orgId } = request.params;
-      requireOrg(request, reply, orgId);
-      if (reply.sent) return;
+  app.delete<{ Params: { orgId: string } }>("/api/v1/audit/:orgId/retention", async (request, reply) => {
+    requireAdmin(request, reply);
+    if (reply.sent) return;
+    const { orgId } = request.params;
+    requireOrg(request, reply, orgId);
+    if (reply.sent) return;
 
-      const parseResult = RetentionSchema.safeParse(request.body);
-      if (!parseResult.success) {
-        return reply.code(400).send({
-          error: "Invalid request body",
-          details: parseResult.error.issues,
-        });
-      }
+    const parseResult = RetentionSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      return reply.code(400).send({
+        error: "Invalid request body",
+        details: parseResult.error.issues,
+      });
+    }
 
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - parseResult.data.retentionDays);
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - parseResult.data.retentionDays);
 
-      const deleted = await auditService.deleteOldEvents(orgId, cutoff);
-      return reply.send({ deleted, cutoffDate: cutoff.toISOString() });
-    },
-  );
+    const deleted = await auditService.deleteOldEvents(orgId, cutoff);
+    return reply.send({ deleted, cutoffDate: cutoff.toISOString() });
+  });
 }

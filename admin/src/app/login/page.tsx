@@ -113,12 +113,8 @@ function LoginForm() {
           transition={{ duration: 0.5 }}
           className="relative z-10 flex items-center gap-3 mb-3"
         >
-          <div className="w-11 h-11 rounded-lg bg-primary/20 flex items-center justify-center text-2xl">
-            🛡
-          </div>
-          <span className="text-2xl font-bold text-neutral-content tracking-tight">
-            ClawForge
-          </span>
+          <div className="w-11 h-11 rounded-lg bg-primary/20 flex items-center justify-center text-2xl">🛡</div>
+          <span className="text-2xl font-bold text-neutral-content tracking-tight">ClawForge</span>
         </motion.div>
 
         <motion.div
@@ -128,7 +124,8 @@ function LoginForm() {
           className="relative z-10 space-y-8"
         >
           <blockquote className="text-neutral-content text-lg leading-relaxed opacity-70">
-            One dashboard to govern all your AI assistants. Manage policies, audit trails, and kill switches across your entire OpenClaw fleet.
+            One dashboard to govern all your AI assistants. Manage policies, audit trails, and kill switches across your
+            entire OpenClaw fleet.
           </blockquote>
 
           <div className="flex flex-wrap items-center gap-4">
@@ -141,9 +138,7 @@ function LoginForm() {
           </div>
         </motion.div>
 
-        <div className="relative z-10 text-neutral-content text-xs opacity-30">
-          ClawForge Admin Console
-        </div>
+        <div className="relative z-10 text-neutral-content text-xs opacity-30">ClawForge Admin Console</div>
       </div>
 
       {/* Right panel -- login form */}
@@ -156,27 +151,30 @@ function LoginForm() {
         >
           {/* Mobile logo */}
           <div className="lg:hidden mb-10 flex items-center justify-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center text-2xl">
-              🛡
-            </div>
-            <span className="text-2xl font-bold text-base-content tracking-tight">
-              ClawForge
-            </span>
+            <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center text-2xl">🛡</div>
+            <span className="text-2xl font-bold text-base-content tracking-tight">ClawForge</span>
           </div>
 
           <div className="mb-8">
-            <h1 className="text-2xl font-bold tracking-tight text-base-content">
-              Sign in
-            </h1>
-            <p className="text-sm mt-1 opacity-50">
-              Enter your credentials to access the admin console.
-            </p>
+            <h1 className="text-2xl font-bold tracking-tight text-base-content">Sign in</h1>
+            <p className="text-sm mt-1 opacity-50">Enter your credentials to access the admin console.</p>
           </div>
 
           {expired && (
             <div className="alert alert-warning mb-6 text-sm">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 shrink-0"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
+                />
               </svg>
               <span>Session expired. Please sign in again.</span>
             </div>
@@ -219,18 +217,25 @@ function LoginForm() {
 
               {error && (
                 <div className="alert alert-error text-sm py-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 shrink-0"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                   </svg>
                   <span>{error}</span>
                 </div>
               )}
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn btn-primary w-full"
-              >
+              <button type="submit" disabled={loading} className="btn btn-primary w-full">
                 {loading && <span className="loading loading-spinner loading-sm" />}
                 {loading ? "Signing in..." : "Sign in"}
               </button>
@@ -270,18 +275,25 @@ function LoginForm() {
 
               {error && (
                 <div className="alert alert-error text-sm py-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 shrink-0"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                   </svg>
                   <span>{error}</span>
                 </div>
               )}
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn btn-primary w-full"
-              >
+              <button type="submit" disabled={loading} className="btn btn-primary w-full">
                 {loading && <span className="loading loading-spinner loading-sm" />}
                 {loading ? "Signing in..." : "Sign in with SSO"}
               </button>

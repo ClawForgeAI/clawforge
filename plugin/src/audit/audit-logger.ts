@@ -145,9 +145,7 @@ export class AuditLogger {
     if (this.buffer.length > this.maxBufferSize) {
       const dropped = this.buffer.length - this.maxBufferSize;
       this.buffer.splice(0, dropped);
-      this.logger?.warn(
-        `Audit buffer exceeded max size (${this.maxBufferSize}). Dropped ${dropped} oldest event(s).`,
-      );
+      this.logger?.warn(`Audit buffer exceeded max size (${this.maxBufferSize}). Dropped ${dropped} oldest event(s).`);
     }
 
     // Warn when approaching capacity (>80%).

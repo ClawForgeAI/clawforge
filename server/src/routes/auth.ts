@@ -81,11 +81,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       }
 
       // 2. Look up the org's SSO config.
-      const [org] = await db
-        .select()
-        .from(organizations)
-        .where(eq(organizations.id, orgId))
-        .limit(1);
+      const [org] = await db.select().from(organizations).where(eq(organizations.id, orgId)).limit(1);
 
       if (!org?.ssoConfig) {
         return reply.code(404).send({
@@ -126,11 +122,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       // from their IdP and passes it directly.
       const orgId = body.orgId;
 
-      const [org] = await db
-        .select()
-        .from(organizations)
-        .where(eq(organizations.id, orgId))
-        .limit(1);
+      const [org] = await db.select().from(organizations).where(eq(organizations.id, orgId)).limit(1);
 
       if (!org?.ssoConfig) {
         return reply.code(404).send({
@@ -191,10 +183,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         );
 
         // Update last seen.
-        await db
-          .update(users)
-          .set({ lastSeenAt: new Date() })
-          .where(eq(users.id, decoded.userId));
+        await db.update(users).set({ lastSeenAt: new Date() }).where(eq(users.id, decoded.userId));
 
         return reply.send({
           accessToken,
@@ -245,11 +234,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
     const condition = and(eq(users.orgId, orgId), eq(users.email, email));
 
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(condition)
-      .limit(1);
+    const [user] = await db.select().from(users).where(condition).limit(1);
 
     if (!user || !user.passwordHash) {
       return reply.code(401).send({ error: "Invalid email or password" });
@@ -263,10 +248,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     const resolvedOrgId = orgId ?? user.orgId;
 
     // Update last seen
-    await db
-      .update(users)
-      .set({ lastSeenAt: new Date() })
-      .where(eq(users.id, user.id));
+    await db.update(users).set({ lastSeenAt: new Date() }).where(eq(users.id, user.id));
 
     // Issue tokens
     const accessToken = app.jwt.sign(
@@ -325,11 +307,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     const db = app.db;
 
     // Fetch user
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
 
     if (!user) {
       return reply.code(404).send({ error: "User not found" });
@@ -348,10 +326,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
     // Hash and save new password
     const newHash = await bcrypt.hash(newPassword, 12);
-    await db
-      .update(users)
-      .set({ passwordHash: newHash })
-      .where(eq(users.id, userId));
+    await db.update(users).set({ passwordHash: newHash }).where(eq(users.id, userId));
 
     return reply.send({ success: true });
   });
@@ -387,11 +362,7 @@ async function issueClawForgeTokens(
       .where(eq(users.id, userId));
   } else {
     // First user in an org becomes admin, subsequent users are regular users.
-    const userCount = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.orgId, orgId))
-      .limit(1);
+    const userCount = await db.select({ id: users.id }).from(users).where(eq(users.orgId, orgId)).limit(1);
 
     role = userCount.length === 0 ? "admin" : "user";
 
@@ -409,15 +380,9 @@ async function issueClawForgeTokens(
   }
 
   // Issue ClawForge JWTs.
-  const accessToken = app.jwt.sign(
-    { userId, orgId, email, role },
-    { expiresIn: "1h" },
-  );
+  const accessToken = app.jwt.sign({ userId, orgId, email, role }, { expiresIn: "1h" });
 
-  const refreshToken = app.jwt.sign(
-    { userId, orgId, email, role, type: "refresh" },
-    { expiresIn: "30d" },
-  );
+  const refreshToken = app.jwt.sign({ userId, orgId, email, role, type: "refresh" }, { expiresIn: "30d" });
 
   return {
     accessToken,

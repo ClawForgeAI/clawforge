@@ -76,6 +76,7 @@ pnpm format:check
 ### Pre-commit Hooks
 
 If you have [pre-commit](https://pre-commit.com/) installed, hooks will automatically check for:
+
 - Trailing whitespace
 - Missing end-of-file newlines
 - Valid YAML and JSON

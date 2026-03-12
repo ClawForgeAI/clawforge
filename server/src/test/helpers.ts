@@ -230,14 +230,12 @@ export function generateExpiredToken(
   } = {},
 ): string {
   const nowSec = Math.floor(Date.now() / 1000);
-  return app.jwt.sign(
-    {
-      userId: payload.userId ?? TEST_USER_ID,
-      orgId: payload.orgId ?? TEST_ORG_ID,
-      email: payload.email ?? "user@test.com",
-      role: payload.role ?? "user",
-      iat: nowSec - 7200, // 2 hours ago
-      exp: nowSec - 3600, // expired 1 hour ago
-    },
-  );
+  return app.jwt.sign({
+    userId: payload.userId ?? TEST_USER_ID,
+    orgId: payload.orgId ?? TEST_ORG_ID,
+    email: payload.email ?? "user@test.com",
+    role: payload.role ?? "user",
+    iat: nowSec - 7200, // 2 hours ago
+    exp: nowSec - 3600, // expired 1 hour ago
+  });
 }

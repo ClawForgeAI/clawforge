@@ -7,14 +7,7 @@
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
 import type { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
-import {
-  createTestApp,
-  createMockDb,
-  type MockDb,
-  TEST_ORG_ID,
-  TEST_USER_ID,
-  testUser,
-} from "../test/helpers.js";
+import { createTestApp, createMockDb, type MockDb, TEST_ORG_ID, TEST_USER_ID, testUser } from "../test/helpers.js";
 
 describe("Auth Routes", () => {
   let app: FastifyInstance;

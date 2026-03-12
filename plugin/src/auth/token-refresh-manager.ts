@@ -48,9 +48,7 @@ export class TokenRefreshManager {
     if (this.timer) return;
 
     if (!this.controlPlaneUrl || !this.session.refreshToken) {
-      this.logger?.info(
-        "TokenRefreshManager: skipping (no controlPlaneUrl or refreshToken)",
-      );
+      this.logger?.info("TokenRefreshManager: skipping (no controlPlaneUrl or refreshToken)");
       return;
     }
 
@@ -87,9 +85,7 @@ export class TokenRefreshManager {
       return; // token is still fresh
     }
 
-    this.logger?.info(
-      `TokenRefreshManager: token expires in ${Math.round(msUntilExpiry / 1000)}s, refreshing...`,
-    );
+    this.logger?.info(`TokenRefreshManager: token expires in ${Math.round(msUntilExpiry / 1000)}s, refreshing...`);
 
     this.refreshing = true;
     try {
@@ -133,9 +129,7 @@ export class TokenRefreshManager {
       }
     }
 
-    this.logger?.error(
-      `TokenRefreshManager: all ${MAX_RETRIES} refresh attempts failed: ${String(lastError)}`,
-    );
+    this.logger?.error(`TokenRefreshManager: all ${MAX_RETRIES} refresh attempts failed: ${String(lastError)}`);
   }
 
   private sleep(ms: number): Promise<void> {

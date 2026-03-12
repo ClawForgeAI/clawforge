@@ -85,7 +85,14 @@ export default function DashboardPage() {
                 animate={{ opacity: 1, scale: 1 }}
                 className="alert alert-error mb-6 shadow-md"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6 shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M18.36 6.64a9 9 0 1 1-12.73 0M12 2v10" />
                 </svg>
                 <div>
@@ -99,44 +106,18 @@ export default function DashboardPage() {
 
             {/* Stats row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-              <StatCard
-                label="Active Users"
-                value={userCount}
-                icon={<UsersSmIcon />}
-              />
-              <StatCard
-                label="Clients Online"
-                value={onlineClients}
-                icon={<MonitorSmIcon />}
-              />
-              <StatCard
-                label="Calls Allowed"
-                value={toolCallsAllowed}
-                variant="success"
-                icon={<CheckSmIcon />}
-              />
-              <StatCard
-                label="Calls Blocked"
-                value={toolCallsBlocked}
-                variant="danger"
-                icon={<XSmIcon />}
-              />
-              <StatCard
-                label="Pending Reviews"
-                value={pendingCount}
-                variant="warning"
-                icon={<ClockSmIcon />}
-              />
+              <StatCard label="Active Users" value={userCount} icon={<UsersSmIcon />} />
+              <StatCard label="Clients Online" value={onlineClients} icon={<MonitorSmIcon />} />
+              <StatCard label="Calls Allowed" value={toolCallsAllowed} variant="success" icon={<CheckSmIcon />} />
+              <StatCard label="Calls Blocked" value={toolCallsBlocked} variant="danger" icon={<XSmIcon />} />
+              <StatCard label="Pending Reviews" value={pendingCount} variant="warning" icon={<ClockSmIcon />} />
             </div>
 
             {/* Recent audit events */}
             <Card>
               <div className="flex items-center justify-between mb-1">
                 <CardTitle className="mb-0">Recent Activity</CardTitle>
-                <button
-                  onClick={() => router.push("/audit")}
-                  className="btn btn-ghost btn-xs text-primary"
-                >
+                <button onClick={() => router.push("/audit")} className="btn btn-ghost btn-xs text-primary">
                   View all
                 </button>
               </div>
@@ -172,9 +153,7 @@ export default function DashboardPage() {
                           <td className="text-sm">{event.eventType}</td>
                           <td className="font-mono text-xs text-base-content/50">{event.toolName ?? "-"}</td>
                           <td>
-                            <Badge variant={event.outcome === "allowed" ? "success" : "danger"}>
-                              {event.outcome}
-                            </Badge>
+                            <Badge variant={event.outcome === "allowed" ? "success" : "danger"}>{event.outcome}</Badge>
                           </td>
                         </motion.tr>
                       ))}
@@ -192,23 +171,49 @@ export default function DashboardPage() {
 
 function UsersSmIcon() {
   return (
-    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+    <svg
+      className="w-4 h-4"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
     </svg>
   );
 }
 
 function MonitorSmIcon() {
   return (
-    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="3" width="20" height="14" rx="2" /><path d="M8 21h8M12 17v4" />
+    <svg
+      className="w-4 h-4"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="2" y="3" width="20" height="14" rx="2" />
+      <path d="M8 21h8M12 17v4" />
     </svg>
   );
 }
 
 function CheckSmIcon() {
   return (
-    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className="w-4 h-4"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M9 12l2 2 4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
     </svg>
   );
@@ -216,7 +221,15 @@ function CheckSmIcon() {
 
 function XSmIcon() {
   return (
-    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className="w-4 h-4"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M18 6L6 18M6 6l12 12" />
     </svg>
   );
@@ -224,8 +237,17 @@ function XSmIcon() {
 
 function ClockSmIcon() {
   return (
-    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
+    <svg
+      className="w-4 h-4"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 6v6l4 2" />
     </svg>
   );
 }

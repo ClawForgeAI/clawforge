@@ -51,18 +51,12 @@ export class SkillReviewService {
     return this.db
       .select()
       .from(skillSubmissions)
-      .where(
-        and(eq(skillSubmissions.orgId, orgId), eq(skillSubmissions.status, "pending")),
-      )
+      .where(and(eq(skillSubmissions.orgId, orgId), eq(skillSubmissions.status, "pending")))
       .orderBy(skillSubmissions.createdAt);
   }
 
   async getSubmission(id: string) {
-    const [submission] = await this.db
-      .select()
-      .from(skillSubmissions)
-      .where(eq(skillSubmissions.id, id))
-      .limit(1);
+    const [submission] = await this.db.select().from(skillSubmissions).where(eq(skillSubmissions.id, id)).limit(1);
     return submission ?? null;
   }
 
@@ -97,8 +91,7 @@ export class SkillReviewService {
         skillName: submission.skillName,
         skillKey: submission.skillKey ?? submission.skillName,
         scope: params.status === "approved-org" ? "org" : "self",
-        approvedForUser:
-          params.status === "approved-self" ? (params.approvedForUser ?? submission.submittedBy) : null,
+        approvedForUser: params.status === "approved-self" ? (params.approvedForUser ?? submission.submittedBy) : null,
       });
     }
 

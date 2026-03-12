@@ -31,10 +31,7 @@ type OpenIdConfiguration = {
 };
 
 // Cache discovery documents and JWKS per issuer.
-const discoveryCache = new Map<
-  string,
-  { config: OpenIdConfiguration; fetchedAt: number }
->();
+const discoveryCache = new Map<string, { config: OpenIdConfiguration; fetchedAt: number }>();
 const jwksCache = new Map<
   string,
   { jwks: jose.JSONWebKeySet; keySet: ReturnType<typeof jose.createLocalJWKSet>; fetchedAt: number }
@@ -54,9 +51,7 @@ async function discoverOidcConfig(issuerUrl: string): Promise<OpenIdConfiguratio
   const wellKnownUrl = `${issuerUrl.replace(/\/$/, "")}/.well-known/openid-configuration`;
   const response = await fetch(wellKnownUrl);
   if (!response.ok) {
-    throw new Error(
-      `Failed to fetch OIDC discovery document from ${wellKnownUrl} (${response.status})`,
-    );
+    throw new Error(`Failed to fetch OIDC discovery document from ${wellKnownUrl} (${response.status})`);
   }
 
   const config = (await response.json()) as OpenIdConfiguration;
@@ -67,9 +62,7 @@ async function discoverOidcConfig(issuerUrl: string): Promise<OpenIdConfiguratio
 /**
  * Fetch and cache the JWKS from the IdP.
  */
-async function getJwks(
-  jwksUri: string,
-): Promise<ReturnType<typeof jose.createLocalJWKSet>> {
+async function getJwks(jwksUri: string): Promise<ReturnType<typeof jose.createLocalJWKSet>> {
   const cached = jwksCache.get(jwksUri);
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
     return cached.keySet;
@@ -90,10 +83,7 @@ async function getJwks(
  * Verify an id_token JWT against the IdP's JWKS.
  * Returns the decoded claims if valid, throws otherwise.
  */
-export async function verifyIdToken(
-  idToken: string,
-  config: OidcConfig,
-): Promise<OidcTokenClaims> {
+export async function verifyIdToken(idToken: string, config: OidcConfig): Promise<OidcTokenClaims> {
   const discovery = await discoverOidcConfig(config.issuerUrl);
   const jwks = await getJwks(discovery.jwks_uri);
 
@@ -146,9 +136,7 @@ export async function exchangeCodeAtIdp(params: {
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(
-      `IdP token exchange failed (${response.status}): ${text}`,
-    );
+    throw new Error(`IdP token exchange failed (${response.status}): ${text}`);
   }
 
   return (await response.json()) as {

@@ -109,9 +109,7 @@ export async function bundleSkillForSubmission(
   const manifest = readSkillManifest(skillDir);
 
   // Run security scan
-  const { scanDirectoryWithSummary } = await import(
-    "../security/skill-scanner.js"
-  );
+  const { scanDirectoryWithSummary } = await import("../security/skill-scanner.js");
   const scanResults = await scanDirectoryWithSummary(skillDir);
 
   // Extract metadata from frontmatter
@@ -122,8 +120,7 @@ export async function bundleSkillForSubmission(
 
   // Pull skillKey from openclaw metadata block if present
   const openclawBlock = manifest.frontmatter.openclaw as Record<string, unknown> | undefined;
-  const skillKey =
-    typeof openclawBlock?.skillKey === "string" ? openclawBlock.skillKey : undefined;
+  const skillKey = typeof openclawBlock?.skillKey === "string" ? openclawBlock.skillKey : undefined;
 
   return {
     skillName: manifest.name,

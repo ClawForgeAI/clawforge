@@ -92,11 +92,7 @@ export class AuditService {
   }
 
   async getEvent(id: string) {
-    const [event] = await this.db
-      .select()
-      .from(auditEvents)
-      .where(eq(auditEvents.id, id))
-      .limit(1);
+    const [event] = await this.db.select().from(auditEvents).where(eq(auditEvents.id, id)).limit(1);
     return event ?? null;
   }
 
