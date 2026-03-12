@@ -5,11 +5,20 @@
 <h1 align="center">ClawForge</h1>
 
 <p align="center">
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" />
+  </a>
   <a href="https://github.com/ClawForgeAI/clawforge/actions/workflows/ci.yml?query=branch%3Amain">
     <img src="https://github.com/ClawForgeAI/clawforge/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI Status" />
   </a>
   <a href="https://github.com/ClawForgeAI/clawforge/actions/workflows/github-code-scanning/codeql?query=branch%3Amain">
     <img src="https://github.com/ClawForgeAI/clawforge/actions/workflows/github-code-scanning/codeql/badge.svg?branch=main" alt="CodeQL Status" />
+  </a>
+  <a href="https://github.com/ClawForgeAI/clawforge/releases">
+    <img src="https://img.shields.io/github/v/release/ClawForgeAI/clawforge" alt="Release" />
+  </a>
+  <a href="https://github.com/ClawForgeAI/clawforge/pkgs/container/clawforge">
+    <img src="https://img.shields.io/badge/docker-ghcr.io-blue" alt="Docker" />
   </a>
 </p>
 
