@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Enrollment Tokens** — invite tokens for onboarding users without SSO.
 - **Heartbeat Monitoring** — instance status tracking and policy version monitoring.
 - **`/clawforge-status` command** — user-facing command to check current policy and connection status.
-- Plugin package `@clawforgeai/clawforge` (v0.1.4).
+- Plugin package `@clawforgeai/clawforge` (v0.1.5).
 - Server package `@ClawForgeAI/clawforge-server`.
 - Admin dashboard package `@ClawForgeAI/clawforge-admin`.
 
