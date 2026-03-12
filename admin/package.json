@@ -11,7 +11,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "daisyui": "^4.12.24",
+    "daisyui": "^5.5.19",
     "framer-motion": "^12.34.3",
     "next": "^15.2.0",
     "react": "^19.0.0",
