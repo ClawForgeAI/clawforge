@@ -1,6 +1,7 @@
 {
   "name": "@ClawForgeAI/clawforge-server",
   "version": "0.1.0",
+  "private": true,
   "description": "ClawForge control plane – admin API and web console for enterprise governance",
   "type": "module",
   "main": "dist/index.js",
