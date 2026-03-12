@@ -29,7 +29,7 @@
     "jsdom": "^25.0.1",
     "msw": "^2.7.0",
     "playwright": "^1.58.2",
-    "postcss": "^8.5.3",
+    "postcss": "^8.5.8",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.3",
     "vitest": "^2.1.8"
