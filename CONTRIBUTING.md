@@ -1,70 +1,99 @@
 # Contributing to ClawForge
 
-Thanks for your interest in improving ClawForge.
+Thank you for your interest in contributing to ClawForge! This guide covers the development setup and standards.
 
-## Development Setup
+## Prerequisites
 
-### Prerequisites
+- Node.js 22+
+- pnpm 9+
+- PostgreSQL 15+ (for server development)
+- pre-commit (optional, for git hooks)
 
-- Node.js 20+
-- pnpm
-- Docker and Docker Compose
-
-### Run Locally
+## Getting Started
 
 ```bash
+# Clone the repository
 git clone https://github.com/ClawForgeAI/clawforge.git
 cd clawforge
-docker compose up --build
+
+# Install dependencies
+pnpm install
+
+# Set up pre-commit hooks (optional but recommended)
+pre-commit install
 ```
 
-Once running:
+## Project Structure
 
-- Admin console: `http://localhost:4200`
-- API: `http://localhost:4100`
-- Default login: `admin@clawforge.local` / `clawforge`
+```
+clawforge/
+├── plugin/    # @clawforgeai/clawforge — OpenClaw plugin
+├── server/    # @ClawForgeAI/clawforge-server — Control plane API
+├── admin/     # @ClawForgeAI/clawforge-admin — Admin dashboard (Next.js)
+```
 
-## Workflow
-
-1. Fork the repo and create a branch from `main`.
-2. Keep your change focused on one bugfix or feature.
-3. Add or update tests where relevant.
-4. Run checks locally before opening a PR.
-5. Open a pull request using the provided template.
-
-## Local Checks
-
-Run the checks relevant to your changes:
+## Development
 
 ```bash
-pnpm test
-pnpm --filter @ClawForgeAI/clawforge-admin lint
-pnpm --filter @ClawForgeAI/clawforge-server build
+# Start the server in dev mode
+pnpm dev:server
+
+# Start the admin dashboard in dev mode
+pnpm dev:admin
+
+# Run tests
+pnpm test                                              # Plugin tests
+pnpm --filter @ClawForgeAI/clawforge-server test       # Server tests
+pnpm --filter @ClawForgeAI/clawforge-admin build       # Admin build check
 ```
 
-If your change affects runtime behavior, also validate end-to-end with:
+## Code Quality
+
+### Linting
+
+We use ESLint with TypeScript support across all packages.
 
 ```bash
-docker compose up --build
+# Check for lint errors
+pnpm lint
+
+# Auto-fix lint errors
+pnpm lint:fix
 ```
 
-## Pull Request Guidelines
+### Formatting
 
-- Explain the "why" and the user impact.
-- Link related issues (`Closes #123`).
-- Include screenshots for admin UI changes.
-- Note any migration, configuration, or rollout concerns.
+We use Prettier for consistent code formatting.
 
-## Reporting Issues
+```bash
+# Format all files
+pnpm format
 
-- Bug reports: use the Bug Report issue template.
-- Feature ideas: use the Feature Request issue template.
-- Security vulnerabilities: follow `SECURITY.md` and do not open a public issue.
+# Check formatting without making changes
+pnpm format:check
+```
 
-## Code of Conduct
+### Pre-commit Hooks
 
-This project follows `CODE_OF_CONDUCT.md`. By participating, you agree to uphold it.
+If you have [pre-commit](https://pre-commit.com/) installed, hooks will automatically check for:
+- Trailing whitespace
+- Missing end-of-file newlines
+- Valid YAML and JSON
+- Merge conflict markers
+- Accidental secrets
 
-## License
+## Pull Requests
 
-By contributing, you agree that contributions are licensed under the `MIT` license in `LICENSE`.
+1. Create a feature branch from `main`
+2. Make your changes
+3. Run `pnpm lint` and `pnpm format` before committing
+4. Ensure tests pass
+5. Open a PR against `main`
+
+## Commit Messages
+
+Use clear, descriptive commit messages. Prefix with the area of change when helpful:
+
+- `feat: add new feature`
+- `fix: resolve bug in policy service`
+- `docs: update contributing guide`
