@@ -83,13 +83,31 @@ If you have [pre-commit](https://pre-commit.com/) installed, hooks will automati
 - Merge conflict markers
 - Accidental secrets
 
+## Changesets
+
+We use [Changesets](https://github.com/changesets/changesets) to manage versioning and releases. If your PR changes the plugin's behavior (bug fix, new feature, breaking change), add a changeset before opening the PR:
+
+```bash
+pnpm changeset
+```
+
+This will prompt you to:
+1. Select the package (`@clawforgeai/clawforge`)
+2. Choose a bump type (patch / minor / major)
+3. Write a short summary of the change
+
+A `.changeset/<random-name>.md` file will be created — commit it with your PR.
+
+When the PR merges to `main`, the Changesets Action will open a "Version Packages" PR that bumps versions and updates the CHANGELOG. When a maintainer merges that PR, the package is published to npm automatically.
+
 ## Pull Requests
 
 1. Create a feature branch from `main`
 2. Make your changes
-3. Run `pnpm lint` and `pnpm format` before committing
-4. Ensure tests pass
-5. Open a PR against `main`
+3. Add a changeset if applicable (`pnpm changeset`)
+4. Run `pnpm lint` and `pnpm format` before committing
+5. Ensure tests pass
+6. Open a PR against `main`
 
 ## Commit Messages
 
