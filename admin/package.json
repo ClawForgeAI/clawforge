@@ -12,9 +12,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "daisyui": "^4.12.24",
-    "framer-motion": "^12.34.3",
-    "next": "^15.2.0",
+    "daisyui": "^5.5.19",
+    "framer-motion": "^12.35.2",
+    "next": "^16.1.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

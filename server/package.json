@@ -18,14 +18,14 @@
   },
   "dependencies": {
     "@fastify/cors": "^11.0.0",
-    "@fastify/jwt": "^9.0.2",
+    "@fastify/jwt": "^10.0.0",
     "@fastify/rate-limit": "^10.3.0",
     "bcryptjs": "^3.0.3",
     "drizzle-orm": "^0.45.1",
-    "fastify": "^5.2.1",
-    "jose": "^6.0.11",
+    "fastify": "^5.8.2",
+    "jose": "^6.2.1",
     "postgres": "^3.4.5",
-    "zod": "^3.24.2"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
