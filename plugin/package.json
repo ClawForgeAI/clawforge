@@ -47,11 +47,11 @@
     "openclaw": "*"
   },
   "devDependencies": {
-    "@types/node": "^22.12.0",
+    "@types/node": "^25.4.0",
     "openclaw": "*",
     "tsup": "^8.5.1",
-    "@vitest/coverage-v8": "^4.0.18",
-    "vitest": "^4.0.18"
+    "@vitest/coverage-v8": "^4.1.0",
+    "vitest": "^4.1.0"
   },
   "openclaw": {
     "extensions": [
