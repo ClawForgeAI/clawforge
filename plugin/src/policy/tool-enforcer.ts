@@ -208,7 +208,21 @@ export function createToolEnforcerHook(
   ): PluginHookBeforeToolCallResult | undefined => {
     const toolName = normalizeToolName(event.toolName);
 
-    // Check offline override before kill switch.
+    // 1. Kill switch check — always takes precedence, even over offline overrides.
+    if (state.killSwitchActive) {
+      const reason = state.killSwitchMessage ?? "ClawForge: All tool calls blocked by organization kill switch";
+      auditLogger.enqueue({
+        eventType: "tool_call_attempt",
+        toolName,
+        outcome: "blocked",
+        agentId: ctx.agentId,
+        sessionKey: ctx.sessionKey,
+        metadata: { reason: "kill_switch" },
+      });
+      return { block: true, blockReason: reason };
+    }
+
+    // 2. Offline override modes.
     if (state.offlineOverride === "allow") {
       auditLogger.enqueue({
         eventType: "tool_call_attempt",
@@ -222,23 +236,7 @@ export function createToolEnforcerHook(
     }
 
     if (state.offlineOverride === "cached") {
-      // Use cached policy for enforcement; skip the kill switch check
-      // since we are intentionally operating with stale data.
       return enforcePolicy(state.policy, toolName, event, ctx, auditLogger, "offline_cached_mode");
-    }
-
-    // 1. Kill switch check
-    if (state.killSwitchActive) {
-      const reason = state.killSwitchMessage ?? "ClawForge: All tool calls blocked by organization kill switch";
-      auditLogger.enqueue({
-        eventType: "tool_call_attempt",
-        toolName,
-        outcome: "blocked",
-        agentId: ctx.agentId,
-        sessionKey: ctx.sessionKey,
-        metadata: { reason: "kill_switch" },
-      });
-      return { block: true, blockReason: reason };
     }
 
     return enforcePolicy(state.policy, toolName, event, ctx, auditLogger);

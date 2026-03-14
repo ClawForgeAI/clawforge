@@ -59,6 +59,43 @@ describe("tool-enforcer", () => {
       });
     });
 
+    it("blocks tools when kill switch is active and offlineOverride is 'allow'", () => {
+      state.killSwitchActive = true;
+      state.killSwitchMessage = "Emergency shutdown";
+      state.offlineOverride = "allow";
+      const hook = createToolEnforcerHook(state, auditLogger);
+
+      const result = hook({ toolName: "exec", params: {} }, makeCtx());
+
+      expect(result).toEqual({
+        block: true,
+        blockReason: "Emergency shutdown",
+      });
+      expect((auditLogger.enqueue as ReturnType<typeof vi.fn>).mock.calls[0][0]).toMatchObject({
+        outcome: "blocked",
+        metadata: { reason: "kill_switch" },
+      });
+    });
+
+    it("blocks tools when kill switch is active and offlineOverride is 'cached'", () => {
+      state.killSwitchActive = true;
+      state.killSwitchMessage = "Emergency shutdown";
+      state.policy = makePolicy();
+      state.offlineOverride = "cached";
+      const hook = createToolEnforcerHook(state, auditLogger);
+
+      const result = hook({ toolName: "read", params: {} }, makeCtx());
+
+      expect(result).toEqual({
+        block: true,
+        blockReason: "Emergency shutdown",
+      });
+      expect((auditLogger.enqueue as ReturnType<typeof vi.fn>).mock.calls[0][0]).toMatchObject({
+        outcome: "blocked",
+        metadata: { reason: "kill_switch" },
+      });
+    });
+
     it("uses default message when killSwitchMessage is undefined", () => {
       state.killSwitchActive = true;
       const hook = createToolEnforcerHook(state, auditLogger);
