@@ -44,6 +44,8 @@ export type ServerConfig = {
 };
 
 export async function createServer(config: ServerConfig) {
+  const startTime = Date.now();
+
   const app = Fastify({
     logger: true,
   });
@@ -94,9 +96,13 @@ export async function createServer(config: ServerConfig) {
   await registerAuthMiddleware(app);
 
   // Shallow health check (liveness probe)
-  app.get("/health", async () => ({ status: "ok" }));
+  app.get("/health", async () => ({
+    status: "ok",
+    uptime: Math.floor((Date.now() - startTime) / 1000),
+    version: process.env.npm_package_version ?? "0.1.0",
+  }));
 
-  // Deep health check (readiness probe) (#41)
+  // Deep health check (readiness probe) (#41, #73)
   const getReadyHealth = async () => {
     const checks: Record<string, { status: string; latency_ms?: number; error?: string }> = {};
     let allHealthy = true;
@@ -115,10 +121,60 @@ export async function createServer(config: ServerConfig) {
       };
     }
 
+    // Check migration status
+    const migrationStart = Date.now();
+    try {
+      const result = await sql`SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'organizations')`;
+      const migrated = result[0]?.exists === true;
+      checks.migrations = {
+        status: migrated ? "healthy" : "unhealthy",
+        latency_ms: Date.now() - migrationStart,
+        ...(migrated ? {} : { error: "Schema not migrated" }),
+      };
+      if (!migrated) allHealthy = false;
+    } catch (err) {
+      allHealthy = false;
+      checks.migrations = {
+        status: "unhealthy",
+        latency_ms: Date.now() - migrationStart,
+        error: err instanceof Error ? err.message : "Migration check failed",
+      };
+    }
+
+    // Check SSO provider reachability (if configured)
+    try {
+      const orgs = await db.select({ ssoConfig: schema.organizations.ssoConfig }).from(schema.organizations);
+      const ssoOrg = orgs.find((o) => o.ssoConfig?.issuerUrl);
+      if (ssoOrg?.ssoConfig) {
+        const ssoStart = Date.now();
+        try {
+          const discoveryUrl = `${ssoOrg.ssoConfig.issuerUrl.replace(/\/$/, "")}/.well-known/openid-configuration`;
+          const resp = await fetch(discoveryUrl, { signal: AbortSignal.timeout(5000) });
+          checks.sso = {
+            status: resp.ok ? "healthy" : "unhealthy",
+            latency_ms: Date.now() - ssoStart,
+            ...(resp.ok ? {} : { error: `HTTP ${resp.status}` }),
+          };
+          if (!resp.ok) allHealthy = false;
+        } catch (err) {
+          checks.sso = {
+            status: "unhealthy",
+            latency_ms: Date.now() - ssoStart,
+            error: err instanceof Error ? err.message : "SSO provider unreachable",
+          };
+          // SSO being unreachable should not make the whole server unhealthy
+          // just report it as degraded
+        }
+      }
+    } catch {
+      // If we can't query orgs (e.g. DB issue), skip SSO check
+    }
+
     const body = {
       status: allHealthy ? "healthy" : "unhealthy",
       timestamp: new Date().toISOString(),
       version: process.env.npm_package_version ?? "0.1.0",
+      uptime: Math.floor((Date.now() - startTime) / 1000),
       checks,
     };
 
