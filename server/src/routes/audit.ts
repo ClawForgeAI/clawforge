@@ -3,6 +3,7 @@
  */
 
 import type { FastifyInstance } from "fastify";
+import { Readable } from "node:stream";
 import { z } from "zod";
 import { requireAdmin, requireAdminOrViewer, requireOrg } from "../middleware/auth.js";
 import { AuditService } from "../services/audit-service.js";
@@ -33,6 +34,26 @@ const IngestBodySchema = z.object({
 const RetentionSchema = z.object({
   retentionDays: z.number().int().min(1).max(3650),
 });
+
+const ExportQuerySchema = z.object({
+  format: z.enum(["csv", "json"]).default("json"),
+  userId: z.string().optional(),
+  eventType: z.string().optional(),
+  toolName: z.string().optional(),
+  outcome: z.string().optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(100000).default(10000),
+});
+
+function escapeCsvValue(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  const stringValue = typeof value === "string" ? value : JSON.stringify(value);
+  if (/[",\n]/.test(stringValue)) {
+    return `"${stringValue.replace(/"/g, '""')}"`;
+  }
+  return stringValue;
+}
 
 export async function auditRoutes(app: FastifyInstance): Promise<void> {
   const auditService = new AuditService(app.db);
@@ -151,6 +172,94 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
       ...stats,
       retentionDays: retentionDays > 0 ? retentionDays : null,
     });
+  });
+
+  // GET /api/v1/audit/:orgId/export - Stream filtered audit logs (#42)
+  app.get<{
+    Params: { orgId: string };
+    Querystring: {
+      format?: "csv" | "json";
+      userId?: string;
+      eventType?: string;
+      toolName?: string;
+      outcome?: string;
+      from?: string;
+      to?: string;
+      limit?: string;
+    };
+  }>("/api/v1/audit/:orgId/export", async (request, reply) => {
+    requireAdmin(request, reply);
+    if (reply.sent) return;
+    const { orgId } = request.params;
+    requireOrg(request, reply, orgId);
+    if (reply.sent) return;
+
+    const parseResult = ExportQuerySchema.safeParse(request.query);
+    if (!parseResult.success) {
+      return reply.code(400).send({
+        error: "Invalid export query",
+        details: parseResult.error.issues,
+      });
+    }
+
+    const query = parseResult.data;
+    const params = {
+      orgId,
+      userId: query.userId,
+      eventType: query.eventType,
+      toolName: query.toolName,
+      outcome: query.outcome,
+      from: query.from ? new Date(query.from) : undefined,
+      to: query.to ? new Date(query.to) : undefined,
+      limit: query.limit,
+    };
+
+    const dateSuffix = new Date().toISOString().slice(0, 10);
+
+    if (query.format === "csv") {
+      reply.header("Content-Type", "text/csv; charset=utf-8");
+      reply.header("Content-Disposition", `attachment; filename="audit-export-${dateSuffix}.csv"`);
+
+      const stream = Readable.from(
+        (async function* () {
+          yield "id,timestamp,orgId,userId,eventType,toolName,outcome,agentId,sessionKey,metadata\n";
+
+          for await (const events of auditService.streamEventsForExport(params)) {
+            for (const event of events) {
+              yield [
+                event.id,
+                event.timestamp.toISOString(),
+                event.orgId,
+                event.userId,
+                event.eventType,
+                event.toolName,
+                event.outcome,
+                event.agentId,
+                event.sessionKey,
+                event.metadata,
+              ].map(escapeCsvValue).join(",") + "\n";
+            }
+          }
+        })(),
+      );
+
+      return reply.send(stream);
+    }
+
+    reply.header("Content-Type", "application/x-ndjson; charset=utf-8");
+    reply.header("Content-Disposition", `attachment; filename="audit-export-${dateSuffix}.ndjson"`);
+
+    const stream = Readable.from(
+      (async function* () {
+        for await (const events of auditService.streamEventsForExport(params)) {
+          for (const event of events) {
+            yield `${JSON.stringify(event)}\n`;
+          }
+        }
+      })(),
+    );
+
+    return reply.send(stream);
   });
 
   // DELETE /api/v1/audit/:orgId/retention - Retention cleanup
