@@ -172,8 +172,27 @@ export async function createTestApp(mockDb?: MockDb): Promise<FastifyInstance> {
   app.decorate("db", db as unknown as FastifyInstance["db"]);
 
   // Health check
-  app.get("/health", async () => ({ status: "ok" }));
-  app.get("/health/ready", async () => ({ status: "healthy" }));
+  app.get("/health", async () => ({ status: "ok", uptime: 1, version: "0.1.0" }));
+  app.get("/ready", async () => ({
+    status: "ready",
+    version: "0.1.0",
+    timestamp: new Date().toISOString(),
+    checks: {
+      database: { status: "ok", latencyMs: 1 },
+      migrations: { status: "ok", latencyMs: 1, version: "test" },
+      sso: { status: "skipped", latencyMs: 0, configured: false },
+    },
+  }));
+  app.get("/health/ready", async () => ({
+    status: "ready",
+    version: "0.1.0",
+    timestamp: new Date().toISOString(),
+    checks: {
+      database: { status: "ok", latencyMs: 1 },
+      migrations: { status: "ok", latencyMs: 1, version: "test" },
+      sso: { status: "skipped", latencyMs: 0, configured: false },
+    },
+  }));
 
   // Auth middleware
   await registerAuthMiddleware(app);
