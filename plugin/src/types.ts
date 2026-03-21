@@ -73,6 +73,18 @@ export type ClawForgePluginConfig = {
   maxAuditBufferSize?: number; // default: 10000
   /** Enable real-time SSE connection for instant kill switch and policy updates. Defaults to true. */
   sseEnabled?: boolean;
+  prAutomation?: {
+    enabled?: boolean;
+    repo?: string;
+    dryRun?: boolean;
+    intervalMs?: number;
+    minApprovals?: number;
+    mergeMethod?: "merge" | "squash" | "rebase";
+    trustedAuthorsOnly?: boolean;
+    trustedAuthors?: string[];
+    githubToken?: string;
+    slackTarget?: string;
+  };
 };
 
 export type SessionTokens = {

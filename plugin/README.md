@@ -91,6 +91,50 @@ The plugin registers the following OpenClaw slash commands:
 | `/clawforge-enroll <token> <email>` | Enroll with an enrollment token   |
 | `/clawforge-submit <skill>`         | Submit a skill for org approval   |
 | `/clawforge-status`                 | Display current governance status |
+| `/clawforge-pr-merge-run [dry-run\|merge]` | Run the PR automation once manually |
+
+## PR automation
+
+The plugin can optionally triage ClawForge GitHub pull requests every hour and merge the safest eligible PR.
+
+Example config:
+
+```json
+{
+  "plugins": {
+    "entries": {
+      "clawforge": {
+        "enabled": true,
+        "config": {
+          "prAutomation": {
+            "enabled": true,
+            "repo": "ClawForgeAI/clawforge",
+            "dryRun": true,
+            "intervalMs": 3600000,
+            "minApprovals": 1,
+            "mergeMethod": "squash",
+            "trustedAuthorsOnly": true,
+            "trustedAuthors": ["rahular101"],
+            "slackTarget": "U12345678"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Environment:
+- `GITHUB_TOKEN` can be used instead of `prAutomation.githubToken`
+
+Rules:
+- skips drafts
+- requires green checks
+- requires mergeability
+- requires minimum approvals
+- rejects change requests and blocking labels (`wip`, `blocked`, `do-not-merge`)
+- prioritizes `hotfix > security > bug > improvement > feature`
+- defaults to hourly dry-run mode until you set `dryRun: false`
 
 ## Uninstall
 
