@@ -56,6 +56,7 @@
 ```bash
 git clone https://github.com/ClawForgeAI/clawforge.git
 cd clawforge
+cp .env.example .env
 docker compose up --build
 ```
 
@@ -64,6 +65,7 @@ Once running:
 - **Admin Console** — [localhost:4200](http://localhost:4200)
 - **API** — [localhost:4100](http://localhost:4100)
 - **Login** — `admin@clawforge.local` / `clawforge`
+- **One-off seed** — `docker compose run --rm seed`
 
 > For manual setup, SSO configuration, and connecting an OpenClaw gateway, see the [Setup Guide](docs/setup.md).
 

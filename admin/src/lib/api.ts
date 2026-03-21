@@ -3,8 +3,7 @@
  */
 
 import { clearAuth } from "@/lib/auth";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4100";
+import { getApiBase } from "@/lib/runtime-config";
 
 type FetchOptions = {
   method?: string;
@@ -21,7 +20,7 @@ async function apiFetch<T>(path: string, opts: FetchOptions = {}): Promise<T> {
     headers.Authorization = `Bearer ${opts.token}`;
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(`${getApiBase()}${path}`, {
     method: opts.method ?? "GET",
     headers,
     body: opts.body ? JSON.stringify(opts.body) : undefined,
