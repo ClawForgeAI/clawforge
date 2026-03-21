@@ -56,30 +56,6 @@
       "maxAuditBufferSize": {
         "type": "number",
         "description": "Maximum number of audit events to buffer before dropping oldest (default: 10000)"
-      },
-      "sseEnabled": {
-        "type": "boolean",
-        "description": "Enable real-time SSE connection for instant kill switch and policy updates (default: true)"
-      },
-      "prAutomation": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "enabled": { "type": "boolean", "description": "Enable hourly PR triage / merge automation" },
-          "repo": { "type": "string", "description": "GitHub repo in owner/name format" },
-          "dryRun": { "type": "boolean", "description": "If true, evaluate and notify without merging" },
-          "intervalMs": { "type": "number", "description": "Run interval in milliseconds (default: 3600000 = 1 hour)" },
-          "minApprovals": { "type": "number", "description": "Minimum approval count required to merge" },
-          "mergeMethod": { "type": "string", "enum": ["merge", "squash", "rebase"], "description": "GitHub merge method" },
-          "trustedAuthorsOnly": { "type": "boolean", "description": "Restrict automation to trusted authors" },
-          "trustedAuthors": {
-            "type": "array",
-            "items": { "type": "string" },
-            "description": "GitHub logins allowed for automated merges"
-          },
-          "githubToken": { "type": "string", "description": "GitHub token with pull-request read + contents write access" },
-          "slackTarget": { "type": "string", "description": "Slack user or channel id for notifications (for example U123 or C123)" }
-        }
       }
     }
   }

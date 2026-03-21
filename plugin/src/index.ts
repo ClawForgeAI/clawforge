@@ -2,7 +2,7 @@
  * ClawForge enterprise governance plugin.
  *
  * Registers hooks for:
- * - SSO authentication on plugin load (CLI, TUI, and gateway modes)
+ * - SSO authentication on gateway start
  * - Org policy fetch and caching
  * - Tool policy enforcement (before_tool_call)
  * - Audit logging (before_tool_call, after_tool_call, session lifecycle)
@@ -23,24 +23,17 @@ import { KillSwitchManager } from "./heartbeat/kill-switch.js";
 import { ConnectionStateManager, type ConnectionStatus } from "./connection/connection-state.js";
 import { SSEClient } from "./events/sse-client.js";
 import { TokenRefreshManager } from "./auth/token-refresh-manager.js";
-import { createPullRequestAutomationScheduler, runPullRequestAutomation } from "./automation/pr-automation.js";
 
 /**
  * Shared state used by the status command handler.
  */
 let sharedConnectionStateManager: ConnectionStateManager | null = null;
 let sharedAuditLogger: AuditLogger | null = null;
-let sharedEnforcerState: ToolEnforcerState | null = null;
 
 /**
  * Initialize the ClawForge plugin: authenticate, fetch policy, set up hooks.
  */
-async function initializeClawForge(
-  api: OpenClawPluginApi,
-  pluginConfig: ClawForgePluginConfig,
-  enforcerState: ToolEnforcerState,
-  onAuditLoggerReady: (logger: AuditLogger) => void,
-): Promise<void> {
+async function initializeClawForge(api: OpenClawPluginApi, pluginConfig: ClawForgePluginConfig): Promise<void> {
   const logger = api.logger;
 
   // --- 1. Authenticate ---
@@ -55,18 +48,17 @@ async function initializeClawForge(
         });
         saveSession(session);
       } catch (err) {
-        logger.warn(`Session refresh failed: ${String(err)}. Use /clawforge-login to re-authenticate.`);
+        logger.warn?.(`Session refresh failed: ${String(err)}. Use /clawforge-login to re-authenticate.`);
         session = null;
       }
     } else {
-      logger.warn("No valid ClawForge session. Use /clawforge-login to authenticate.");
+      logger.warn?.("No valid ClawForge session. Use /clawforge-login to authenticate.");
       session = null;
     }
   }
 
   if (!session) {
     logger.info("ClawForge running in unauthenticated mode (policy enforcement disabled)");
-    enforcerState.pendingInit = false;
     // Create a connection state manager in unauthenticated state.
     const connState = new ConnectionStateManager({
       failureThreshold: pluginConfig.heartbeatFailureThreshold ?? 10,
@@ -99,7 +91,7 @@ async function initializeClawForge(
       saveCachedPolicy(policy, cacheTtl);
       policyFetchedAt = Date.now();
     } catch (err) {
-      logger.warn(`Policy fetch failed: ${String(err)}`);
+      logger.warn?.(`Policy fetch failed: ${String(err)}`);
       // Fall back to expired cache.
       policy = loadCachedPolicyFallback();
       if (policy) {
@@ -124,14 +116,16 @@ async function initializeClawForge(
 
     // Check kill switch from policy.
     if (policy.killSwitch?.active) {
-      logger.warn(`Kill switch is active: ${policy.killSwitch.message ?? "No message"}`);
+      logger.warn?.(`Kill switch is active: ${policy.killSwitch.message ?? "No message"}`);
     }
   }
 
-  // --- 4. Populate enforcer state (created synchronously in register()) ---
-  enforcerState.policy = policy;
-  enforcerState.killSwitchActive = policy?.killSwitch?.active ?? false;
-  enforcerState.killSwitchMessage = policy?.killSwitch?.message;
+  // --- 4. Set up enforcer state ---
+  const enforcerState: ToolEnforcerState = {
+    policy,
+    killSwitchActive: policy?.killSwitch?.active ?? false,
+    killSwitchMessage: policy?.killSwitch?.message,
+  };
 
   // --- 5. Set up audit logger ---
   const auditLogger = new AuditLogger({
@@ -142,7 +136,6 @@ async function initializeClawForge(
   });
   auditLogger.start();
   sharedAuditLogger = auditLogger;
-  onAuditLoggerReady(auditLogger);
 
   // --- 5b. Set up connection state manager ---
   const connectionStateManager = new ConnectionStateManager({
@@ -153,7 +146,9 @@ async function initializeClawForge(
   });
   sharedConnectionStateManager = connectionStateManager;
 
-  // --- 6. (before_tool_call hook already registered synchronously in register()) ---
+  // --- 6. Register before_tool_call hook (high priority) ---
+  const toolEnforcerHook = createToolEnforcerHook(enforcerState, auditLogger, connectionStateManager);
+  api.on("before_tool_call", toolEnforcerHook, { priority: 1000 });
 
   // --- 7. Register after_tool_call hook for audit ---
   api.on("after_tool_call", (event, ctx) => {
@@ -176,7 +171,7 @@ async function initializeClawForge(
       eventType: "session_start",
       outcome: "success",
       agentId: ctx.agentId,
-      sessionKey: event.sessionKey ?? ctx.sessionKey,
+      sessionKey: event.sessionId,
     });
   });
 
@@ -185,7 +180,7 @@ async function initializeClawForge(
       eventType: "session_end",
       outcome: "success",
       agentId: ctx.agentId,
-      sessionKey: event.sessionKey ?? ctx.sessionKey,
+      sessionKey: event.sessionId,
       metadata: {
         messageCount: event.messageCount,
         durationMs: event.durationMs,
@@ -193,10 +188,9 @@ async function initializeClawForge(
     });
   });
 
-  // --- 9. Register LLM hooks ---
-  // AuditLogger.enqueue() handles level gating: "off" skips entirely,
-  // "metadata" strips metadata, "full" includes everything.
+  // --- 9. Register LLM hooks (gated by current auditLevel at runtime) ---
   api.on("llm_input", (event, ctx) => {
+    if (enforcerState.policy?.auditLevel !== "full") return;
     auditLogger.enqueue({
       eventType: "llm_input",
       outcome: "success",
@@ -211,6 +205,7 @@ async function initializeClawForge(
   });
 
   api.on("llm_output", (event, ctx) => {
+    if (enforcerState.policy?.auditLevel !== "full") return;
     auditLogger.enqueue({
       eventType: "llm_output",
       outcome: "success",
@@ -236,13 +231,11 @@ async function initializeClawForge(
       });
       saveCachedPolicy(fresh, cacheTtl);
       enforcerState.policy = fresh;
-      enforcerState.killSwitchActive = fresh.killSwitch?.active ?? false;
-      enforcerState.killSwitchMessage = fresh.killSwitch?.message;
       auditLogger.updateAuditLevel(fresh.auditLevel);
       connectionStateManager.updateCachedPolicyFetchedAt(Date.now());
       logger.info("Policy refreshed via heartbeat");
     } catch (err) {
-      logger.warn(`Heartbeat-triggered policy refresh failed: ${String(err)}`);
+      logger.warn?.(`Heartbeat-triggered policy refresh failed: ${String(err)}`);
     }
   };
 
@@ -257,14 +250,12 @@ async function initializeClawForge(
       .then((fresh) => {
         saveCachedPolicy(fresh, cacheTtl);
         enforcerState.policy = fresh;
-        enforcerState.killSwitchActive = fresh.killSwitch?.active ?? false;
-        enforcerState.killSwitchMessage = fresh.killSwitch?.message;
         auditLogger.updateAuditLevel(fresh.auditLevel);
         connectionStateManager.updateCachedPolicyFetchedAt(Date.now());
         logger.info("Org policy refreshed in background");
       })
       .catch((err) => {
-        logger.warn(`Background policy refresh failed: ${String(err)}`);
+        logger.warn?.(`Background policy refresh failed: ${String(err)}`);
       });
   }
 
@@ -312,26 +303,14 @@ async function initializeClawForge(
   });
   tokenRefreshMgr.start();
 
-  // --- 11. Register cleanup for both gateway and CLI/TUI modes ---
-  let cleanedUp = false;
-  const cleanup = async () => {
-    if (cleanedUp) return;
-    cleanedUp = true;
+  // --- 11. Register gateway_stop hook to flush audit ---
+  api.on("gateway_stop", async () => {
     tokenRefreshMgr.stop();
     killSwitchMgr.stop();
     sseClient?.stop();
     await auditLogger.stop();
     logger.info("ClawForge shutdown: audit events flushed, heartbeat stopped, SSE disconnected");
-  };
-
-  api.on("gateway_stop", () => cleanup());
-  process.on("beforeExit", () => {
-    cleanup().catch(() => {});
   });
-
-  // Mark initialization complete — the before_tool_call hook will now use real policy data
-  // instead of the conservative "block all" default.
-  enforcerState.pendingInit = false;
 
   logger.info(
     `ClawForge initialized (org=${orgId}, policy v${policy?.version ?? "none"}, audit=${policy?.auditLevel ?? "off"}, offlineMode=${pluginConfig.offlineMode ?? "block"})`,
@@ -505,17 +484,9 @@ export function register(api: OpenClawPluginApi): void {
       }
 
       const cached = loadCachedPolicy(pluginConfig.policyCacheTtlMs);
-      const livePolicy = sharedEnforcerState?.policy;
       const connStatus = sharedConnectionStateManager?.getStatus();
       const auditBufferSize = sharedAuditLogger?.bufferSize ?? 0;
       const auditBufferCapacity = sharedAuditLogger?.bufferCapacity ?? 0;
-
-      // Use live enforcer state for kill switch (updated via heartbeat/SSE),
-      // falling back to cached policy only if enforcer state is unavailable.
-      const killSwitchActive = sharedEnforcerState?.killSwitchActive ?? cached?.killSwitch?.active ?? false;
-      const killSwitchMessage = sharedEnforcerState?.killSwitchMessage;
-      const policyVersion = livePolicy?.version ?? cached?.version;
-      const auditLevel = livePolicy?.auditLevel ?? cached?.auditLevel;
 
       const lines = [
         `ClawForge Status:`,
@@ -524,10 +495,10 @@ export function register(api: OpenClawPluginApi): void {
         `  Connection: ${connStatus?.state ?? "unknown"}`,
         `  Last Heartbeat: ${connStatus?.lastSuccessfulHeartbeat ? connStatus.lastSuccessfulHeartbeat.toISOString() : "never"}`,
         `  Heartbeat Failures: ${connStatus?.consecutiveFailures ?? 0}`,
-        `  Policy: ${policyVersion ? `v${policyVersion}` : "not loaded"}`,
+        `  Policy: ${cached ? `v${cached.version}` : "not loaded"}`,
         `  Cached Policy Age: ${connStatus?.cachedPolicyAge != null ? formatDuration(connStatus.cachedPolicyAge) : "n/a"}`,
-        `  Kill Switch: ${killSwitchActive ? `ACTIVE${killSwitchMessage ? ` — ${killSwitchMessage}` : ""}` : "inactive"}`,
-        `  Audit Level: ${auditLevel ?? "unknown"}`,
+        `  Kill Switch: ${cached?.killSwitch?.active ? "ACTIVE" : "inactive"}`,
+        `  Audit Level: ${cached?.auditLevel ?? "unknown"}`,
         `  Audit Buffer: ${auditBufferSize} / ${auditBufferCapacity}`,
         `  Offline Mode: ${pluginConfig.offlineMode ?? "block"}`,
       ];
@@ -535,83 +506,12 @@ export function register(api: OpenClawPluginApi): void {
     },
   });
 
-  api.registerCommand({
-    name: "clawforge-pr-merge-run",
-    description: "Run ClawForge PR automation once (dry-run or merge)",
-    acceptsArgs: true,
-    handler: async (ctx) => {
-      const modeArg = ctx.args?.trim().toLowerCase();
-      const forceMode = modeArg === "merge" ? "merge" : modeArg === "dry-run" || modeArg === "dryrun" ? "dry-run" : undefined;
-      try {
-        const result = await runPullRequestAutomation(api, pluginConfig, { forceMode });
-        const merged = result.merged
-          ? `Selected PR #${result.merged.number} — ${result.merged.title}`
-          : "No eligible PR was selected.";
-        return {
-          text: [
-            `PR automation completed (${result.mode}) for ${result.repository}.`,
-            merged,
-            result.skippedReasons.length ? `Skipped: ${result.skippedReasons.join(" | ")}` : "",
-          ]
-            .filter(Boolean)
-            .join("\n"),
-        };
-      } catch (err) {
-        return { text: `PR automation failed: ${String(err)}` };
-      }
-    },
-  });
-
-  // --- Synchronous hook registration ---
-  // Create enforcer state with conservative defaults (block-all until init completes).
-  // initializeClawForge() will populate this with real policy data.
-  const enforcerState: ToolEnforcerState = {
-    policy: null,
-    killSwitchActive: false,
-    pendingInit: true,
-  };
-  sharedEnforcerState = enforcerState;
-
-  // Create a no-op audit logger placeholder; replaced by the real one during init.
-  let activeAuditLogger: AuditLogger | null = null;
-  const auditProxy: Pick<AuditLogger, "enqueue"> = {
-    enqueue: (event) => activeAuditLogger?.enqueue(event),
-  };
-
-  // Register before_tool_call hook SYNCHRONOUSLY so it's in registry.typedHooks
-  // before the first tool call, regardless of async init timing.
-  const toolEnforcerHook = createToolEnforcerHook(enforcerState, auditProxy);
-  api.on("before_tool_call", toolEnforcerHook, { priority: 1000 });
-
-  // Fire-and-forget async init.
-  let initialized = false;
-  const doInit = async () => {
-    if (initialized) return;
-    initialized = true;
+  // Initialize on gateway_start.
+  api.on("gateway_start", async () => {
     try {
-      await initializeClawForge(api, pluginConfig, enforcerState, (logger) => {
-        activeAuditLogger = logger;
-      });
+      await initializeClawForge(api, pluginConfig);
     } catch (err) {
       api.logger.error(`ClawForge initialization failed: ${String(err)}`);
     }
-  };
-
-  doInit();
-
-  let stopPrAutomationScheduler: (() => void) | null = null;
-
-  // Also listen for gateway_start as a fallback (ensures init if register
-  // runs before config is fully resolved in some edge cases).
-  api.on("gateway_start", () => {
-    doInit();
-    if (!stopPrAutomationScheduler) {
-      stopPrAutomationScheduler = createPullRequestAutomationScheduler(api, pluginConfig);
-    }
-  });
-
-  api.on("gateway_stop", () => {
-    stopPrAutomationScheduler?.();
-    stopPrAutomationScheduler = null;
   });
 }
