@@ -77,7 +77,8 @@ export class KillSwitchManager {
     }
 
     try {
-      const url = `${this.controlPlaneUrl}/api/v1/heartbeat/${encodeURIComponent(this.orgId)}/${encodeURIComponent(this.userId)}`;
+      const policyVersion = this.enforcerState.policy?.version ?? 0;
+      const url = `${this.controlPlaneUrl}/api/v1/heartbeat/${encodeURIComponent(this.orgId)}/${encodeURIComponent(this.userId)}?policyVersion=${policyVersion}`;
       const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${this.accessToken}`,

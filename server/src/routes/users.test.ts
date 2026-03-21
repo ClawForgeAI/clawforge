@@ -40,12 +40,17 @@ function createTestDb(
   let insertCall = 0;
   let updateCall = 0;
   let deleteCall = 0;
-  return {
+  const db = {
     select: vi.fn(() => makeChain(selectResults[selectCall++] ?? [])),
     insert: vi.fn(() => makeChain(insertResults[insertCall++] ?? [])),
     update: vi.fn(() => makeChain(updateResults[updateCall++] ?? [])),
     delete: vi.fn(() => makeChain(deleteResults[deleteCall++] ?? [])),
+    transaction: vi.fn(async (fn: (tx: any) => Promise<void>) => {
+      // Run the callback with the db itself acting as the transaction.
+      await fn(db);
+    }),
   };
+  return db;
 }
 
 async function buildApp(db: any) {

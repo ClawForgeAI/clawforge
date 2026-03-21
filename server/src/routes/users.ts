@@ -7,7 +7,14 @@ import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { requireAdmin, requireAdminOrViewer, requireOrg } from "../middleware/auth.js";
-import { users } from "../db/schema.js";
+import {
+  users,
+  skillSubmissions,
+  approvedSkills,
+  clientHeartbeats,
+  enrollmentTokens,
+  apiKeys,
+} from "../db/schema.js";
 import { logAdminAction } from "../services/admin-audit.js";
 
 const CreateUserSchema = z.object({
@@ -227,7 +234,27 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       }
     }
 
-    await app.db.delete(users).where(and(eq(users.id, userId), eq(users.orgId, orgId)));
+    await app.db.transaction(async (tx) => {
+      // Remove ephemeral data.
+      await tx.delete(clientHeartbeats).where(eq(clientHeartbeats.userId, userId));
+
+      // Nullify user references in audit-relevant tables.
+      await tx.update(skillSubmissions).set({ reviewedBy: null }).where(eq(skillSubmissions.reviewedBy, userId));
+      await tx.update(approvedSkills).set({ approvedForUser: null }).where(eq(approvedSkills.approvedForUser, userId));
+      await tx.update(approvedSkills).set({ revokedBy: null }).where(eq(approvedSkills.revokedBy, userId));
+
+      // Reassign non-nullable references to the requesting admin.
+      const adminId = request.authUser!.userId;
+      await tx
+        .update(skillSubmissions)
+        .set({ submittedBy: adminId })
+        .where(eq(skillSubmissions.submittedBy, userId));
+      await tx.update(enrollmentTokens).set({ createdBy: adminId }).where(eq(enrollmentTokens.createdBy, userId));
+      await tx.update(apiKeys).set({ createdBy: adminId }).where(eq(apiKeys.createdBy, userId));
+
+      // Delete the user.
+      await tx.delete(users).where(and(eq(users.id, userId), eq(users.orgId, orgId)));
+    });
 
     logAdminAction(app.db, {
       orgId,
