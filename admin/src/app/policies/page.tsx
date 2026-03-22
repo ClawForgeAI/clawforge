@@ -9,7 +9,8 @@ import { Badge } from "@/components/badge";
 import { CardSkeleton } from "@/components/skeleton";
 import { useToast } from "@/components/toast";
 import { getAuth } from "@/lib/auth";
-import { getPolicy, updatePolicy } from "@/lib/api";
+import { getPolicy, updatePolicy, listPolicies, createPolicy as createPolicyApi } from "@/lib/api";
+import type { PolicySummary } from "@/lib/api";
 
 // --- Business-friendly capability definitions ---
 
@@ -125,7 +126,10 @@ const CAPABILITIES: Capability[] = [
 
 const ALL_INDIVIDUAL_TOOLS = CAPABILITIES.flatMap((c) => c.tools);
 
-const RISK_CONFIG: Record<RiskLevel, { label: string; color: string; badgeVariant: "success" | "warning" | "danger" | "info" }> = {
+const RISK_CONFIG: Record<
+  RiskLevel,
+  { label: string; color: string; badgeVariant: "success" | "warning" | "danger" | "info" }
+> = {
   low: { label: "Low Risk", color: "text-success", badgeVariant: "success" },
   medium: { label: "Medium Risk", color: "text-info", badgeVariant: "info" },
   high: { label: "High Risk", color: "text-warning", badgeVariant: "warning" },
@@ -199,11 +203,7 @@ const AUDIT_LEVELS = [
 
 // --- Helpers ---
 
-function capabilitiesToPolicy(
-  mode: PolicyMode,
-  enabledCaps: Set<string>,
-  expandedOverrides: Map<string, Set<string>>,
-) {
+function capabilitiesToPolicy(mode: PolicyMode, enabledCaps: Set<string>, expandedOverrides: Map<string, Set<string>>) {
   const allow: string[] = [];
   const deny: string[] = [];
 
@@ -325,6 +325,10 @@ export default function PoliciesPage() {
   const [expandedCap, setExpandedCap] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [policyList, setPolicyList] = useState<PolicySummary[]>([]);
+  const [selectedPolicyId, setSelectedPolicyId] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newPolicyName, setNewPolicyName] = useState("");
 
   useEffect(() => {
     const auth = getAuth();
@@ -333,12 +337,24 @@ export default function PoliciesPage() {
       return;
     }
 
+    // Load policy list (#23)
+    listPolicies(auth.orgId, auth.accessToken)
+      .then((data) => {
+        setPolicyList(data.policies);
+        if (data.policies.length > 0) {
+          const defaultPolicy = data.policies.find(p => p.isDefault) ?? data.policies[0];
+          setSelectedPolicyId(defaultPolicy.id);
+        }
+      })
+      .catch(() => {});
+
     getPolicy(auth.orgId, auth.accessToken)
       .then((policy) => {
-        const { mode: m, enabledCaps: ec, overrides: ov } = policyToCapabilities(
-          policy.tools.allow ?? [],
-          policy.tools.deny ?? [],
-        );
+        const {
+          mode: m,
+          enabledCaps: ec,
+          overrides: ov,
+        } = policyToCapabilities(policy.tools.allow ?? [], policy.tools.deny ?? []);
         setMode(m);
         setEnabledCaps(ec);
         setOverrides(ov);
@@ -445,10 +461,7 @@ export default function PoliciesPage() {
     }
   }
 
-  const counts = useMemo(
-    () => getEffectiveCounts(mode, enabledCaps, overrides),
-    [mode, enabledCaps, overrides],
-  );
+  const counts = useMemo(() => getEffectiveCounts(mode, enabledCaps, overrides), [mode, enabledCaps, overrides]);
 
   return (
     <div className="flex min-h-screen bg-base-200">
@@ -473,16 +486,37 @@ export default function PoliciesPage() {
                 Unsaved changes
               </motion.span>
             )}
-            <button
-              onClick={handleSave}
-              disabled={saving || !hasChanges}
-              className="btn btn-primary btn-sm"
-            >
+            <button onClick={handleSave} disabled={saving || !hasChanges} className="btn btn-primary btn-sm">
               {saving && <span className="loading loading-spinner loading-xs" />}
               {saving ? "Saving..." : "Save Policy"}
             </button>
           </div>
         </div>
+
+        {/* Policy selector (#23) */}
+        {policyList.length > 0 && (
+          <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
+            {policyList.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setSelectedPolicyId(p.id)}
+                className={`btn btn-sm whitespace-nowrap ${
+                  selectedPolicyId === p.id ? "btn-primary" : "btn-ghost"
+                }`}
+              >
+                {p.name}
+                {p.isDefault && <span className="badge badge-xs badge-outline ml-1">default</span>}
+              </button>
+            ))}
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="btn btn-sm btn-ghost btn-circle"
+              title="Create new policy"
+            >
+              +
+            </button>
+          </div>
+        )}
 
         {loading ? (
           <div className="space-y-4">
@@ -497,7 +531,15 @@ export default function PoliciesPage() {
               <Card className="bg-success/5 border-success/20">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-success/15 flex items-center justify-center">
-                    <svg className="w-5 h-5 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg
+                      className="w-5 h-5 text-success"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
                       <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                       <polyline points="22 4 12 14.01 9 11.01" />
                     </svg>
@@ -511,7 +553,15 @@ export default function PoliciesPage() {
               <Card className="bg-error/5 border-error/20">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-error/15 flex items-center justify-center">
-                    <svg className="w-5 h-5 text-error" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg
+                      className="w-5 h-5 text-error"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
                       <circle cx="12" cy="12" r="10" />
                       <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
                     </svg>
@@ -524,17 +574,27 @@ export default function PoliciesPage() {
               </Card>
               <Card className={`border-base-300/50 ${mode === "restrictive" ? "bg-warning/5 border-warning/20" : ""}`}>
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${mode === "restrictive" ? "bg-warning/15" : "bg-primary/15"}`}>
-                    <svg className={`w-5 h-5 ${mode === "restrictive" ? "text-warning" : "text-primary"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center ${mode === "restrictive" ? "bg-warning/15" : "bg-primary/15"}`}
+                  >
+                    <svg
+                      className={`w-5 h-5 ${mode === "restrictive" ? "text-warning" : "text-primary"}`}
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
                       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                     </svg>
                   </div>
                   <div>
-                    <p className="text-sm font-bold capitalize">{mode === "restrictive" ? "Restrictive" : "Permissive"}</p>
+                    <p className="text-sm font-bold capitalize">
+                      {mode === "restrictive" ? "Restrictive" : "Permissive"}
+                    </p>
                     <p className="text-xs text-base-content/50">
-                      {mode === "restrictive"
-                        ? "Only selected tools are allowed"
-                        : "All tools allowed unless blocked"}
+                      {mode === "restrictive" ? "Only selected tools are allowed" : "All tools allowed unless blocked"}
                     </p>
                   </div>
                 </div>
@@ -560,9 +620,7 @@ export default function PoliciesPage() {
                   >
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-sm font-semibold">{preset.label}</span>
-                      {activePreset === preset.id && (
-                        <div className="w-2 h-2 rounded-full bg-primary" />
-                      )}
+                      {activePreset === preset.id && <div className="w-2 h-2 rounded-full bg-primary" />}
                     </div>
                     <p className="text-xs text-base-content/50 leading-relaxed">{preset.description}</p>
                   </button>
@@ -629,17 +687,23 @@ export default function PoliciesPage() {
                       <div className="card-body p-4">
                         {/* Capability header */}
                         <div className="flex items-start gap-3">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                            isEnabled ? "bg-primary/10 text-primary" : "bg-base-200 text-base-content/30"
-                          }`}>
+                          <div
+                            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                              isEnabled ? "bg-primary/10 text-primary" : "bg-base-200 text-base-content/30"
+                            }`}
+                          >
                             {cap.icon}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-0.5">
                               <span className="font-semibold text-sm">{cap.label}</span>
-                              <Badge variant={risk.badgeVariant} size="xs">{risk.label}</Badge>
+                              <Badge variant={risk.badgeVariant} size="xs">
+                                {risk.label}
+                              </Badge>
                               {isPartial && (
-                                <Badge variant="warning" size="xs">Partial</Badge>
+                                <Badge variant="warning" size="xs">
+                                  Partial
+                                </Badge>
                               )}
                             </div>
                             <p className="text-xs text-base-content/50 leading-relaxed">{cap.description}</p>
@@ -656,7 +720,13 @@ export default function PoliciesPage() {
                                 className="btn btn-ghost btn-xs btn-square"
                                 title="Show individual tools"
                               >
-                                <svg className={`w-4 h-4 text-base-content/40 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <svg
+                                  className={`w-4 h-4 text-base-content/40 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                >
                                   <path d="M6 9l6 6 6-6" />
                                 </svg>
                               </button>
@@ -683,9 +753,7 @@ export default function PoliciesPage() {
                               <div className="mt-3 pt-3 border-t border-base-200 space-y-1.5">
                                 <p className="text-xs text-base-content/40 mb-2">Individual tools in this category:</p>
                                 {cap.tools.map((tool) => {
-                                  const toolEnabled = capOverrides
-                                    ? capOverrides.has(tool)
-                                    : isEnabled;
+                                  const toolEnabled = capOverrides ? capOverrides.has(tool) : isEnabled;
                                   return (
                                     <label
                                       key={tool}
@@ -697,7 +765,9 @@ export default function PoliciesPage() {
                                         checked={toolEnabled}
                                         onChange={() => toggleTool(cap.id, tool)}
                                       />
-                                      <span className={`font-mono text-xs ${toolEnabled ? "text-base-content" : "text-base-content/40 line-through"}`}>
+                                      <span
+                                        className={`font-mono text-xs ${toolEnabled ? "text-base-content" : "text-base-content/40 line-through"}`}
+                                      >
                                         {tool}
                                       </span>
                                       <span className="text-[10px] text-base-content/30 ml-auto">
@@ -738,9 +808,11 @@ export default function PoliciesPage() {
                     }`}
                   >
                     <div className="flex items-center gap-2 mb-2">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                        auditLevel === level.value ? "bg-primary/15 text-primary" : "bg-base-200 text-base-content/40"
-                      }`}>
+                      <div
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                          auditLevel === level.value ? "bg-primary/15 text-primary" : "bg-base-200 text-base-content/40"
+                        }`}
+                      >
                         {level.icon}
                       </div>
                       <div className="flex items-center gap-2">
@@ -765,7 +837,13 @@ export default function PoliciesPage() {
                 className="flex items-center justify-between w-full text-left"
               >
                 <CardTitle className="mb-0">Advanced Settings</CardTitle>
-                <svg className={`w-5 h-5 text-base-content/40 transition-transform duration-200 ${showAdvanced ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg
+                  className={`w-5 h-5 text-base-content/40 transition-transform duration-200 ${showAdvanced ? "rotate-180" : ""}`}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
                   <path d="M6 9l6 6 6-6" />
                 </svg>
               </button>
@@ -796,7 +874,9 @@ export default function PoliciesPage() {
                       </div>
                       <div className="divider my-2" />
                       <div>
-                        <label className="text-sm font-medium text-base-content/70 block mb-1.5">Raw Policy Preview</label>
+                        <label className="text-sm font-medium text-base-content/70 block mb-1.5">
+                          Raw Policy Preview
+                        </label>
                         <p className="text-xs text-base-content/40 mb-2">
                           The actual allow/deny lists that will be sent to agents
                         </p>
@@ -807,6 +887,43 @@ export default function PoliciesPage() {
                 )}
               </AnimatePresence>
             </Card>
+          </div>
+        )}
+        {/* Create Policy Modal (#23) */}
+        {showCreateModal && (
+          <div className="modal modal-open">
+            <div className="modal-box">
+              <h3 className="font-bold text-lg">Create New Policy</h3>
+              <div className="form-control mt-4">
+                <label className="label"><span className="label-text">Policy Name</span></label>
+                <input
+                  value={newPolicyName}
+                  onChange={(e) => setNewPolicyName(e.target.value)}
+                  placeholder="e.g., Engineering Team Policy"
+                  className="input input-bordered w-full"
+                />
+              </div>
+              <div className="modal-action">
+                <button className="btn btn-ghost" onClick={() => setShowCreateModal(false)}>Cancel</button>
+                <button
+                  className="btn btn-primary"
+                  disabled={!newPolicyName}
+                  onClick={async () => {
+                    const auth = getAuth();
+                    if (!auth) return;
+                    try {
+                      await createPolicyApi(auth.orgId, auth.accessToken, { name: newPolicyName });
+                      const data = await listPolicies(auth.orgId, auth.accessToken);
+                      setPolicyList(data.policies);
+                      setShowCreateModal(false);
+                      setNewPolicyName("");
+                    } catch {}
+                  }}
+                >
+                  Create
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </main>
@@ -831,9 +948,13 @@ function RawPolicyPreview({
       <div className="bg-base-200 rounded-lg p-3">
         <p className="text-xs font-medium text-success mb-2">Allow List ({allow.length})</p>
         <div className="flex flex-wrap gap-1">
-          {allow.length > 0 ? allow.map((t) => (
-            <span key={t} className="badge badge-success badge-outline badge-xs font-mono">{t}</span>
-          )) : (
+          {allow.length > 0 ? (
+            allow.map((t) => (
+              <span key={t} className="badge badge-success badge-outline badge-xs font-mono">
+                {t}
+              </span>
+            ))
+          ) : (
             <span className="text-xs text-base-content/30">
               {mode === "permissive" ? "Not used (permissive mode)" : "Empty"}
             </span>
@@ -843,9 +964,13 @@ function RawPolicyPreview({
       <div className="bg-base-200 rounded-lg p-3">
         <p className="text-xs font-medium text-error mb-2">Deny List ({deny.length})</p>
         <div className="flex flex-wrap gap-1">
-          {deny.length > 0 ? deny.map((t) => (
-            <span key={t} className="badge badge-error badge-outline badge-xs font-mono">{t}</span>
-          )) : (
+          {deny.length > 0 ? (
+            deny.map((t) => (
+              <span key={t} className="badge badge-error badge-outline badge-xs font-mono">
+                {t}
+              </span>
+            ))
+          ) : (
             <span className="text-xs text-base-content/30">
               {mode === "restrictive" ? "Not used (restrictive mode)" : "Empty"}
             </span>
@@ -891,7 +1016,15 @@ const TOOL_DESCRIPTIONS: Record<string, string> = {
 
 function FolderIcon() {
   return (
-    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className="w-5 h-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
     </svg>
   );
@@ -899,7 +1032,15 @@ function FolderIcon() {
 
 function GlobeIcon() {
   return (
-    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className="w-5 h-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <circle cx="12" cy="12" r="10" />
       <line x1="2" y1="12" x2="22" y2="12" />
       <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
@@ -909,7 +1050,15 @@ function GlobeIcon() {
 
 function TerminalIcon() {
   return (
-    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className="w-5 h-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <polyline points="4 17 10 11 4 5" />
       <line x1="12" y1="19" x2="20" y2="19" />
     </svg>
@@ -918,7 +1067,15 @@ function TerminalIcon() {
 
 function BrainIcon() {
   return (
-    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className="w-5 h-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" />
       <line x1="10" y1="22" x2="14" y2="22" />
     </svg>
@@ -927,7 +1084,15 @@ function BrainIcon() {
 
 function LayoutIcon() {
   return (
-    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className="w-5 h-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <rect x="3" y="3" width="18" height="18" rx="2" />
       <line x1="3" y1="9" x2="21" y2="9" />
       <line x1="9" y1="21" x2="9" y2="9" />
@@ -937,7 +1102,15 @@ function LayoutIcon() {
 
 function MessageIcon() {
   return (
-    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className="w-5 h-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
     </svg>
   );
@@ -945,7 +1118,15 @@ function MessageIcon() {
 
 function ClockIcon() {
   return (
-    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className="w-5 h-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <circle cx="12" cy="12" r="10" />
       <polyline points="12 6 12 12 16 14" />
     </svg>
@@ -954,7 +1135,15 @@ function ClockIcon() {
 
 function NetworkIcon() {
   return (
-    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className="w-5 h-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <rect x="9" y="2" width="6" height="6" rx="1" />
       <rect x="2" y="16" width="6" height="6" rx="1" />
       <rect x="16" y="16" width="6" height="6" rx="1" />
@@ -965,7 +1154,15 @@ function NetworkIcon() {
 
 function ServerIcon() {
   return (
-    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className="w-5 h-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <rect x="2" y="2" width="20" height="8" rx="2" />
       <rect x="2" y="14" width="20" height="8" rx="2" />
       <line x1="6" y1="6" x2="6.01" y2="6" />
@@ -976,7 +1173,15 @@ function ServerIcon() {
 
 function MediaIcon() {
   return (
-    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className="w-5 h-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <rect x="2" y="2" width="20" height="20" rx="5" />
       <circle cx="8.5" cy="8.5" r="1.5" />
       <path d="M21 15l-5-5L5 21" />
@@ -986,7 +1191,15 @@ function MediaIcon() {
 
 function AgentsIcon() {
   return (
-    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className="w-5 h-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <circle cx="12" cy="8" r="5" />
       <path d="M20 21a8 8 0 0 0-16 0" />
       <circle cx="12" cy="8" r="1" />
@@ -996,7 +1209,15 @@ function AgentsIcon() {
 
 function PluginIcon() {
   return (
-    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className="w-5 h-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M12 2v6m0 8v6M2 12h6m8 0h6" />
       <circle cx="12" cy="12" r="4" />
     </svg>
@@ -1005,7 +1226,15 @@ function PluginIcon() {
 
 function ShieldCheckIcon() {
   return (
-    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className="w-4 h-4"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
       <path d="M9 12l2 2 4-4" />
     </svg>
@@ -1014,7 +1243,15 @@ function ShieldCheckIcon() {
 
 function ListIcon() {
   return (
-    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className="w-4 h-4"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <line x1="8" y1="6" x2="21" y2="6" />
       <line x1="8" y1="12" x2="21" y2="12" />
       <line x1="8" y1="18" x2="21" y2="18" />
@@ -1027,7 +1264,15 @@ function ListIcon() {
 
 function EyeOffIcon() {
   return (
-    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className="w-4 h-4"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
       <line x1="1" y1="1" x2="23" y2="23" />
     </svg>

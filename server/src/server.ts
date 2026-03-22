@@ -22,6 +22,7 @@ import { enrollmentRoutes } from "./routes/enrollment.js";
 import { organizationRoutes } from "./routes/organizations.js";
 import { eventRoutes } from "./routes/events.js";
 import { apiKeyRoutes } from "./routes/api-keys.js";
+import { roleRoutes } from "./routes/roles.js";
 import { startAuditRetentionJob, stopAuditRetentionJob } from "./services/audit-retention.js";
 
 // ---------------------------------------------------------------------------
@@ -59,9 +60,145 @@ export type ServerConfig = {
   logFormat?: string; // 'json' or 'pretty'
 };
 
-export async function createServer(config: ServerConfig) {
-  const startTime = Date.now();
+export type HealthCheckResult = {
+  status: "ok" | "error" | "skipped";
+  latencyMs: number;
+  error?: string;
+  version?: string;
+  provider?: string;
+  configured?: boolean;
+};
 
+export type ReadinessResponse = {
+  status: "ready" | "not_ready";
+  timestamp: string;
+  version: string;
+  checks: {
+    database: HealthCheckResult;
+    migrations: HealthCheckResult;
+    sso: HealthCheckResult;
+  };
+};
+
+type ReadinessDependencies = {
+  sql: Sql;
+  version: string;
+  fetchImpl?: typeof fetch;
+};
+
+function getVersion(): string {
+  return process.env.npm_package_version ?? "0.1.0";
+}
+
+function getUptimeSeconds(): number {
+  return Math.floor(process.uptime());
+}
+
+export async function buildReadinessResponse({ sql, version, fetchImpl = fetch }: ReadinessDependencies): Promise<ReadinessResponse> {
+  const checks: ReadinessResponse["checks"] = {
+    database: { status: "ok", latencyMs: 0 },
+    migrations: { status: "ok", latencyMs: 0 },
+    sso: { status: "skipped", latencyMs: 0, configured: false },
+  };
+
+  let ready = true;
+
+  const databaseStart = Date.now();
+  try {
+    await sql`SELECT 1`;
+    checks.database = {
+      status: "ok",
+      latencyMs: Date.now() - databaseStart,
+    };
+  } catch (err) {
+    ready = false;
+    checks.database = {
+      status: "error",
+      latencyMs: Date.now() - databaseStart,
+      error: err instanceof Error ? err.message : "Database unreachable",
+    };
+  }
+
+  const migrationsStart = Date.now();
+  try {
+    const rows = await sql<{ hash: string | null }[]>`
+      SELECT hash
+      FROM __drizzle_migrations
+      ORDER BY created_at DESC
+      LIMIT 1
+    `;
+
+    checks.migrations = {
+      status: "ok",
+      latencyMs: Date.now() - migrationsStart,
+      version: rows[0]?.hash ?? "unknown",
+    };
+  } catch (err) {
+    ready = false;
+    checks.migrations = {
+      status: "error",
+      latencyMs: Date.now() - migrationsStart,
+      error: err instanceof Error ? err.message : "Unable to verify migrations",
+    };
+  }
+
+  const ssoStart = Date.now();
+  try {
+    const rows = await sql<{ sso_config: { issuerUrl?: string } | null }[]>`
+      SELECT sso_config
+      FROM organizations
+      WHERE sso_config IS NOT NULL
+      LIMIT 1
+    `;
+
+    const issuerUrl = rows[0]?.sso_config?.issuerUrl;
+    if (!issuerUrl) {
+      checks.sso = {
+        status: "skipped",
+        latencyMs: Date.now() - ssoStart,
+        configured: false,
+      };
+    } else {
+      const discoveryUrl = `${issuerUrl.replace(/\/$/, "")}/.well-known/openid-configuration`;
+      const response = await fetchImpl(discoveryUrl, { signal: AbortSignal.timeout(5000) });
+
+      if (!response.ok) {
+        ready = false;
+        checks.sso = {
+          status: "error",
+          latencyMs: Date.now() - ssoStart,
+          configured: true,
+          provider: issuerUrl,
+          error: `OIDC discovery failed with HTTP ${response.status}`,
+        };
+      } else {
+        checks.sso = {
+          status: "ok",
+          latencyMs: Date.now() - ssoStart,
+          configured: true,
+          provider: issuerUrl,
+        };
+      }
+    }
+  } catch (err) {
+    ready = false;
+    checks.sso = {
+      status: "error",
+      latencyMs: Date.now() - ssoStart,
+      configured: true,
+      error: err instanceof Error ? err.message : "Unable to verify SSO provider",
+    };
+  }
+
+  return {
+    status: ready ? "ready" : "not_ready",
+    timestamp: new Date().toISOString(),
+    version,
+    checks,
+  };
+}
+
+export async function createServer(config: ServerConfig) {
   const app = Fastify({
     logger: {
       level: config.logLevel ?? "info",
@@ -162,7 +299,12 @@ export async function createServer(config: ServerConfig) {
         return `${request.authUser?.orgId ?? "anon"}:${request.authUser?.userId ?? request.ip}`;
       },
       addHeadersOnExceeding: { "x-ratelimit-limit": true, "x-ratelimit-remaining": true, "x-ratelimit-reset": true },
-      addHeaders: { "x-ratelimit-limit": true, "x-ratelimit-remaining": true, "x-ratelimit-reset": true, "retry-after": true },
+      addHeaders: {
+        "x-ratelimit-limit": true,
+        "x-ratelimit-remaining": true,
+        "x-ratelimit-reset": true,
+        "retry-after": true,
+      },
     });
   }
 
@@ -181,94 +323,22 @@ export async function createServer(config: ServerConfig) {
   // Auth middleware
   await registerAuthMiddleware(app);
 
-  // Shallow health check (liveness probe)
-  app.get("/health", async () => ({
-    status: "ok",
-    uptime: Math.floor((Date.now() - startTime) / 1000),
-    version: process.env.npm_package_version ?? "0.1.0",
-  }));
+  // Health checks
+  app.get("/health", async () => ({ status: "ok", uptime: getUptimeSeconds(), version: getVersion() }));
 
-  // Deep health check (readiness probe) (#41, #73)
-  const getReadyHealth = async () => {
-    const checks: Record<string, { status: string; latency_ms?: number; error?: string }> = {};
-    let allHealthy = true;
-
-    // Check PostgreSQL connectivity
-    const dbStart = Date.now();
-    try {
-      await sql`SELECT 1`;
-      checks.database = { status: "healthy", latency_ms: Date.now() - dbStart };
-    } catch (err) {
-      allHealthy = false;
-      checks.database = {
-        status: "unhealthy",
-        latency_ms: Date.now() - dbStart,
-        error: err instanceof Error ? err.message : "Database unreachable",
-      };
-    }
-
-    // Check migration status
-    const migrationStart = Date.now();
-    try {
-      const result = await sql`SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'organizations')`;
-      const migrated = result[0]?.exists === true;
-      checks.migrations = {
-        status: migrated ? "healthy" : "unhealthy",
-        latency_ms: Date.now() - migrationStart,
-        ...(migrated ? {} : { error: "Schema not migrated" }),
-      };
-      if (!migrated) allHealthy = false;
-    } catch (err) {
-      allHealthy = false;
-      checks.migrations = {
-        status: "unhealthy",
-        latency_ms: Date.now() - migrationStart,
-        error: err instanceof Error ? err.message : "Migration check failed",
-      };
-    }
-
-    // Check SSO provider reachability (if configured)
-    try {
-      const orgs = await db.select({ ssoConfig: schema.organizations.ssoConfig }).from(schema.organizations);
-      const ssoOrg = orgs.find((o) => o.ssoConfig?.issuerUrl);
-      if (ssoOrg?.ssoConfig) {
-        const ssoStart = Date.now();
-        try {
-          const discoveryUrl = `${ssoOrg.ssoConfig.issuerUrl.replace(/\/$/, "")}/.well-known/openid-configuration`;
-          const resp = await fetch(discoveryUrl, { signal: AbortSignal.timeout(5000) });
-          checks.sso = {
-            status: resp.ok ? "healthy" : "unhealthy",
-            latency_ms: Date.now() - ssoStart,
-            ...(resp.ok ? {} : { error: `HTTP ${resp.status}` }),
-          };
-          if (!resp.ok) allHealthy = false;
-        } catch (err) {
-          checks.sso = {
-            status: "unhealthy",
-            latency_ms: Date.now() - ssoStart,
-            error: err instanceof Error ? err.message : "SSO provider unreachable",
-          };
-          // SSO being unreachable should not make the whole server unhealthy
-          // just report it as degraded
-        }
-      }
-    } catch {
-      // If we can't query orgs (e.g. DB issue), skip SSO check
-    }
-
-    const body = {
-      status: allHealthy ? "healthy" : "unhealthy",
-      timestamp: new Date().toISOString(),
-      version: process.env.npm_package_version ?? "0.1.0",
-      uptime: Math.floor((Date.now() - startTime) / 1000),
-      checks,
-    };
-
-    return { statusCode: allHealthy ? 200 : 503, body };
+  const sendReadiness = async () => {
+    const body = await buildReadinessResponse({ sql, version: getVersion() });
+    return { statusCode: body.status === "ready" ? 200 : 503, body };
   };
 
+  app.get("/ready", async (_request, reply) => {
+    const { statusCode, body } = await sendReadiness();
+    return reply.code(statusCode).send(body);
+  });
+
+  // Backward-compatible alias.
   app.get("/health/ready", async (_request, reply) => {
-    const { statusCode, body } = await getReadyHealth();
+    const { statusCode, body } = await sendReadiness();
     return reply.code(statusCode).send(body);
   });
 
@@ -283,6 +353,7 @@ export async function createServer(config: ServerConfig) {
   await app.register(organizationRoutes);
   await app.register(eventRoutes);
   await app.register(apiKeyRoutes);
+  await app.register(roleRoutes);
 
   // Start audit retention cleanup job (#39)
   if (config.auditRetentionDays && config.auditRetentionDays > 0) {
