@@ -94,7 +94,11 @@ function getUptimeSeconds(): number {
   return Math.floor(process.uptime());
 }
 
-export async function buildReadinessResponse({ sql, version, fetchImpl = fetch }: ReadinessDependencies): Promise<ReadinessResponse> {
+export async function buildReadinessResponse({
+  sql,
+  version,
+  fetchImpl = fetch,
+}: ReadinessDependencies): Promise<ReadinessResponse> {
   const checks: ReadinessResponse["checks"] = {
     database: { status: "ok", latencyMs: 0 },
     migrations: { status: "ok", latencyMs: 0 },

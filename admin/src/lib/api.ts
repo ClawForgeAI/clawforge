@@ -11,6 +11,16 @@ type FetchOptions = {
   token?: string;
 };
 
+export type AuditQueryFilters = {
+  userId?: string;
+  eventType?: string;
+  toolName?: string;
+  outcome?: string;
+  from?: string;
+  to?: string;
+  limit?: string;
+};
+
 async function apiFetch<T>(path: string, opts: FetchOptions = {}): Promise<T> {
   const headers: Record<string, string> = {};
   if (opts.body) {
@@ -148,12 +158,7 @@ export function clonePolicy(orgId: string, policyId: string, token: string, name
   });
 }
 
-export function assignPolicy(
-  orgId: string,
-  policyId: string,
-  token: string,
-  body: { userId?: string; role?: string },
-) {
+export function assignPolicy(orgId: string, policyId: string, token: string, body: { userId?: string; role?: string }) {
   return apiFetch<PolicyAssignment>(`/api/v1/policies/${orgId}/${policyId}/assign`, {
     method: "POST",
     token,
@@ -257,11 +262,41 @@ export type AuditEvent = {
   timestamp: string;
 };
 
-export function queryAudit(orgId: string, token: string, params?: Record<string, string>) {
+export function queryAudit(orgId: string, token: string, params?: AuditQueryFilters) {
   const qs = params ? "?" + new URLSearchParams(params).toString() : "";
   return apiFetch<{ events: AuditEvent[]; total: number; nextCursor?: string }>(`/api/v1/audit/${orgId}/query${qs}`, {
     token,
   });
+}
+
+export async function exportAudit(orgId: string, token: string, format: "csv" | "json", params?: AuditQueryFilters) {
+  const searchParams = new URLSearchParams({ ...(params ?? {}), format });
+  const response = await fetch(`${API_BASE}/api/v1/audit/${orgId}/export?${searchParams.toString()}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (response.status === 401) {
+    clearAuth();
+    if (typeof window !== "undefined") {
+      window.location.replace("/login?expired=1");
+    }
+    throw new Error("Session expired");
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || "Export failed");
+  }
+
+  return {
+    blob: await response.blob(),
+    filename:
+      response.headers.get("content-disposition")?.match(/filename="?([^";]+)"?/)?.[1] ??
+      `audit-export.${format === "csv" ? "csv" : "ndjson"}`,
+  };
 }
 
 export function getAuditEvent(orgId: string, eventId: string, token: string) {

@@ -7,14 +7,7 @@ import { eq, and, or } from "drizzle-orm";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { requireAdmin, requireAdminOrViewer, requireOrg } from "../middleware/auth.js";
-import {
-  users,
-  skillSubmissions,
-  approvedSkills,
-  clientHeartbeats,
-  enrollmentTokens,
-  apiKeys,
-} from "../db/schema.js";
+import { users, skillSubmissions, approvedSkills, clientHeartbeats, enrollmentTokens, apiKeys } from "../db/schema.js";
 import { logAdminAction } from "../services/admin-audit.js";
 
 const CreateUserSchema = z.object({
