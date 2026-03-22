@@ -4,7 +4,7 @@
 
 import type { FastifyInstance } from "fastify";
 import { eq, desc } from "drizzle-orm";
-import { requireAdmin, requireAdminOrViewer, requireOrg } from "../middleware/auth.js";
+import { requireAdminOrViewer, requireOrg } from "../middleware/auth.js";
 import { clientHeartbeats, policies, users } from "../db/schema.js";
 
 export async function heartbeatRoutes(app: FastifyInstance): Promise<void> {
