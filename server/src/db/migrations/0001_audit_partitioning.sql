@@ -1,20 +1,15 @@
 -- Migration: Convert audit_events to a partitioned table (by month on timestamp).
 --
--- This migration:
--- 1. Renames the existing table to a temporary name
--- 2. Creates a new partitioned table with the same schema
--- 3. Copies existing data into the partitioned table
--- 4. Drops the temporary table
--- 5. Creates initial monthly partitions (current month +/- 3 months)
---
 -- NOTE: Run this during a maintenance window. The table will be briefly unavailable.
 
-BEGIN;
+-- Step 1: Drop existing indexes (they will be recreated on the partitioned table)
+DROP INDEX IF EXISTS audit_events_org_ts_idx;
+DROP INDEX IF EXISTS audit_events_org_user_idx;
 
--- Step 1: Rename existing table
+-- Step 2: Rename existing table
 ALTER TABLE audit_events RENAME TO audit_events_old;
 
--- Step 2: Create partitioned table
+-- Step 3: Create partitioned table
 CREATE TABLE audit_events (
     id          UUID        NOT NULL DEFAULT gen_random_uuid(),
     org_id      UUID        NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -29,12 +24,11 @@ CREATE TABLE audit_events (
     PRIMARY KEY (id, "timestamp")
 ) PARTITION BY RANGE ("timestamp");
 
--- Step 3: Create indexes on the partitioned table
+-- Step 4: Create indexes on the partitioned table
 CREATE INDEX audit_events_org_ts_idx ON audit_events (org_id, "timestamp");
 CREATE INDEX audit_events_org_user_idx ON audit_events (org_id, user_id);
 
--- Step 4: Create monthly partitions for current period
--- Adjust dates as needed for your deployment window.
+-- Step 5: Create monthly partitions for current period
 DO $$
 DECLARE
     start_date DATE;
@@ -43,7 +37,6 @@ DECLARE
     partition_start DATE;
     partition_end DATE;
 BEGIN
-    -- Create partitions for 3 months back through 6 months forward
     start_date := date_trunc('month', CURRENT_DATE - INTERVAL '3 months');
     end_date := date_trunc('month', CURRENT_DATE + INTERVAL '7 months');
 
@@ -63,15 +56,13 @@ BEGIN
     END LOOP;
 END $$;
 
--- Step 5: Create a default partition for data outside defined ranges
+-- Step 6: Create a default partition for data outside defined ranges
 CREATE TABLE IF NOT EXISTS audit_events_default PARTITION OF audit_events DEFAULT;
 
--- Step 6: Copy existing data
+-- Step 7: Copy existing data
 INSERT INTO audit_events (id, org_id, user_id, event_type, tool_name, outcome, agent_id, session_key, metadata, "timestamp")
 SELECT id, org_id, user_id, event_type, tool_name, outcome, agent_id, session_key, metadata, "timestamp"
 FROM audit_events_old;
 
--- Step 7: Drop old table
+-- Step 8: Drop old table
 DROP TABLE audit_events_old;
-
-COMMIT;
