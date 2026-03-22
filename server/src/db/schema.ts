@@ -2,17 +2,7 @@
  * Drizzle ORM schema for ClawForge control plane.
  */
 
-import {
-  pgTable,
-  uuid,
-  text,
-  timestamp,
-  integer,
-  jsonb,
-  boolean,
-  index,
-  uniqueIndex,
-} from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, integer, jsonb, boolean, index, uniqueIndex } from "drizzle-orm/pg-core";
 
 // ---------------------------------------------------------------------------
 // Organizations
@@ -50,9 +40,7 @@ export const users = pgTable(
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    uniqueIndex("users_org_email_idx").on(table.orgId, table.email),
-  ],
+  (table) => [uniqueIndex("users_org_email_idx").on(table.orgId, table.email)],
 );
 
 // ---------------------------------------------------------------------------
@@ -83,9 +71,7 @@ export const policies = pgTable(
       .default("metadata"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    uniqueIndex("policies_org_id_idx").on(table.orgId),
-  ],
+  (table) => [uniqueIndex("policies_org_id_idx").on(table.orgId)],
 );
 
 // ---------------------------------------------------------------------------
@@ -130,9 +116,7 @@ export const skillSubmissions = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index("skill_submissions_org_status_idx").on(table.orgId, table.status),
-  ],
+  (table) => [index("skill_submissions_org_status_idx").on(table.orgId, table.status)],
 );
 
 // ---------------------------------------------------------------------------
@@ -157,9 +141,7 @@ export const approvedSkills = pgTable(
     revokedBy: uuid("revoked_by").references(() => users.id),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index("approved_skills_org_idx").on(table.orgId),
-  ],
+  (table) => [index("approved_skills_org_idx").on(table.orgId)],
 );
 
 // ---------------------------------------------------------------------------
@@ -205,9 +187,7 @@ export const clientHeartbeats = pgTable(
     lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true }).notNull().defaultNow(),
     clientVersion: text("client_version"),
   },
-  (table) => [
-    uniqueIndex("client_heartbeats_org_user_idx").on(table.orgId, table.userId),
-  ],
+  (table) => [uniqueIndex("client_heartbeats_org_user_idx").on(table.orgId, table.userId)],
 );
 
 // ---------------------------------------------------------------------------
@@ -264,8 +244,5 @@ export const apiKeys = pgTable(
       .references(() => users.id),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index("api_keys_org_idx").on(table.orgId),
-    uniqueIndex("api_keys_prefix_idx").on(table.keyPrefix),
-  ],
+  (table) => [index("api_keys_org_idx").on(table.orgId), uniqueIndex("api_keys_prefix_idx").on(table.keyPrefix)],
 );

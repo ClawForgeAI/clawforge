@@ -137,9 +137,7 @@ describe("EventBus", () => {
 
       bus.broadcast("org-1", "policy_updated", { version: 5 });
 
-      expect(client.written[0]).toBe(
-        "event: policy_updated\ndata: {\"version\":5}\n\n",
-      );
+      expect(client.written[0]).toBe('event: policy_updated\ndata: {"version":5}\n\n');
     });
   });
 

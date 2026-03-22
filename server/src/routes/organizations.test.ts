@@ -11,7 +11,19 @@ vi.mock("../services/admin-audit.js", () => ({
 
 function makeChain(result: unknown[] = []) {
   const c: any = {};
-  for (const m of ["select", "from", "where", "limit", "orderBy", "set", "values", "returning", "insert", "update", "delete"]) {
+  for (const m of [
+    "select",
+    "from",
+    "where",
+    "limit",
+    "orderBy",
+    "set",
+    "values",
+    "returning",
+    "insert",
+    "update",
+    "delete",
+  ]) {
     c[m] = vi.fn().mockReturnValue(c);
   }
   c.then = (resolve: (v: unknown) => void) => resolve(result);
@@ -56,7 +68,13 @@ function userToken(app: any) {
 describe("organization routes", () => {
   describe("GET /api/v1/organizations/:orgId", () => {
     it("returns org details for admin", async () => {
-      const org = { id: TEST_ORG_ID, name: "Test Org", ssoConfig: null, createdAt: "2025-01-01", updatedAt: "2025-01-01" };
+      const org = {
+        id: TEST_ORG_ID,
+        name: "Test Org",
+        ssoConfig: null,
+        createdAt: "2025-01-01",
+        updatedAt: "2025-01-01",
+      };
       const db = createTestDb([[org]]);
       const app = await buildApp(db);
 
@@ -102,7 +120,13 @@ describe("organization routes", () => {
 
   describe("PUT /api/v1/organizations/:orgId", () => {
     it("updates org name for admin", async () => {
-      const updated = { id: TEST_ORG_ID, name: "New Name", ssoConfig: null, createdAt: "2025-01-01", updatedAt: "2025-01-02" };
+      const updated = {
+        id: TEST_ORG_ID,
+        name: "New Name",
+        ssoConfig: null,
+        createdAt: "2025-01-01",
+        updatedAt: "2025-01-02",
+      };
       const db = createTestDb([], [[updated]]);
       const app = await buildApp(db);
 

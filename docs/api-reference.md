@@ -10,13 +10,13 @@ All endpoints except those marked "Public" require a `Bearer` token in the `Auth
 
 ## Auth
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `POST` | `/api/v1/auth/login` | Public | Email/password login |
-| `POST` | `/api/v1/auth/exchange` | Public | SSO token exchange (OIDC code/token) |
-| `POST` | `/api/v1/auth/enroll` | Public | Enroll with enrollment token |
-| `GET` | `/api/v1/auth/mode` | Public | Available auth methods |
-| `POST` | `/api/v1/auth/change-password` | User | Self-service password change |
+| Method | Path                           | Auth   | Description                          |
+| ------ | ------------------------------ | ------ | ------------------------------------ |
+| `POST` | `/api/v1/auth/login`           | Public | Email/password login                 |
+| `POST` | `/api/v1/auth/exchange`        | Public | SSO token exchange (OIDC code/token) |
+| `POST` | `/api/v1/auth/enroll`          | Public | Enroll with enrollment token         |
+| `GET`  | `/api/v1/auth/mode`            | Public | Available auth methods               |
+| `POST` | `/api/v1/auth/change-password` | User   | Self-service password change         |
 
 ### Login
 
@@ -98,22 +98,22 @@ All endpoints except those marked "Public" require a `Bearer` token in the `Auth
 
 ## Enrollment Tokens
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `POST` | `/api/v1/enrollment-tokens/:orgId` | Admin | Create token (optional: `label`, `expiresAt`, `maxUses`) |
-| `GET` | `/api/v1/enrollment-tokens/:orgId` | Admin | List active tokens |
-| `DELETE` | `/api/v1/enrollment-tokens/:orgId/:tokenId` | Admin | Revoke a token |
+| Method   | Path                                        | Auth  | Description                                              |
+| -------- | ------------------------------------------- | ----- | -------------------------------------------------------- |
+| `POST`   | `/api/v1/enrollment-tokens/:orgId`          | Admin | Create token (optional: `label`, `expiresAt`, `maxUses`) |
+| `GET`    | `/api/v1/enrollment-tokens/:orgId`          | Admin | List active tokens                                       |
+| `DELETE` | `/api/v1/enrollment-tokens/:orgId/:tokenId` | Admin | Revoke a token                                           |
 
 ---
 
 ## Policies
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/v1/policies/:orgId/effective` | User | Get effective policy for authenticated user |
-| `GET` | `/api/v1/policies/:orgId` | Admin | Get raw org policy |
-| `PUT` | `/api/v1/policies/:orgId` | Admin | Update org policy |
-| `PUT` | `/api/v1/policies/:orgId/kill-switch` | Admin | Toggle kill switch |
+| Method | Path                                  | Auth  | Description                                 |
+| ------ | ------------------------------------- | ----- | ------------------------------------------- |
+| `GET`  | `/api/v1/policies/:orgId/effective`   | User  | Get effective policy for authenticated user |
+| `GET`  | `/api/v1/policies/:orgId`             | Admin | Get raw org policy                          |
+| `PUT`  | `/api/v1/policies/:orgId`             | Admin | Update org policy                           |
+| `PUT`  | `/api/v1/policies/:orgId/kill-switch` | Admin | Toggle kill switch                          |
 
 ### Update Policy
 
@@ -127,9 +127,7 @@ All endpoints except those marked "Public" require a `Bearer` token in the `Auth
   },
   "skillsConfig": {
     "requireApproval": true,
-    "approved": [
-      { "name": "weather", "key": "weather-v1", "scope": "org" }
-    ]
+    "approved": [{ "name": "weather", "key": "weather-v1", "scope": "org" }]
   },
   "auditLevel": "full"
 }
@@ -149,12 +147,12 @@ All endpoints except those marked "Public" require a `Bearer` token in the `Auth
 
 ## Skills
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `POST` | `/api/v1/skills/:orgId/submit` | User | Submit a skill for review |
-| `GET` | `/api/v1/skills/:orgId/review` | Admin | List pending submissions |
-| `PUT` | `/api/v1/skills/:orgId/review/:id` | Admin | Approve or reject a submission |
-| `GET` | `/api/v1/skills/:orgId/approved` | User | List approved skills |
+| Method | Path                               | Auth  | Description                    |
+| ------ | ---------------------------------- | ----- | ------------------------------ |
+| `POST` | `/api/v1/skills/:orgId/submit`     | User  | Submit a skill for review      |
+| `GET`  | `/api/v1/skills/:orgId/review`     | Admin | List pending submissions       |
+| `PUT`  | `/api/v1/skills/:orgId/review/:id` | Admin | Approve or reject a submission |
+| `GET`  | `/api/v1/skills/:orgId/approved`   | User  | List approved skills           |
 
 ### Review a Submission
 
@@ -173,23 +171,23 @@ Status values: `approved-org`, `approved-self`, `rejected`
 
 ## Audit
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `POST` | `/api/v1/audit/:orgId/events` | User | Ingest audit events (batched from plugin) |
-| `GET` | `/api/v1/audit/:orgId/query` | Admin | Query audit logs |
+| Method | Path                          | Auth  | Description                               |
+| ------ | ----------------------------- | ----- | ----------------------------------------- |
+| `POST` | `/api/v1/audit/:orgId/events` | User  | Ingest audit events (batched from plugin) |
+| `GET`  | `/api/v1/audit/:orgId/query`  | Admin | Query audit logs                          |
 
 ### Query Parameters
 
-| Parameter | Description |
-|---|---|
-| `userId` | Filter by user ID |
-| `eventType` | Filter by event type |
-| `toolName` | Filter by tool name |
-| `outcome` | Filter by outcome (`allowed`, `blocked`, `error`, `success`) |
-| `from` | Start time (ISO-8601) |
-| `to` | End time (ISO-8601) |
-| `limit` | Max results |
-| `offset` | Pagination offset |
+| Parameter   | Description                                                  |
+| ----------- | ------------------------------------------------------------ |
+| `userId`    | Filter by user ID                                            |
+| `eventType` | Filter by event type                                         |
+| `toolName`  | Filter by tool name                                          |
+| `outcome`   | Filter by outcome (`allowed`, `blocked`, `error`, `success`) |
+| `from`      | Start time (ISO-8601)                                        |
+| `to`        | End time (ISO-8601)                                          |
+| `limit`     | Max results                                                  |
+| `offset`    | Pagination offset                                            |
 
 ### Example Query
 
@@ -229,9 +227,9 @@ offset=0" \
 
 ## Heartbeat
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/v1/heartbeat/:orgId/:userId` | User | Client heartbeat — returns kill switch state + policy version |
+| Method | Path                               | Auth | Description                                                   |
+| ------ | ---------------------------------- | ---- | ------------------------------------------------------------- |
+| `GET`  | `/api/v1/heartbeat/:orgId/:userId` | User | Client heartbeat — returns kill switch state + policy version |
 
 ### Response
 
@@ -248,6 +246,6 @@ offset=0" \
 
 ## Users
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/v1/users/:orgId` | Admin | List org users |
+| Method | Path                   | Auth  | Description    |
+| ------ | ---------------------- | ----- | -------------- |
+| `GET`  | `/api/v1/users/:orgId` | Admin | List org users |
