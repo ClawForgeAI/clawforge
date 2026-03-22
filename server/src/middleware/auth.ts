@@ -27,6 +27,7 @@ const PUBLIC_ENDPOINTS = new Set([
   "/api/v1/auth/mode",
   "/api/v1/auth/enroll",
   "/health",
+  "/ready",
   "/health/ready",
   "/metrics",
 ]);
@@ -84,11 +85,7 @@ async function authenticateApiKey(
   const prefix = token.slice(0, 16);
 
   try {
-    const [key] = await app.db
-      .select()
-      .from(apiKeys)
-      .where(eq(apiKeys.keyPrefix, prefix))
-      .limit(1);
+    const [key] = await app.db.select().from(apiKeys).where(eq(apiKeys.keyPrefix, prefix)).limit(1);
 
     if (!key) {
       reply.code(401).send({ error: "Invalid API key" });

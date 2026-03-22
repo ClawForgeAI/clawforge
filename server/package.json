@@ -1,6 +1,7 @@
 {
   "name": "@ClawForgeAI/clawforge-server",
   "version": "0.1.0",
+  "private": true,
   "description": "ClawForge control plane – admin API and web console for enterprise governance",
   "type": "module",
   "main": "dist/index.js",
@@ -9,11 +10,11 @@
     "dev": "tsx watch --env-file=.env src/index.ts",
     "start": "node --env-file=.env dist/index.js",
     "test": "vitest run",
+    "test:watch": "vitest",
     "db:generate": "node --env-file=.env ./node_modules/.bin/drizzle-kit generate",
     "db:migrate": "node --env-file=.env ./node_modules/.bin/drizzle-kit migrate",
     "db:seed": "tsx --env-file=.env src/db/seed.ts",
-    "db:studio": "node --env-file=.env ./node_modules/.bin/drizzle-kit studio",
-    "test:watch": "vitest"
+    "db:studio": "node --env-file=.env ./node_modules/.bin/drizzle-kit studio"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.0",
