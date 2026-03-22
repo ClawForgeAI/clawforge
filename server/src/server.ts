@@ -23,6 +23,7 @@ import { organizationRoutes } from "./routes/organizations.js";
 import { eventRoutes } from "./routes/events.js";
 import { apiKeyRoutes } from "./routes/api-keys.js";
 import { roleRoutes } from "./routes/roles.js";
+import { alertRoutes } from "./routes/alerts.js";
 import { startAuditRetentionJob, stopAuditRetentionJob } from "./services/audit-retention.js";
 
 // ---------------------------------------------------------------------------
@@ -358,6 +359,7 @@ export async function createServer(config: ServerConfig) {
   await app.register(eventRoutes);
   await app.register(apiKeyRoutes);
   await app.register(roleRoutes);
+  await app.register(alertRoutes);
 
   // Start audit retention cleanup job (#39)
   if (config.auditRetentionDays && config.auditRetentionDays > 0) {

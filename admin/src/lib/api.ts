@@ -271,7 +271,7 @@ export function queryAudit(orgId: string, token: string, params?: AuditQueryFilt
 
 export async function exportAudit(orgId: string, token: string, format: "csv" | "json", params?: AuditQueryFilters) {
   const searchParams = new URLSearchParams({ ...(params ?? {}), format });
-  const response = await fetch(`${API_BASE}/api/v1/audit/${orgId}/export?${searchParams.toString()}`, {
+  const response = await fetch(`${getApiBase()}/api/v1/audit/${orgId}/export?${searchParams.toString()}`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -549,4 +549,109 @@ export function getRoles(orgId: string, token: string) {
 
 export function getPermissions(orgId: string, token: string) {
   return apiFetch<{ permissions: Permission[] }>(`/api/v1/roles/${orgId}/permissions`, { token });
+}
+
+// --- DLP (#66) ---
+
+export type DlpRule = {
+  name: string;
+  pattern: string;
+  action: "block" | "warn" | "log";
+  severity: "critical" | "high" | "medium" | "info";
+  category?: string;
+  enabled?: boolean;
+  message?: string;
+};
+
+export function getBuiltinDlpRules(token: string) {
+  return apiFetch<{ rules: DlpRule[]; categories: string[] }>("/api/v1/policies/dlp/builtin-rules", { token });
+}
+
+// --- Alerts (#51) ---
+
+export type AlertRule = {
+  id: string;
+  name: string;
+  description?: string;
+  ruleType: string;
+  enabled: boolean;
+  config: Record<string, unknown>;
+  severity: string;
+  webhookUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Alert = {
+  id: string;
+  ruleId: string;
+  userId?: string;
+  severity: string;
+  status: "open" | "acknowledged" | "resolved";
+  title: string;
+  details?: Record<string, unknown>;
+  relatedEventIds?: string[];
+  acknowledgedBy?: string;
+  acknowledgedAt?: string;
+  resolvedBy?: string;
+  resolvedAt?: string;
+  createdAt: string;
+};
+
+export type AlertStats = {
+  total: number;
+  open: number;
+  acknowledged: number;
+  resolved: number;
+  critical: number;
+  high: number;
+};
+
+export function getAlertRules(orgId: string, token: string) {
+  return apiFetch<{ rules: AlertRule[] }>(`/api/v1/alerts/${orgId}/rules`, { token });
+}
+
+export function createAlertRule(
+  orgId: string,
+  token: string,
+  body: {
+    name: string;
+    description?: string;
+    ruleType: string;
+    config: Record<string, unknown>;
+    severity?: string;
+    webhookUrl?: string;
+    enabled?: boolean;
+  },
+) {
+  return apiFetch<AlertRule>(`/api/v1/alerts/${orgId}/rules`, { method: "POST", token, body });
+}
+
+export function updateAlertRule(orgId: string, ruleId: string, token: string, body: Record<string, unknown>) {
+  return apiFetch<AlertRule>(`/api/v1/alerts/${orgId}/rules/${ruleId}`, { method: "PUT", token, body });
+}
+
+export function deleteAlertRule(orgId: string, ruleId: string, token: string) {
+  return apiFetch<{ success: boolean }>(`/api/v1/alerts/${orgId}/rules/${ruleId}`, { method: "DELETE", token });
+}
+
+export function getAlerts(orgId: string, token: string, params?: Record<string, string>) {
+  const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+  return apiFetch<{ alerts: Alert[] }>(`/api/v1/alerts/${orgId}${qs}`, { token });
+}
+
+export function getAlertStats(orgId: string, token: string) {
+  return apiFetch<AlertStats>(`/api/v1/alerts/${orgId}/stats`, { token });
+}
+
+export function acknowledgeAlert(orgId: string, alertId: string, token: string) {
+  return apiFetch<Alert>(`/api/v1/alerts/${orgId}/${alertId}/acknowledge`, { method: "PUT", token });
+}
+
+export function resolveAlert(orgId: string, alertId: string, token: string) {
+  return apiFetch<Alert>(`/api/v1/alerts/${orgId}/${alertId}/resolve`, { method: "PUT", token });
+}
+
+export function evaluateAlertRules(orgId: string, token: string) {
+  return apiFetch<{ alertsCreated: number }>(`/api/v1/alerts/${orgId}/evaluate`, { method: "POST", token });
 }

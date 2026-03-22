@@ -9,6 +9,16 @@ import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { policies, approvedSkills, policyAssignments } from "../db/schema.js";
 import type * as schema from "../db/schema.js";
 
+export type DlpRuleConfig = {
+  name: string;
+  pattern: string;
+  action: "block" | "warn" | "log";
+  severity: "critical" | "high" | "medium" | "info";
+  category?: string;
+  enabled?: boolean;
+  message?: string;
+};
+
 export type EffectivePolicy = {
   version: number;
   tools: {
@@ -25,6 +35,7 @@ export type EffectivePolicy = {
     message?: string;
   };
   auditLevel: "full" | "metadata" | "off";
+  dlpRules?: DlpRuleConfig[];
 };
 
 export class PolicyService {
@@ -116,6 +127,7 @@ export class PolicyService {
         message: policy.killSwitchMessage ?? undefined,
       },
       auditLevel: policy.auditLevel as "full" | "metadata" | "off",
+      dlpRules: policy.dlpConfig?.rules,
     };
   }
 
@@ -164,11 +176,16 @@ export class PolicyService {
         approved: Array<{ name: string; key: string; scope: "org" | "self" }>;
       };
       auditLevel?: "full" | "metadata" | "off";
+      dlpConfig?: { rules: DlpRuleConfig[] };
     },
   ) {
     // If setting as default, unset other defaults
     if (data.isDefault) {
       await this.db.update(policies).set({ isDefault: false }).where(eq(policies.orgId, orgId));
+    }
+
+    if (data.dlpConfig) {
+      PolicyService.validateDlpRules(data.dlpConfig.rules);
     }
 
     const [created] = await this.db
@@ -180,6 +197,7 @@ export class PolicyService {
         toolsConfig: data.toolsConfig,
         skillsConfig: data.skillsConfig,
         auditLevel: data.auditLevel ?? "metadata",
+        dlpConfig: data.dlpConfig,
       })
       .returning();
     return created;
@@ -201,6 +219,7 @@ export class PolicyService {
         toolsConfig: source.toolsConfig,
         skillsConfig: source.skillsConfig,
         auditLevel: source.auditLevel,
+        dlpConfig: source.dlpConfig,
       })
       .returning();
     return cloned;
@@ -215,8 +234,13 @@ export class PolicyService {
         approved: Array<{ name: string; key: string; scope: "org" | "self" }>;
       };
       auditLevel?: "full" | "metadata" | "off";
+      dlpConfig?: { rules: DlpRuleConfig[] };
     },
   ) {
+    if (data.dlpConfig) {
+      PolicyService.validateDlpRules(data.dlpConfig.rules);
+    }
+
     const existing = await this.getOrgPolicy(orgId);
 
     if (existing) {
@@ -226,6 +250,7 @@ export class PolicyService {
           toolsConfig: data.toolsConfig ?? existing.toolsConfig,
           skillsConfig: data.skillsConfig ?? existing.skillsConfig,
           auditLevel: data.auditLevel ?? existing.auditLevel,
+          dlpConfig: data.dlpConfig ?? existing.dlpConfig,
           version: existing.version + 1,
           updatedAt: new Date(),
         })
@@ -243,6 +268,7 @@ export class PolicyService {
         toolsConfig: data.toolsConfig,
         skillsConfig: data.skillsConfig,
         auditLevel: data.auditLevel ?? "metadata",
+        dlpConfig: data.dlpConfig,
       })
       .returning();
     return created;
@@ -325,5 +351,17 @@ export class PolicyService {
    */
   async removePolicyAssignment(assignmentId: string) {
     await this.db.delete(policyAssignments).where(eq(policyAssignments.id, assignmentId));
+  }
+
+  static validateDlpRules(rules: DlpRuleConfig[]): void {
+    for (const rule of rules) {
+      try {
+        new RegExp(rule.pattern);
+      } catch (err) {
+        throw new Error(
+          `Invalid regex pattern in DLP rule "${rule.name}": ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
   }
 }

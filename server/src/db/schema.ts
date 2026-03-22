@@ -78,6 +78,17 @@ export const policies = pgTable(
     auditLevel: text("audit_level", { enum: ["full", "metadata", "off"] })
       .notNull()
       .default("metadata"),
+    dlpConfig: jsonb("dlp_config").$type<{
+      rules: Array<{
+        name: string;
+        pattern: string;
+        action: "block" | "warn" | "log";
+        severity: "critical" | "high" | "medium" | "info";
+        category?: string;
+        enabled?: boolean;
+        message?: string;
+      }>;
+    }>(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("policies_org_id_idx").on(table.orgId)],
@@ -331,56 +342,72 @@ export const rolePermissions = pgTable(
 );
 
 // ---------------------------------------------------------------------------
-// Permissions (#61)
+// Alert Rules (#51)
 // ---------------------------------------------------------------------------
 
-export const permissions = pgTable(
-  "permissions",
+export const alertRules = pgTable(
+  "alert_rules",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     description: text("description"),
-    resource: text("resource").notNull(),
-    action: text("action").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => [
-    uniqueIndex("permissions_name_idx").on(table.name),
-  ],
-);
-
-// ---------------------------------------------------------------------------
-// Roles (#61)
-// ---------------------------------------------------------------------------
-
-export const roles = pgTable(
-  "roles",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    orgId: uuid("org_id").references(() => organizations.id, { onDelete: "cascade" }),
-    name: text("name").notNull(),
-    description: text("description"),
-    isBuiltIn: boolean("is_built_in").notNull().default(false),
+    ruleType: text("rule_type", {
+      enum: [
+        "denied_tool_burst",
+        "dlp_violation_burst",
+        "off_hours_activity",
+        "sensitive_tool_access",
+        "session_anomaly",
+        "blocked_tool_persistence",
+      ],
+    }).notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    config: jsonb("config").$type<Record<string, unknown>>().notNull(),
+    severity: text("severity", { enum: ["critical", "high", "medium", "low"] })
+      .notNull()
+      .default("medium"),
+    webhookUrl: text("webhook_url"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    uniqueIndex("roles_org_name_idx").on(table.orgId, table.name),
-  ],
+  (table) => [index("alert_rules_org_idx").on(table.orgId)],
 );
 
-export const rolePermissions = pgTable(
-  "role_permissions",
+// ---------------------------------------------------------------------------
+// Alerts (#51)
+// ---------------------------------------------------------------------------
+
+export const alerts = pgTable(
+  "alerts",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    roleId: uuid("role_id")
+    orgId: uuid("org_id")
       .notNull()
-      .references(() => roles.id, { onDelete: "cascade" }),
-    permissionId: uuid("permission_id")
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    ruleId: uuid("rule_id")
       .notNull()
-      .references(() => permissions.id, { onDelete: "cascade" }),
+      .references(() => alertRules.id, { onDelete: "cascade" }),
+    userId: uuid("user_id"),
+    severity: text("severity", { enum: ["critical", "high", "medium", "low"] })
+      .notNull()
+      .default("medium"),
+    status: text("status", { enum: ["open", "acknowledged", "resolved"] })
+      .notNull()
+      .default("open"),
+    title: text("title").notNull(),
+    details: jsonb("details").$type<Record<string, unknown>>(),
+    relatedEventIds: jsonb("related_event_ids").$type<string[]>(),
+    acknowledgedBy: uuid("acknowledged_by").references(() => users.id),
+    acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
+    resolvedBy: uuid("resolved_by").references(() => users.id),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex("role_permissions_role_perm_idx").on(table.roleId, table.permissionId),
+    index("alerts_org_status_idx").on(table.orgId, table.status),
+    index("alerts_org_ts_idx").on(table.orgId, table.createdAt),
   ],
 );
