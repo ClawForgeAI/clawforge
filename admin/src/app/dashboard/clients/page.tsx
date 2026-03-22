@@ -125,9 +125,11 @@ export default function ConnectedClientsPage() {
                         >
                           <td>
                             <div className="flex items-center gap-2">
-                              <div className={`w-2 h-2 rounded-full ${
-                                client.status === "online" ? "bg-success animate-pulse" : "bg-base-content/20"
-                              }`} />
+                              <div
+                                className={`w-2 h-2 rounded-full ${
+                                  client.status === "online" ? "bg-success animate-pulse" : "bg-base-content/20"
+                                }`}
+                              />
                               <Badge variant={client.status === "online" ? "success" : "default"}>
                                 {client.status}
                               </Badge>
@@ -136,16 +138,10 @@ export default function ConnectedClientsPage() {
                           <td className="font-medium">{client.name ?? "-"}</td>
                           <td className="text-base-content/50">{client.email}</td>
                           <td>
-                            <Badge variant={client.role === "admin" ? "info" : "default"}>
-                              {client.role}
-                            </Badge>
+                            <Badge variant={client.role === "admin" ? "info" : "default"}>{client.role}</Badge>
                           </td>
-                          <td className="font-mono text-xs text-base-content/50">
-                            {client.clientVersion ?? "-"}
-                          </td>
-                          <td className="text-base-content/50 text-sm">
-                            {formatLastSeen(client.lastHeartbeatAt)}
-                          </td>
+                          <td className="font-mono text-xs text-base-content/50">{client.clientVersion ?? "-"}</td>
+                          <td className="text-base-content/50 text-sm">{formatLastSeen(client.lastHeartbeatAt)}</td>
                         </motion.tr>
                       ))}
                     </tbody>

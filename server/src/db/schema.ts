@@ -2,17 +2,7 @@
  * Drizzle ORM schema for ClawForge control plane.
  */
 
-import {
-  pgTable,
-  uuid,
-  text,
-  timestamp,
-  integer,
-  jsonb,
-  boolean,
-  index,
-  uniqueIndex,
-} from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, integer, jsonb, boolean, index, uniqueIndex } from "drizzle-orm/pg-core";
 
 // ---------------------------------------------------------------------------
 // Organizations
@@ -43,16 +33,14 @@ export const users = pgTable(
       .references(() => organizations.id, { onDelete: "cascade" }),
     email: text("email").notNull(),
     name: text("name"),
-    role: text("role", { enum: ["admin", "viewer", "user"] })
+    role: text("role", { enum: ["super_admin", "admin", "policy_admin", "security_admin", "viewer", "user"] })
       .notNull()
       .default("user"),
     passwordHash: text("password_hash"),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    uniqueIndex("users_org_email_idx").on(table.orgId, table.email),
-  ],
+  (table) => [uniqueIndex("users_org_email_idx").on(table.orgId, table.email)],
 );
 
 // ---------------------------------------------------------------------------
@@ -158,9 +146,7 @@ export const skillSubmissions = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index("skill_submissions_org_status_idx").on(table.orgId, table.status),
-  ],
+  (table) => [index("skill_submissions_org_status_idx").on(table.orgId, table.status)],
 );
 
 // ---------------------------------------------------------------------------
@@ -185,9 +171,7 @@ export const approvedSkills = pgTable(
     revokedBy: uuid("revoked_by").references(() => users.id),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index("approved_skills_org_idx").on(table.orgId),
-  ],
+  (table) => [index("approved_skills_org_idx").on(table.orgId)],
 );
 
 // ---------------------------------------------------------------------------
@@ -233,9 +217,7 @@ export const clientHeartbeats = pgTable(
     lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true }).notNull().defaultNow(),
     clientVersion: text("client_version"),
   },
-  (table) => [
-    uniqueIndex("client_heartbeats_org_user_idx").on(table.orgId, table.userId),
-  ],
+  (table) => [uniqueIndex("client_heartbeats_org_user_idx").on(table.orgId, table.userId)],
 );
 
 // ---------------------------------------------------------------------------
@@ -280,7 +262,7 @@ export const apiKeys = pgTable(
     name: text("name").notNull(),
     keyHash: text("key_hash").notNull(),
     keyPrefix: text("key_prefix").notNull(),
-    role: text("role", { enum: ["admin", "viewer"] })
+    role: text("role", { enum: ["super_admin", "admin", "policy_admin", "security_admin", "viewer"] })
       .notNull()
       .default("viewer"),
     expiresAt: timestamp("expires_at", { withTimezone: true }),
@@ -292,8 +274,60 @@ export const apiKeys = pgTable(
       .references(() => users.id),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
+  (table) => [index("api_keys_org_idx").on(table.orgId), uniqueIndex("api_keys_prefix_idx").on(table.keyPrefix)],
+);
+
+// ---------------------------------------------------------------------------
+// Permissions (#61)
+// ---------------------------------------------------------------------------
+
+export const permissions = pgTable(
+  "permissions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    description: text("description"),
+    resource: text("resource").notNull(),
+    action: text("action").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
   (table) => [
-    index("api_keys_org_idx").on(table.orgId),
-    uniqueIndex("api_keys_prefix_idx").on(table.keyPrefix),
+    uniqueIndex("permissions_name_idx").on(table.name),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Roles (#61)
+// ---------------------------------------------------------------------------
+
+export const roles = pgTable(
+  "roles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id").references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    isBuiltIn: boolean("is_built_in").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("roles_org_name_idx").on(table.orgId, table.name),
+  ],
+);
+
+export const rolePermissions = pgTable(
+  "role_permissions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    roleId: uuid("role_id")
+      .notNull()
+      .references(() => roles.id, { onDelete: "cascade" }),
+    permissionId: uuid("permission_id")
+      .notNull()
+      .references(() => permissions.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    uniqueIndex("role_permissions_role_perm_idx").on(table.roleId, table.permissionId),
   ],
 );

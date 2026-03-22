@@ -111,9 +111,7 @@ export class PolicyService {
       .from(approvedSkills)
       .where(and(eq(approvedSkills.orgId, orgId), isNull(approvedSkills.revokedAt)));
 
-    const filteredApproved = approved.filter(
-      (s) => s.scope === "org" || s.approvedForUser === userId,
-    );
+    const filteredApproved = approved.filter((s) => s.scope === "org" || s.approvedForUser === userId);
 
     return {
       version: policy.version,

@@ -12,10 +12,10 @@ A complete walkthrough from zero to a fully managed OpenClaw fleet. By the end o
 
 You need **one** of the following:
 
-| Option | Requirements |
-|--------|-------------|
-| **Docker (recommended)** | Docker Engine + Docker Compose |
-| **Manual** | Node.js >= 22, PostgreSQL >= 15, pnpm |
+| Option                   | Requirements                          |
+| ------------------------ | ------------------------------------- |
+| **Docker (recommended)** | Docker Engine + Docker Compose        |
+| **Manual**               | Node.js >= 22, PostgreSQL >= 15, pnpm |
 
 The Docker path is covered here. For manual setup, see the [Setup Guide](setup.md).
 
@@ -29,11 +29,11 @@ docker compose up --build
 
 This starts three services:
 
-| Service | URL | Purpose |
-|---------|-----|---------|
-| PostgreSQL | `localhost:5432` | Database (auto-migrated and seeded) |
-| Server API | `http://localhost:4100` | Control plane |
-| Admin Console | `http://localhost:4200` | Web dashboard |
+| Service       | URL                     | Purpose                             |
+| ------------- | ----------------------- | ----------------------------------- |
+| PostgreSQL    | `localhost:5432`        | Database (auto-migrated and seeded) |
+| Server API    | `http://localhost:4100` | Control plane                       |
+| Admin Console | `http://localhost:4200` | Web dashboard                       |
 
 Wait until you see the server log indicating it is listening on port 4100. You can verify the server is healthy:
 
@@ -46,10 +46,10 @@ curl http://localhost:4100/health
 
 Open [http://localhost:4200](http://localhost:4200) in your browser and log in with the default credentials:
 
-| Field | Value |
-|-------|-------|
-| Email | `admin@clawforge.local` |
-| Password | `clawforge` |
+| Field    | Value                   |
+| -------- | ----------------------- |
+| Email    | `admin@clawforge.local` |
+| Password | `clawforge`             |
 
 > **Production note:** Change these before deploying. You can set custom credentials with environment variables when starting Docker:
 >
@@ -62,14 +62,14 @@ Open [http://localhost:4200](http://localhost:4200) in your browser and log in w
 
 After logging in, the admin console shows these sections:
 
-| Section | What It Does |
-|---------|--------------|
-| **Dashboard** | Overview of connected clients, recent activity, and kill switch status |
-| **Policies** | Configure tool allow/deny lists, audit level, skill approval requirements, and the kill switch |
-| **Skills** | Review pending skill submissions, see approved skills, approve or reject |
-| **Audit** | Query and filter all audit events (tool calls, sessions, LLM interactions) across the org |
-| **Users** | List all enrolled users, their roles, and last activity |
-| **Enrollment Tokens** | Generate and manage invite tokens for onboarding new users |
+| Section               | What It Does                                                                                   |
+| --------------------- | ---------------------------------------------------------------------------------------------- |
+| **Dashboard**         | Overview of connected clients, recent activity, and kill switch status                         |
+| **Policies**          | Configure tool allow/deny lists, audit level, skill approval requirements, and the kill switch |
+| **Skills**            | Review pending skill submissions, see approved skills, approve or reject                       |
+| **Audit**             | Query and filter all audit events (tool calls, sessions, LLM interactions) across the org      |
+| **Users**             | List all enrolled users, their roles, and last activity                                        |
+| **Enrollment Tokens** | Generate and manage invite tokens for onboarding new users                                     |
 
 Take a moment to click through each section. The org is empty right now, so most views will be blank. That changes once employees connect.
 
@@ -83,11 +83,11 @@ Navigate to **Policies** in the admin console. This is where you define which to
 
 A good starting policy:
 
-| Setting | Value | Reason |
-|---------|-------|--------|
-| **Allow list** | `read`, `write`, `web_search` | Common, low-risk tools |
-| **Deny list** | `exec` | Shell execution is high-risk; block it by default |
-| **Profile** | `restricted` | Named profile for clarity |
+| Setting        | Value                         | Reason                                            |
+| -------------- | ----------------------------- | ------------------------------------------------- |
+| **Allow list** | `read`, `write`, `web_search` | Common, low-risk tools                            |
+| **Deny list**  | `exec`                        | Shell execution is high-risk; block it by default |
+| **Profile**    | `restricted`                  | Named profile for clarity                         |
 
 If you prefer to set this via API:
 
@@ -116,11 +116,11 @@ curl -X PUT "http://localhost:4100/api/v1/policies/$ORG_ID" \
 
 The audit level controls how much data is captured from each OpenClaw instance:
 
-| Level | What Is Logged | Recommended For |
-|-------|---------------|-----------------|
-| `metadata` | Tool names, outcomes (allowed/blocked), timestamps, session IDs | **Start here** -- good visibility, low storage |
-| `full` | Everything in `metadata` plus full tool inputs/outputs and LLM interactions | Security-sensitive orgs, incident investigation |
-| `off` | Nothing | Not recommended |
+| Level      | What Is Logged                                                              | Recommended For                                 |
+| ---------- | --------------------------------------------------------------------------- | ----------------------------------------------- |
+| `metadata` | Tool names, outcomes (allowed/blocked), timestamps, session IDs             | **Start here** -- good visibility, low storage  |
+| `full`     | Everything in `metadata` plus full tool inputs/outputs and LLM interactions | Security-sensitive orgs, incident investigation |
+| `off`      | Nothing                                                                     | Not recommended                                 |
 
 Set this in the **Policies** page alongside your tool config. We recommend starting with `metadata` and upgrading to `full` only if you need detailed forensics.
 
@@ -141,6 +141,7 @@ For detailed SSO setup instructions, see the [Setup Guide -- Configure SSO](setu
 Enrollment tokens let employees join the organization without SSO. Navigate to **Enrollment Tokens** in the admin console and create a token.
 
 You can optionally set:
+
 - **Label** -- A human-readable name (e.g., "Engineering team Q1")
 - **Expiry** -- When the token stops working
 - **Max uses** -- How many employees can use this token
@@ -184,10 +185,10 @@ Open the OpenClaw configuration file (`openclaw.json`) and add the ClawForge plu
 }
 ```
 
-| Field | Where to Find It |
-|-------|-------------------|
+| Field             | Where to Find It                                                                                                                            |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `controlPlaneUrl` | The URL where your ClawForge server is running. Use `http://localhost:4100` for local setups, or the production URL for deployed instances. |
-| `orgId` | Shown in the admin console, or in the seed output when the server first starts. |
+| `orgId`           | Shown in the admin console, or in the seed output when the server first starts.                                                             |
 
 > **Optional settings:** You can also configure `policyCacheTtlMs`, `heartbeatIntervalMs`, `auditBatchSize`, and more. See the [Configuration Reference](configuration.md) for all options.
 
@@ -241,6 +242,7 @@ After enrolling, the employee can check their connection status:
 ```
 
 This displays:
+
 - Auth state (authenticated or not)
 - Organization name and ID
 - Current policy version
@@ -276,6 +278,7 @@ Walk through each item to confirm the full system is working end-to-end.
 **Cause:** The ClawForge server is not running, or the `controlPlaneUrl` in the plugin config points to the wrong address.
 
 **Fix:**
+
 1. Verify the server is running: `curl http://localhost:4100/health` should return `{"status":"ok"}`.
 2. Check that `controlPlaneUrl` in `openclaw.json` matches the actual server address.
 3. If running Docker, ensure the container is up: `docker compose ps`.
@@ -285,6 +288,7 @@ Walk through each item to confirm the full system is working end-to-end.
 **Cause:** The authentication token has expired, or the `orgId` in the plugin config is incorrect.
 
 **Fix:**
+
 1. Re-authenticate by running `/clawforge-login`.
 2. Verify the `orgId` in `openclaw.json` matches the organization UUID shown in the admin console.
 3. Check that the session file exists at `~/.clawforge/session.json` and is not corrupted.
@@ -294,6 +298,7 @@ Walk through each item to confirm the full system is working end-to-end.
 **Cause:** The OIDC redirect URI is misconfigured, or the SSO config is missing from the organization record.
 
 **Fix:**
+
 1. Confirm the redirect URI in your IdP matches `http://localhost:19832/clawforge/callback`.
 2. Verify the `sso_config` is set on the organization record (check via the database or API).
 3. Ensure the `sso.issuerUrl` and `sso.clientId` in `openclaw.json` match your IdP configuration.
@@ -304,6 +309,7 @@ Walk through each item to confirm the full system is working end-to-end.
 **Cause:** The plugin is not connected to the control plane, or there is a network issue between the employee's machine and the server.
 
 **Fix:**
+
 1. Run `/clawforge-status` on the employee's machine to check connection state.
 2. Verify the employee is authenticated (session not expired).
 3. Check network connectivity: `curl http://<controlPlaneUrl>/health` from the employee's machine.
@@ -314,6 +320,7 @@ Walk through each item to confirm the full system is working end-to-end.
 **Cause:** The plugin has not fetched the latest policy, or the cached policy is stale.
 
 **Fix:**
+
 1. Run `/clawforge-status` to see the current policy version on the client.
 2. Compare it with the policy version in the admin console.
 3. If they differ, wait for the next heartbeat to trigger a policy refresh, or restart the OpenClaw instance.
@@ -321,13 +328,13 @@ Walk through each item to confirm the full system is working end-to-end.
 
 ### Where to Find Logs
 
-| Component | Log Location |
-|-----------|-------------|
-| **Server (Docker)** | `docker compose logs server` |
-| **Server (manual)** | stdout of the `pnpm dev` or `node dist/index.js` process |
-| **Admin Console (Docker)** | `docker compose logs admin` |
-| **Plugin** | OpenClaw's plugin log output (check OpenClaw docs for log location) |
-| **Session file** | `~/.clawforge/session.json` (contains auth state, not a log, but useful for debugging auth issues) |
+| Component                  | Log Location                                                                                       |
+| -------------------------- | -------------------------------------------------------------------------------------------------- |
+| **Server (Docker)**        | `docker compose logs server`                                                                       |
+| **Server (manual)**        | stdout of the `pnpm dev` or `node dist/index.js` process                                           |
+| **Admin Console (Docker)** | `docker compose logs admin`                                                                        |
+| **Plugin**                 | OpenClaw's plugin log output (check OpenClaw docs for log location)                                |
+| **Session file**           | `~/.clawforge/session.json` (contains auth state, not a log, but useful for debugging auth issues) |
 
 ---
 
