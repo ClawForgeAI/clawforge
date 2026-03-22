@@ -27,6 +27,7 @@ const PUBLIC_ENDPOINTS = new Set([
   "/api/v1/auth/mode",
   "/api/v1/auth/enroll",
   "/health",
+  "/ready",
   "/health/ready",
 ]);
 
