@@ -70,6 +70,9 @@ export async function heartbeatRoutes(app: FastifyInstance): Promise<void> {
     const db = app.db;
     const clientVersionParam = request.query.clientVersion;
 
+    // Track heartbeat metric (#76)
+    app.metrics.heartbeatCounter.inc();
+
     // Verify user exists before upserting heartbeat (prevents FK violation).
     const [user] = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1);
     if (!user) {

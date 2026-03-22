@@ -29,6 +29,7 @@ const PUBLIC_ENDPOINTS = new Set([
   "/health",
   "/ready",
   "/health/ready",
+  "/metrics",
 ]);
 
 /**
