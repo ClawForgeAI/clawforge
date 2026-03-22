@@ -13,6 +13,8 @@ const RATE_LIMIT_ENABLED = process.env.RATE_LIMIT_ENABLED !== "false";
 const AUDIT_RETENTION_DAYS = parseInt(process.env.AUDIT_RETENTION_DAYS ?? "90", 10);
 const AUDIT_CLEANUP_INTERVAL_HOURS = parseInt(process.env.AUDIT_CLEANUP_INTERVAL_HOURS ?? "24", 10);
 const AUDIT_CLEANUP_BATCH_SIZE = parseInt(process.env.AUDIT_CLEANUP_BATCH_SIZE ?? "10000", 10);
+const LOG_LEVEL = process.env.LOG_LEVEL ?? "info";
+const LOG_FORMAT = process.env.LOG_FORMAT ?? "json";
 
 async function main() {
   const app = await createServer({
@@ -25,11 +27,13 @@ async function main() {
     auditRetentionDays: AUDIT_RETENTION_DAYS,
     auditCleanupIntervalHours: AUDIT_CLEANUP_INTERVAL_HOURS,
     auditCleanupBatchSize: AUDIT_CLEANUP_BATCH_SIZE,
+    logLevel: LOG_LEVEL,
+    logFormat: LOG_FORMAT,
   });
 
   try {
     await app.listen({ port: PORT, host: HOST });
-    console.log(`ClawForge control plane running on ${HOST}:${PORT}`);
+    app.log.info(`ClawForge control plane running on ${HOST}:${PORT}`);
   } catch (err) {
     app.log.error(err);
     process.exit(1);

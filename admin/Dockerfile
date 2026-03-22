@@ -2,27 +2,31 @@
 FROM node:22-alpine AS base
 WORKDIR /app
 
-# Install dependencies
 FROM base AS deps
 COPY package.json package-lock.json* ./
 RUN npm install
 
-# Build Next.js (standalone output)
 FROM deps AS build
 ARG NEXT_PUBLIC_API_URL=http://localhost:4100
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 COPY . .
 RUN npm run build
 
-# Production image
-FROM base AS runner
+FROM node:22-alpine AS runner
+WORKDIR /app
 ENV NODE_ENV=production
+ENV PORT=4200
 
-# Next.js standalone output includes everything needed
+RUN addgroup -S clawforge && adduser -S -G clawforge clawforge
+
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public
+COPY --from=build /app/scripts/docker-entrypoint.sh ./docker-entrypoint.sh
+
+RUN chown -R clawforge:clawforge /app
+USER clawforge
 
 EXPOSE 4200
-ENV PORT=4200
+ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["node", "server.js"]

@@ -11,30 +11,55 @@ vi.mock("../services/admin-audit.js", () => ({
 
 function makeChain(result: unknown[] = []) {
   const c: any = {};
-  for (const m of ["select", "from", "where", "limit", "orderBy", "set", "values", "returning", "insert", "update", "delete"]) {
+  for (const m of [
+    "select",
+    "from",
+    "where",
+    "limit",
+    "orderBy",
+    "set",
+    "values",
+    "returning",
+    "insert",
+    "update",
+    "delete",
+  ]) {
     c[m] = vi.fn().mockReturnValue(c);
   }
   c.then = (resolve: (v: unknown) => void) => resolve(result);
   return c;
 }
 
-function createTestDb(selectResults: unknown[][] = [[]], insertResults: unknown[][] = [[]], updateResults: unknown[][] = [[]], deleteResults: unknown[][] = [[]]) {
+function createTestDb(
+  selectResults: unknown[][] = [[]],
+  insertResults: unknown[][] = [[]],
+  updateResults: unknown[][] = [[]],
+  deleteResults: unknown[][] = [[]],
+) {
   let selectCall = 0;
   let insertCall = 0;
   let updateCall = 0;
   let deleteCall = 0;
-  return {
+  const db = {
     select: vi.fn(() => makeChain(selectResults[selectCall++] ?? [])),
     insert: vi.fn(() => makeChain(insertResults[insertCall++] ?? [])),
     update: vi.fn(() => makeChain(updateResults[updateCall++] ?? [])),
     delete: vi.fn(() => makeChain(deleteResults[deleteCall++] ?? [])),
+    transaction: vi.fn(async (fn: (tx: any) => Promise<void>) => {
+      // Run the callback with the db itself acting as the transaction.
+      await fn(db);
+    }),
   };
+  return db;
 }
 
 async function buildApp(db: any) {
   const app = Fastify({ logger: false });
   await app.register(jwtPlugin, { secret: JWT_SECRET });
   app.decorate("db", db as never);
+  const noopCounter = { inc: () => {} };
+  const noopGauge = { set: () => {}, inc: () => {}, dec: () => {} };
+  app.decorate("metrics", { heartbeatCounter: noopCounter, auditEventsCounter: noopCounter, activeInstancesGauge: noopGauge, policyFetchCounter: noopCounter, killSwitchGauge: noopGauge } as never);
   await registerAuthMiddleware(app);
   await app.register(userRoutes);
   await app.ready();
@@ -90,7 +115,13 @@ describe("user routes", () => {
 
   describe("POST /api/v1/users/:orgId", () => {
     it("creates a user for admin", async () => {
-      const created = { id: "new-id", email: "new@test.com", name: "New", role: "user", createdAt: new Date().toISOString() };
+      const created = {
+        id: "new-id",
+        email: "new@test.com",
+        name: "New",
+        role: "user",
+        createdAt: new Date().toISOString(),
+      };
       // select for duplicate check returns empty, insert returns created
       const db = createTestDb([[]], [[created]]);
       const app = await buildApp(db);
@@ -141,7 +172,14 @@ describe("user routes", () => {
   describe("PUT /api/v1/users/:orgId/:userId", () => {
     it("updates user role", async () => {
       const target = { id: TEST_USER_ID, orgId: TEST_ORG_ID, role: "user" };
-      const updated = { ...target, role: "admin", email: "u@t.com", name: "U", lastSeenAt: null, createdAt: new Date().toISOString() };
+      const updated = {
+        ...target,
+        role: "admin",
+        email: "u@t.com",
+        name: "U",
+        lastSeenAt: null,
+        createdAt: new Date().toISOString(),
+      };
       const db = createTestDb([[target]], [], [[updated]]);
       const app = await buildApp(db);
 

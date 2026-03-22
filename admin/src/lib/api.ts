@@ -3,8 +3,7 @@
  */
 
 import { clearAuth } from "@/lib/auth";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4100";
+import { getApiBase } from "@/lib/runtime-config";
 
 type FetchOptions = {
   method?: string;
@@ -21,7 +20,7 @@ async function apiFetch<T>(path: string, opts: FetchOptions = {}): Promise<T> {
     headers.Authorization = `Bearer ${opts.token}`;
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(`${getApiBase()}${path}`, {
     method: opts.method ?? "GET",
     headers,
     body: opts.body ? JSON.stringify(opts.body) : undefined,
@@ -150,18 +149,10 @@ export function getPendingSkills(orgId: string, token: string) {
 }
 
 export function getApprovedSkills(orgId: string, token: string) {
-  return apiFetch<{ skills: ApprovedSkill[] }>(
-    `/api/v1/skills/${orgId}/approved`,
-    { token },
-  );
+  return apiFetch<{ skills: ApprovedSkill[] }>(`/api/v1/skills/${orgId}/approved`, { token });
 }
 
-export function reviewSkill(
-  orgId: string,
-  id: string,
-  token: string,
-  body: { status: string; reviewNotes?: string },
-) {
+export function reviewSkill(orgId: string, id: string, token: string, body: { status: string; reviewNotes?: string }) {
   return apiFetch(`/api/v1/skills/${orgId}/review/${id}`, {
     method: "PUT",
     token,
@@ -203,7 +194,9 @@ export type AuditEvent = {
 
 export function queryAudit(orgId: string, token: string, params?: Record<string, string>) {
   const qs = params ? "?" + new URLSearchParams(params).toString() : "";
-  return apiFetch<{ events: AuditEvent[]; total: number; nextCursor?: string }>(`/api/v1/audit/${orgId}/query${qs}`, { token });
+  return apiFetch<{ events: AuditEvent[]; total: number; nextCursor?: string }>(`/api/v1/audit/${orgId}/query${qs}`, {
+    token,
+  });
 }
 
 export function getAuditEvent(orgId: string, eventId: string, token: string) {
@@ -283,12 +276,7 @@ export function createUser(
   });
 }
 
-export function updateUser(
-  orgId: string,
-  userId: string,
-  token: string,
-  body: { name?: string; role?: string },
-) {
+export function updateUser(orgId: string, userId: string, token: string, body: { name?: string; role?: string }) {
   return apiFetch<{ user: OrgUser }>(`/api/v1/users/${orgId}/${userId}`, {
     method: "PUT",
     token,
@@ -413,10 +401,7 @@ export type ClientsSummary = {
 };
 
 export function getConnectedClients(orgId: string, token: string) {
-  return apiFetch<{ clients: ConnectedClient[]; summary: ClientsSummary }>(
-    `/api/v1/heartbeat/${orgId}`,
-    { token },
-  );
+  return apiFetch<{ clients: ConnectedClient[]; summary: ClientsSummary }>(`/api/v1/heartbeat/${orgId}`, { token });
 }
 
 // --- Roles (#61) ---
