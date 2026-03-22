@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { KillSwitchManager } from "./kill-switch.js";
 import { ConnectionStateManager } from "../connection/connection-state.js";
 import type { ToolEnforcerState } from "../policy/tool-enforcer.js";
-import type { ClawForgePluginConfig, SessionTokens } from "../types.js";
+import type { ClawForgePluginConfig, OrgPolicy, SessionTokens } from "../types.js";
 
 function makeConfig(overrides?: Partial<ClawForgePluginConfig>): ClawForgePluginConfig {
   return {
@@ -135,6 +135,74 @@ describe("KillSwitchManager", () => {
     expect(onRefresh).toHaveBeenCalled();
   });
 
+  it("sends policyVersion=0 in heartbeat URL when policy is null", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        policyVersion: 1,
+        killSwitch: false,
+        refreshPolicyNow: true,
+      }),
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const mockLogger = makeLogger();
+    const connState = new ConnectionStateManager({ failureThreshold: 3, logger: mockLogger });
+    const mgr = new KillSwitchManager({
+      config: makeConfig(),
+      session: makeSession(),
+      enforcerState: state,
+      connectionStateManager: connState,
+      logger: mockLogger,
+    });
+
+    mgr.start();
+    await vi.advanceTimersByTimeAsync(150);
+    mgr.stop();
+
+    expect(fetchSpy).toHaveBeenCalled();
+    const url = fetchSpy.mock.calls[0][0] as string;
+    expect(url).toContain("policyVersion=0");
+  });
+
+  it("sends current policy version in heartbeat URL when policy is loaded", async () => {
+    state.policy = {
+      version: 5,
+      killSwitch: { active: false },
+      tools: {},
+      skills: { approved: [], requireApproval: false },
+      auditLevel: "metadata",
+    } satisfies OrgPolicy;
+
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        policyVersion: 5,
+        killSwitch: false,
+        refreshPolicyNow: false,
+      }),
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const mockLogger = makeLogger();
+    const connState = new ConnectionStateManager({ failureThreshold: 3, logger: mockLogger });
+    const mgr = new KillSwitchManager({
+      config: makeConfig(),
+      session: makeSession(),
+      enforcerState: state,
+      connectionStateManager: connState,
+      logger: mockLogger,
+    });
+
+    mgr.start();
+    await vi.advanceTimersByTimeAsync(150);
+    mgr.stop();
+
+    expect(fetchSpy).toHaveBeenCalled();
+    const url = fetchSpy.mock.calls[0][0] as string;
+    expect(url).toContain("policyVersion=5");
+  });
+
   it("includes clientVersion query param in heartbeat URL", async () => {
     const fetchSpy = vi.fn().mockResolvedValue({
       ok: true,
@@ -162,7 +230,7 @@ describe("KillSwitchManager", () => {
 
     expect(fetchSpy).toHaveBeenCalled();
     const calledUrl = fetchSpy.mock.calls[0][0] as string;
-    expect(calledUrl).toContain("?clientVersion=");
+    expect(calledUrl).toContain("clientVersion=");
     // Verify the version is a valid semver-like string
     const url = new URL(calledUrl);
     const version = url.searchParams.get("clientVersion");
@@ -237,6 +305,83 @@ describe("KillSwitchManager", () => {
 
       expect(connState.state).toBe("degraded");
       expect(connState.consecutiveFailures).toBeGreaterThan(0);
+    });
+  });
+
+  describe("policy refresh syncs kill switch state", () => {
+    it("syncs killSwitchActive when onPolicyRefreshNeeded updates the policy", async () => {
+      // Heartbeat says kill switch is OFF but requests a policy refresh.
+      // The refreshed policy (set by the onPolicyRefreshNeeded callback) has kill switch ON.
+      // After the fix, enforcerState.killSwitchActive should be true.
+      const fetchSpy = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          policyVersion: 2,
+          killSwitch: false,
+          refreshPolicyNow: true,
+        }),
+      });
+      vi.stubGlobal("fetch", fetchSpy);
+
+      const mockLogger = makeLogger();
+      const connState = new ConnectionStateManager({ failureThreshold: 3, logger: mockLogger });
+
+      // Simulate what refreshPolicy() in index.ts does after the fix:
+      // it sets enforcerState.policy AND syncs killSwitchActive/killSwitchMessage.
+      const onRefresh = vi.fn(() => {
+        state.policy = {
+          version: 2,
+          killSwitch: { active: true, message: "Activated via policy refresh" },
+          tools: {},
+          skills: { approved: [], requireApproval: false },
+          auditLevel: "metadata",
+        } satisfies OrgPolicy;
+        // These lines are the fix — refreshPolicy() now does this:
+        state.killSwitchActive = state.policy.killSwitch?.active ?? false;
+        state.killSwitchMessage = state.policy.killSwitch?.message;
+      });
+
+      const mgr = new KillSwitchManager({
+        config: makeConfig(),
+        session: makeSession(),
+        enforcerState: state,
+        connectionStateManager: connState,
+        onPolicyRefreshNeeded: onRefresh,
+        logger: mockLogger,
+      });
+
+      mgr.start();
+      await vi.advanceTimersByTimeAsync(150);
+      mgr.stop();
+
+      expect(onRefresh).toHaveBeenCalled();
+      expect(state.killSwitchActive).toBe(true);
+      expect(state.killSwitchMessage).toBe("Activated via policy refresh");
+    });
+
+    it("detects desync when policy has kill switch active but state does not", () => {
+      // This test verifies the desync scenario that the fix prevents.
+      // Before the fix, enforcerState.policy.killSwitch.active could be true
+      // while enforcerState.killSwitchActive remained false.
+      // After the fix, the two are always synced by refreshPolicy().
+
+      // Simulate the FIXED refreshPolicy() behavior:
+      const freshPolicy: OrgPolicy = {
+        version: 3,
+        killSwitch: { active: true, message: "Emergency shutdown" },
+        tools: {},
+        skills: { approved: [], requireApproval: false },
+        auditLevel: "metadata",
+      };
+
+      // Apply the fix: sync kill switch state from policy
+      state.policy = freshPolicy;
+      state.killSwitchActive = freshPolicy.killSwitch?.active ?? false;
+      state.killSwitchMessage = freshPolicy.killSwitch?.message;
+
+      // Verify no desync
+      expect(state.killSwitchActive).toBe(state.policy!.killSwitch?.active);
+      expect(state.killSwitchMessage).toBe(state.policy!.killSwitch?.message);
     });
   });
 

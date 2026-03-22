@@ -81,7 +81,8 @@ export class KillSwitchManager {
     }
 
     try {
-      const url = `${this.controlPlaneUrl}/api/v1/heartbeat/${encodeURIComponent(this.orgId)}/${encodeURIComponent(this.userId)}?clientVersion=${encodeURIComponent(PLUGIN_VERSION)}`;
+      const policyVersion = this.enforcerState.policy?.version ?? 0;
+      const url = `${this.controlPlaneUrl}/api/v1/heartbeat/${encodeURIComponent(this.orgId)}/${encodeURIComponent(this.userId)}?policyVersion=${policyVersion}&clientVersion=${encodeURIComponent(PLUGIN_VERSION)}`;
       const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${this.accessToken}`,
@@ -108,9 +109,7 @@ export class KillSwitchManager {
       // Update kill switch state
       if (data.killSwitch) {
         if (!this.enforcerState.killSwitchActive) {
-          this.logger?.warn(
-            `Kill switch activated: ${data.killSwitchMessage ?? "No message"}`,
-          );
+          this.logger?.warn(`Kill switch activated: ${data.killSwitchMessage ?? "No message"}`);
         }
         this.enforcerState.killSwitchActive = true;
         this.enforcerState.killSwitchMessage = data.killSwitchMessage;
@@ -136,9 +135,7 @@ export class KillSwitchManager {
     this.connectionStateManager?.recordFailure();
     const consecutiveFailures = this.connectionStateManager?.consecutiveFailures ?? 0;
 
-    this.logger?.warn(
-      `Heartbeat failed (${consecutiveFailures}/${this.failureThreshold}): ${reason}`,
-    );
+    this.logger?.warn(`Heartbeat failed (${consecutiveFailures}/${this.failureThreshold}): ${reason}`);
 
     if (consecutiveFailures >= this.failureThreshold) {
       this.applyOfflineBehavior();

@@ -29,11 +29,7 @@ export class PolicyService {
   constructor(private db: PostgresJsDatabase<typeof schema>) {}
 
   async getEffectivePolicy(orgId: string, userId: string): Promise<EffectivePolicy | null> {
-    const [policy] = await this.db
-      .select()
-      .from(policies)
-      .where(eq(policies.orgId, orgId))
-      .limit(1);
+    const [policy] = await this.db.select().from(policies).where(eq(policies.orgId, orgId)).limit(1);
 
     if (!policy) {
       return null;
@@ -45,9 +41,7 @@ export class PolicyService {
       .from(approvedSkills)
       .where(and(eq(approvedSkills.orgId, orgId), isNull(approvedSkills.revokedAt)));
 
-    const filteredApproved = approved.filter(
-      (s) => s.scope === "org" || s.approvedForUser === userId,
-    );
+    const filteredApproved = approved.filter((s) => s.scope === "org" || s.approvedForUser === userId);
 
     return {
       version: policy.version,
@@ -69,11 +63,7 @@ export class PolicyService {
   }
 
   async getOrgPolicy(orgId: string) {
-    const [policy] = await this.db
-      .select()
-      .from(policies)
-      .where(eq(policies.orgId, orgId))
-      .limit(1);
+    const [policy] = await this.db.select().from(policies).where(eq(policies.orgId, orgId)).limit(1);
     return policy ?? null;
   }
 

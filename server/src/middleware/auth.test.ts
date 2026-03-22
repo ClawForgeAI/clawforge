@@ -35,7 +35,21 @@ describe("Auth Middleware", () => {
       const res = await app.inject({ method: "GET", url: "/health" });
 
       expect(res.statusCode).toBe(200);
-      expect(res.json()).toEqual({ status: "ok" });
+      expect(res.json()).toMatchObject({ status: "ok", version: "0.1.0" });
+      expect(res.json().uptime).toBeTypeOf("number");
+    });
+
+    it("allows /ready without auth", async () => {
+      const res = await app.inject({ method: "GET", url: "/ready" });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toMatchObject({
+        status: "ready",
+        checks: {
+          database: { status: "ok" },
+          migrations: { status: "ok" },
+        },
+      });
     });
 
     it("allows /api/v1/auth/mode without auth", async () => {

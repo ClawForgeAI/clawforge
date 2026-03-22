@@ -120,14 +120,24 @@ export default function UsersPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-2xl font-bold">Users</h2>
-            <p className="text-sm text-base-content/50 mt-1">{users.length} member{users.length !== 1 ? "s" : ""} in your organization</p>
+            <p className="text-sm text-base-content/50 mt-1">
+              {users.length} member{users.length !== 1 ? "s" : ""} in your organization
+            </p>
           </div>
-          <button
-            onClick={() => setShowInvite(true)}
-            className="btn btn-primary btn-sm gap-2"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><line x1="20" y1="8" x2="20" y2="14" /><line x1="23" y1="11" x2="17" y2="11" />
+          <button onClick={() => setShowInvite(true)} className="btn btn-primary btn-sm gap-2">
+            <svg
+              className="w-4 h-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="8.5" cy="7" r="4" />
+              <line x1="20" y1="8" x2="20" y2="14" />
+              <line x1="23" y1="11" x2="17" y2="11" />
             </svg>
             Invite User
           </button>
@@ -145,7 +155,9 @@ export default function UsersPage() {
                 <CardTitle>Invite User</CardTitle>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="form-control">
-                    <label className="label"><span className="label-text text-xs font-medium">Email *</span></label>
+                    <label className="label">
+                      <span className="label-text text-xs font-medium">Email *</span>
+                    </label>
                     <input
                       type="email"
                       value={inviteEmail}
@@ -155,7 +167,9 @@ export default function UsersPage() {
                     />
                   </div>
                   <div className="form-control">
-                    <label className="label"><span className="label-text text-xs font-medium">Name</span></label>
+                    <label className="label">
+                      <span className="label-text text-xs font-medium">Name</span>
+                    </label>
                     <input
                       value={inviteName}
                       onChange={(e) => setInviteName(e.target.value)}
@@ -164,7 +178,9 @@ export default function UsersPage() {
                     />
                   </div>
                   <div className="form-control">
-                    <label className="label"><span className="label-text text-xs font-medium">Role</span></label>
+                    <label className="label">
+                      <span className="label-text text-xs font-medium">Role</span>
+                    </label>
                     <select
                       value={inviteRole}
                       onChange={(e) => setInviteRole(e.target.value)}
@@ -175,7 +191,9 @@ export default function UsersPage() {
                     </select>
                   </div>
                   <div className="form-control">
-                    <label className="label"><span className="label-text text-xs font-medium">Password (optional)</span></label>
+                    <label className="label">
+                      <span className="label-text text-xs font-medium">Password (optional)</span>
+                    </label>
                     <input
                       type="password"
                       value={invitePassword}
@@ -186,18 +204,11 @@ export default function UsersPage() {
                   </div>
                 </div>
                 <div className="flex gap-2 mt-4">
-                  <button
-                    onClick={handleInvite}
-                    disabled={inviting || !inviteEmail}
-                    className="btn btn-primary btn-sm"
-                  >
+                  <button onClick={handleInvite} disabled={inviting || !inviteEmail} className="btn btn-primary btn-sm">
                     {inviting && <span className="loading loading-spinner loading-xs" />}
                     {inviting ? "Creating..." : "Create User"}
                   </button>
-                  <button
-                    onClick={() => setShowInvite(false)}
-                    className="btn btn-ghost btn-sm"
-                  >
+                  <button onClick={() => setShowInvite(false)} className="btn btn-ghost btn-sm">
                     Cancel
                   </button>
                 </div>
@@ -210,8 +221,15 @@ export default function UsersPage() {
           <CardSkeleton />
         ) : users.length === 0 ? (
           <div className="text-center py-16 text-base-content/40">
-            <svg className="w-12 h-12 mx-auto mb-3 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+            <svg
+              className="w-12 h-12 mx-auto mb-3 opacity-30"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            >
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
             </svg>
             <p className="text-sm">No users found</p>
           </div>
@@ -260,9 +278,7 @@ export default function UsersPage() {
                         </select>
                       </td>
                       <td className="text-base-content/50 text-sm">{formatDate(user.lastSeenAt)}</td>
-                      <td className="text-base-content/50 text-sm">
-                        {new Date(user.createdAt).toLocaleDateString()}
-                      </td>
+                      <td className="text-base-content/50 text-sm">{new Date(user.createdAt).toLocaleDateString()}</td>
                       <td>
                         {user.id !== currentUserId && (
                           <button
@@ -300,7 +316,15 @@ export default function UsersPage() {
               >
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 rounded-xl bg-error/15 flex items-center justify-center">
-                    <svg className="w-5 h-5 text-error" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg
+                      className="w-5 h-5 text-error"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
                       <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                       <line x1="12" y1="9" x2="12" y2="13" />
                       <line x1="12" y1="17" x2="12.01" y2="17" />
@@ -312,18 +336,10 @@ export default function UsersPage() {
                   Remove <strong>{deleteTarget.email}</strong> from the organization? This action cannot be undone.
                 </p>
                 <div className="flex justify-end gap-2">
-                  <button
-                    onClick={() => setDeleteTarget(null)}
-                    disabled={deleting}
-                    className="btn btn-ghost btn-sm"
-                  >
+                  <button onClick={() => setDeleteTarget(null)} disabled={deleting} className="btn btn-ghost btn-sm">
                     Cancel
                   </button>
-                  <button
-                    onClick={handleDelete}
-                    disabled={deleting}
-                    className="btn btn-error btn-sm"
-                  >
+                  <button onClick={handleDelete} disabled={deleting} className="btn btn-error btn-sm">
                     {deleting && <span className="loading loading-spinner loading-xs" />}
                     {deleting ? "Removing..." : "Remove"}
                   </button>
