@@ -16,7 +16,7 @@ import { logAdminAction } from "../services/admin-audit.js";
 
 const CreateApiKeySchema = z.object({
   name: z.string().min(1).max(100),
-  role: z.enum(["admin", "viewer"]).default("viewer"),
+  role: z.enum(["super_admin", "admin", "policy_admin", "security_admin", "viewer"]).default("viewer"),
   expiresAt: z.string().datetime().optional(),
   ipAllowlist: z.array(z.string()).optional(),
 });

@@ -209,8 +209,10 @@ export default function AuditPage() {
               className="select select-bordered select-sm w-full"
             >
               <option value="">All outcomes</option>
+              <option value="success">Success</option>
               <option value="allowed">Allowed</option>
               <option value="blocked">Blocked</option>
+              <option value="error">Error</option>
             </select>
             <input
               type="date"
@@ -287,11 +289,11 @@ export default function AuditPage() {
                         <td>
                           <Badge
                             variant={
-                              event.outcome === "allowed"
+                              event.outcome === "allowed" || event.outcome === "success"
                                 ? "success"
-                                : event.eventType === "admin_action"
-                                  ? "default"
-                                  : "danger"
+                                : event.outcome === "blocked" || event.outcome === "error"
+                                  ? "danger"
+                                  : "default"
                             }
                           >
                             {event.outcome}

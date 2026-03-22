@@ -82,7 +82,7 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
       });
     }
 
-    if (authUser.role !== "admin") {
+    if (authUser.role !== "admin" && authUser.role !== "super_admin") {
       const invalidUser = events.find((e) => e.userId !== authUser.userId);
       if (invalidUser) {
         return reply.code(403).send({
@@ -92,6 +92,10 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
     }
 
     await auditService.ingestEvents(events);
+
+    // Track audit ingestion metric (#76)
+    app.metrics.auditEventsCounter.inc(events.length);
+
     return reply.code(201).send({ ingested: events.length });
   });
 

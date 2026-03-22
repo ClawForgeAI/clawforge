@@ -3,23 +3,30 @@
  */
 
 import type { FastifyInstance } from "fastify";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { requireAdmin, requireAdminOrViewer, requireOrg } from "../middleware/auth.js";
-import { users } from "../db/schema.js";
+import {
+  users,
+  skillSubmissions,
+  approvedSkills,
+  clientHeartbeats,
+  enrollmentTokens,
+  apiKeys,
+} from "../db/schema.js";
 import { logAdminAction } from "../services/admin-audit.js";
 
 const CreateUserSchema = z.object({
   email: z.string().email(),
   name: z.string().optional(),
-  role: z.enum(["admin", "viewer", "user"]).optional().default("user"),
+  role: z.enum(["super_admin", "admin", "policy_admin", "security_admin", "viewer", "user"]).optional().default("user"),
   password: z.string().min(6).optional(),
 });
 
 const UpdateUserSchema = z.object({
   name: z.string().optional(),
-  role: z.enum(["admin", "viewer", "user"]).optional(),
+  role: z.enum(["super_admin", "admin", "policy_admin", "security_admin", "viewer", "user"]).optional(),
 });
 
 export async function userRoutes(app: FastifyInstance): Promise<void> {
@@ -146,11 +153,11 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     }
 
     // Prevent demoting the last admin.
-    if (role === "user" && target.role === "admin") {
+    if ((role === "user" || role === "viewer") && (target.role === "admin" || target.role === "super_admin")) {
       const admins = await app.db
         .select({ id: users.id })
         .from(users)
-        .where(and(eq(users.orgId, orgId), eq(users.role, "admin")));
+        .where(and(eq(users.orgId, orgId), or(eq(users.role, "admin"), eq(users.role, "super_admin"))));
       if (admins.length <= 1) {
         return reply.code(400).send({ error: "Cannot demote the last admin in the organization" });
       }
@@ -217,17 +224,37 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     }
 
     // Prevent deleting the last admin.
-    if (target.role === "admin") {
+    if (target.role === "admin" || target.role === "super_admin") {
       const admins = await app.db
         .select({ id: users.id })
         .from(users)
-        .where(and(eq(users.orgId, orgId), eq(users.role, "admin")));
+        .where(and(eq(users.orgId, orgId), or(eq(users.role, "admin"), eq(users.role, "super_admin"))));
       if (admins.length <= 1) {
         return reply.code(400).send({ error: "Cannot delete the last admin in the organization" });
       }
     }
 
-    await app.db.delete(users).where(and(eq(users.id, userId), eq(users.orgId, orgId)));
+    await app.db.transaction(async (tx) => {
+      // Remove ephemeral data.
+      await tx.delete(clientHeartbeats).where(eq(clientHeartbeats.userId, userId));
+
+      // Nullify user references in audit-relevant tables.
+      await tx.update(skillSubmissions).set({ reviewedBy: null }).where(eq(skillSubmissions.reviewedBy, userId));
+      await tx.update(approvedSkills).set({ approvedForUser: null }).where(eq(approvedSkills.approvedForUser, userId));
+      await tx.update(approvedSkills).set({ revokedBy: null }).where(eq(approvedSkills.revokedBy, userId));
+
+      // Reassign non-nullable references to the requesting admin.
+      const adminId = request.authUser!.userId;
+      await tx
+        .update(skillSubmissions)
+        .set({ submittedBy: adminId })
+        .where(eq(skillSubmissions.submittedBy, userId));
+      await tx.update(enrollmentTokens).set({ createdBy: adminId }).where(eq(enrollmentTokens.createdBy, userId));
+      await tx.update(apiKeys).set({ createdBy: adminId }).where(eq(apiKeys.createdBy, userId));
+
+      // Delete the user.
+      await tx.delete(users).where(and(eq(users.id, userId), eq(users.orgId, orgId)));
+    });
 
     logAdminAction(app.db, {
       orgId,
