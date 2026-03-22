@@ -34,12 +34,15 @@ export async function apiKeyRoutes(app: FastifyInstance): Promise<void> {
    * Create a new API key (admin only).
    * Returns the plain key exactly once.
    */
-  app.post<{ Params: { orgId: string } }>("/api/v1/api-keys/:orgId", async (request, reply) => {
-    requireAdmin(request, reply);
-    if (reply.sent) return;
-    const { orgId } = request.params;
-    requireOrg(request, reply, orgId);
-    if (reply.sent) return;
+  app.post<{ Params: { orgId: string } }>(
+    "/api/v1/api-keys/:orgId",
+    { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } },
+    async (request, reply) => {
+      requireAdmin(request, reply);
+      if (reply.sent) return;
+      const { orgId } = request.params;
+      requireOrg(request, reply, orgId);
+      if (reply.sent) return;
 
     const parseResult = CreateApiKeySchema.safeParse(request.body);
     if (!parseResult.success) {
@@ -95,12 +98,15 @@ export async function apiKeyRoutes(app: FastifyInstance): Promise<void> {
    * GET /api/v1/api-keys/:orgId
    * List API keys (admin only). Does NOT return key values.
    */
-  app.get<{ Params: { orgId: string } }>("/api/v1/api-keys/:orgId", async (request, reply) => {
-    requireAdmin(request, reply);
-    if (reply.sent) return;
-    const { orgId } = request.params;
-    requireOrg(request, reply, orgId);
-    if (reply.sent) return;
+  app.get<{ Params: { orgId: string } }>(
+    "/api/v1/api-keys/:orgId",
+    { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } },
+    async (request, reply) => {
+      requireAdmin(request, reply);
+      if (reply.sent) return;
+      const { orgId } = request.params;
+      requireOrg(request, reply, orgId);
+      if (reply.sent) return;
 
     const keys = await app.db
       .select({
@@ -124,12 +130,15 @@ export async function apiKeyRoutes(app: FastifyInstance): Promise<void> {
    * DELETE /api/v1/api-keys/:orgId/:keyId
    * Revoke an API key (admin only).
    */
-  app.delete<{ Params: { orgId: string; keyId: string } }>("/api/v1/api-keys/:orgId/:keyId", async (request, reply) => {
-    requireAdmin(request, reply);
-    if (reply.sent) return;
-    const { orgId, keyId } = request.params;
-    requireOrg(request, reply, orgId);
-    if (reply.sent) return;
+  app.delete<{ Params: { orgId: string; keyId: string } }>(
+    "/api/v1/api-keys/:orgId/:keyId",
+    { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } },
+    async (request, reply) => {
+      requireAdmin(request, reply);
+      if (reply.sent) return;
+      const { orgId, keyId } = request.params;
+      requireOrg(request, reply, orgId);
+      if (reply.sent) return;
 
     const [revoked] = await app.db
       .update(apiKeys)
