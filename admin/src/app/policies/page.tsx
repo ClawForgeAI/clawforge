@@ -917,7 +917,9 @@ export default function PoliciesPage() {
                       setPolicyList(data.policies);
                       setShowCreateModal(false);
                       setNewPolicyName("");
-                    } catch {}
+                    } catch {
+                      // Policy creation error handled silently
+                    }
                   }}
                 >
                   Create

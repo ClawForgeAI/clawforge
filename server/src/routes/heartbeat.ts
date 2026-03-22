@@ -4,7 +4,7 @@
 
 import type { FastifyInstance } from "fastify";
 import { eq, desc } from "drizzle-orm";
-import { requireAdmin, requireAdminOrViewer, requireOrg } from "../middleware/auth.js";
+import { requireAdminOrViewer, requireOrg } from "../middleware/auth.js";
 import { clientHeartbeats, policies, users } from "../db/schema.js";
 
 export async function heartbeatRoutes(app: FastifyInstance): Promise<void> {
@@ -12,12 +12,15 @@ export async function heartbeatRoutes(app: FastifyInstance): Promise<void> {
    * GET /api/v1/heartbeat/:orgId
    * List all connected clients for the org (admin or viewer).
    */
-  app.get<{ Params: { orgId: string } }>("/api/v1/heartbeat/:orgId", async (request, reply) => {
-    requireAdminOrViewer(request, reply);
-    if (reply.sent) return;
-    const { orgId } = request.params;
-    requireOrg(request, reply, orgId);
-    if (reply.sent) return;
+  app.get<{ Params: { orgId: string } }>(
+    "/api/v1/heartbeat/:orgId",
+    { config: { rateLimit: { max: 100, timeWindow: "1 minute" } } },
+    async (request, reply) => {
+      requireAdminOrViewer(request, reply);
+      if (reply.sent) return;
+      const { orgId } = request.params;
+      requireOrg(request, reply, orgId);
+      if (reply.sent) return;
 
     const db = app.db;
 
@@ -62,10 +65,13 @@ export async function heartbeatRoutes(app: FastifyInstance): Promise<void> {
   app.get<{
     Params: { orgId: string; userId: string };
     Querystring: { policyVersion?: string; clientVersion?: string };
-  }>("/api/v1/heartbeat/:orgId/:userId", async (request, reply) => {
-    const { orgId, userId } = request.params;
-    requireOrg(request, reply, orgId);
-    if (reply.sent) return;
+  }>(
+    "/api/v1/heartbeat/:orgId/:userId",
+    { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } },
+    async (request, reply) => {
+      const { orgId, userId } = request.params;
+      requireOrg(request, reply, orgId);
+      if (reply.sent) return;
 
     const db = app.db;
     const clientVersionParam = request.query.clientVersion;

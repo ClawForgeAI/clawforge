@@ -11,6 +11,100 @@ import { PolicyService } from "../services/policy-service.js";
 import { logAdminAction } from "../services/admin-audit.js";
 import { eventBus } from "../services/event-bus.js";
 
+/**
+ * Built-in DLP rule templates for common compliance patterns.
+ */
+const BUILTIN_DLP_RULES = [
+  {
+    name: "credit_card_visa",
+    pattern: "\\b4\\d{3}[- ]?\\d{4}[- ]?\\d{4}[- ]?\\d{4}\\b",
+    action: "block" as const,
+    severity: "critical" as const,
+    category: "PCI",
+    message: "Credit card number (Visa) detected",
+  },
+  {
+    name: "credit_card_mastercard",
+    pattern: "\\b5[1-5]\\d{2}[- ]?\\d{4}[- ]?\\d{4}[- ]?\\d{4}\\b",
+    action: "block" as const,
+    severity: "critical" as const,
+    category: "PCI",
+    message: "Credit card number (Mastercard) detected",
+  },
+  {
+    name: "credit_card_amex",
+    pattern: "\\b3[47]\\d{2}[- ]?\\d{6}[- ]?\\d{5}\\b",
+    action: "block" as const,
+    severity: "critical" as const,
+    category: "PCI",
+    message: "Credit card number (Amex) detected",
+  },
+  {
+    name: "ssn",
+    pattern: "\\b\\d{3}-\\d{2}-\\d{4}\\b",
+    action: "block" as const,
+    severity: "critical" as const,
+    category: "PII",
+    message: "Social Security Number (SSN) detected",
+  },
+  {
+    name: "email_address",
+    pattern: "\\b[\\w.+-]+@[\\w-]+\\.[\\w.]+\\b",
+    action: "log" as const,
+    severity: "info" as const,
+    category: "PII",
+    message: "Email address detected",
+  },
+  {
+    name: "aws_access_key",
+    pattern: "\\bAKIA[0-9A-Z]{16}\\b",
+    action: "block" as const,
+    severity: "critical" as const,
+    category: "Secrets",
+    message: "AWS Access Key ID detected",
+  },
+  {
+    name: "generic_api_key",
+    pattern: "\\b(?:sk-|api[_-]?key[=: ]+|token[=: ]+)[a-zA-Z0-9_-]{20,}\\b",
+    action: "warn" as const,
+    severity: "high" as const,
+    category: "Secrets",
+    message: "Possible API key or token detected",
+  },
+  {
+    name: "private_key_header",
+    pattern: "-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----",
+    action: "block" as const,
+    severity: "critical" as const,
+    category: "Secrets",
+    message: "Private key detected",
+  },
+  {
+    name: "github_pat",
+    pattern: "\\bghp_[a-zA-Z0-9]{36}\\b",
+    action: "block" as const,
+    severity: "critical" as const,
+    category: "Secrets",
+    message: "GitHub Personal Access Token detected",
+  },
+];
+
+const BUILTIN_DLP_CATEGORIES = ["PCI", "PII", "Secrets"];
+
+const DlpRuleSchema = z.object({
+  name: z.string().min(1).max(100),
+  pattern: z.string().min(1).max(2000),
+  action: z.enum(["block", "warn", "log"]),
+  severity: z.enum(["critical", "high", "medium", "info"]),
+  category: z.string().max(50).optional(),
+  enabled: z.boolean().optional(),
+  message: z.string().max(500).optional(),
+});
+
+const DlpConfigSchema = z.object({
+  rules: z.array(DlpRuleSchema).max(100),
+});
+
 const UpdatePolicyBodySchema = z.object({
   toolsConfig: z
     .object({
@@ -32,6 +126,7 @@ const UpdatePolicyBodySchema = z.object({
     })
     .optional(),
   auditLevel: z.enum(["full", "metadata", "off"]).optional(),
+  dlpConfig: DlpConfigSchema.optional(),
 });
 
 const KillSwitchBodySchema = z.object({
@@ -56,6 +151,7 @@ const CreatePolicySchema = z.object({
     })),
   }).optional(),
   auditLevel: z.enum(["full", "metadata", "off"]).optional(),
+  dlpConfig: DlpConfigSchema.optional(),
 });
 
 export async function policyRoutes(app: FastifyInstance): Promise<void> {
@@ -71,6 +167,7 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
    */
   app.get<{ Params: { orgId: string }; Querystring: { userId?: string } }>(
     "/api/v1/policies/:orgId/effective",
+    { config: { rateLimit: { max: 100, timeWindow: "1 minute" } } },
     async (request, reply) => {
       const { orgId } = request.params;
       requireOrg(request, reply, orgId);
@@ -123,6 +220,7 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
    */
   app.get<{ Params: { orgId: string }; Querystring: { policyId?: string } }>(
     "/api/v1/policies/:orgId",
+    { config: { rateLimit: { max: 100, timeWindow: "1 minute" } } },
     async (request, reply) => {
       requireAdminOrViewer(request, reply);
       if (reply.sent) return;
@@ -155,6 +253,7 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
    */
   app.post<{ Params: { orgId: string } }>(
     "/api/v1/policies/:orgId",
+    { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } },
     async (request, reply) => {
       requireAdmin(request, reply);
       if (reply.sent) return;
@@ -339,12 +438,15 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
    * PUT /api/v1/policies/:orgId/kill-switch
    * Toggle kill switch (admin only).
    */
-  app.put<{ Params: { orgId: string } }>("/api/v1/policies/:orgId/kill-switch", async (request, reply) => {
-    requireAdmin(request, reply);
-    if (reply.sent) return;
-    const { orgId } = request.params;
-    requireOrg(request, reply, orgId);
-    if (reply.sent) return;
+  app.put<{ Params: { orgId: string } }>(
+    "/api/v1/policies/:orgId/kill-switch",
+    { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } },
+    async (request, reply) => {
+      requireAdmin(request, reply);
+      if (reply.sent) return;
+      const { orgId } = request.params;
+      requireOrg(request, reply, orgId);
+      if (reply.sent) return;
 
     const parseResult = KillSwitchBodySchema.safeParse(request.body);
     if (!parseResult.success) {
@@ -376,4 +478,25 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
 
     return reply.send(updated);
   });
+
+  // ---------------------------------------------------------------------------
+  // Built-in DLP rules library (#66)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * GET /api/v1/policies/dlp/builtin-rules
+   * Get the built-in DLP rule templates.
+   */
+  app.get(
+    "/api/v1/policies/dlp/builtin-rules",
+    async (request, reply) => {
+      requireAdminOrViewer(request, reply);
+      if (reply.sent) return;
+
+      return reply.send({
+        rules: BUILTIN_DLP_RULES,
+        categories: BUILTIN_DLP_CATEGORIES,
+      });
+    },
+  );
 }

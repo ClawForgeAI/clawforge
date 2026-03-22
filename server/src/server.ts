@@ -296,7 +296,7 @@ export async function createServer(config: ServerConfig) {
       max: 120,
       timeWindow: "1 minute",
       keyGenerator: (request) => {
-        return request.authUser?.userId ?? request.ip;
+        return `${request.authUser?.orgId ?? "anon"}:${request.authUser?.userId ?? request.ip}`;
       },
       addHeadersOnExceeding: { "x-ratelimit-limit": true, "x-ratelimit-remaining": true, "x-ratelimit-reset": true },
       addHeaders: {

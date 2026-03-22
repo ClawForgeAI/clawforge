@@ -38,10 +38,13 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
   const auditService = new AuditService(app.db);
 
   // POST /api/v1/audit/:orgId/events - Ingest (keep existing)
-  app.post<{ Params: { orgId: string } }>("/api/v1/audit/:orgId/events", async (request, reply) => {
-    const { orgId } = request.params;
-    requireOrg(request, reply, orgId);
-    if (reply.sent) return;
+  app.post<{ Params: { orgId: string } }>(
+    "/api/v1/audit/:orgId/events",
+    { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } },
+    async (request, reply) => {
+      const { orgId } = request.params;
+      requireOrg(request, reply, orgId);
+      if (reply.sent) return;
 
     const parseResult = IngestBodySchema.safeParse(request.body);
     if (!parseResult.success) {
