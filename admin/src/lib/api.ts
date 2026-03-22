@@ -403,3 +403,28 @@ export type ClientsSummary = {
 export function getConnectedClients(orgId: string, token: string) {
   return apiFetch<{ clients: ConnectedClient[]; summary: ClientsSummary }>(`/api/v1/heartbeat/${orgId}`, { token });
 }
+
+// --- Roles (#61) ---
+
+export type Permission = {
+  name: string;
+  resource: string;
+  action: string;
+  description: string;
+};
+
+export type Role = {
+  id: string;
+  name: string;
+  description?: string;
+  isBuiltIn: boolean;
+  permissions: string[];
+};
+
+export function getRoles(orgId: string, token: string) {
+  return apiFetch<{ roles: Role[] }>(`/api/v1/roles/${orgId}`, { token });
+}
+
+export function getPermissions(orgId: string, token: string) {
+  return apiFetch<{ permissions: Permission[] }>(`/api/v1/roles/${orgId}/permissions`, { token });
+}
