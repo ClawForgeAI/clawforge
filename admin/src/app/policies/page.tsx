@@ -342,7 +342,7 @@ export default function PoliciesPage() {
       .then((data) => {
         setPolicyList(data.policies);
         if (data.policies.length > 0) {
-          const defaultPolicy = data.policies.find(p => p.isDefault) ?? data.policies[0];
+          const defaultPolicy = data.policies.find((p) => p.isDefault) ?? data.policies[0];
           setSelectedPolicyId(defaultPolicy.id);
         }
       })
@@ -500,9 +500,7 @@ export default function PoliciesPage() {
               <button
                 key={p.id}
                 onClick={() => setSelectedPolicyId(p.id)}
-                className={`btn btn-sm whitespace-nowrap ${
-                  selectedPolicyId === p.id ? "btn-primary" : "btn-ghost"
-                }`}
+                className={`btn btn-sm whitespace-nowrap ${selectedPolicyId === p.id ? "btn-primary" : "btn-ghost"}`}
               >
                 {p.name}
                 {p.isDefault && <span className="badge badge-xs badge-outline ml-1">default</span>}
@@ -895,7 +893,9 @@ export default function PoliciesPage() {
             <div className="modal-box">
               <h3 className="font-bold text-lg">Create New Policy</h3>
               <div className="form-control mt-4">
-                <label className="label"><span className="label-text">Policy Name</span></label>
+                <label className="label">
+                  <span className="label-text">Policy Name</span>
+                </label>
                 <input
                   value={newPolicyName}
                   onChange={(e) => setNewPolicyName(e.target.value)}
@@ -904,7 +904,9 @@ export default function PoliciesPage() {
                 />
               </div>
               <div className="modal-action">
-                <button className="btn btn-ghost" onClick={() => setShowCreateModal(false)}>Cancel</button>
+                <button className="btn btn-ghost" onClick={() => setShowCreateModal(false)}>
+                  Cancel
+                </button>
                 <button
                   className="btn btn-primary"
                   disabled={!newPolicyName}
@@ -917,7 +919,9 @@ export default function PoliciesPage() {
                       setPolicyList(data.policies);
                       setShowCreateModal(false);
                       setNewPolicyName("");
-                    } catch {}
+                    } catch {
+                      // Policy creation error handled silently
+                    }
                   }}
                 >
                   Create

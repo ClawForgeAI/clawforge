@@ -7,14 +7,7 @@ import { eq, and, or } from "drizzle-orm";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { requireAdmin, requireAdminOrViewer, requireOrg } from "../middleware/auth.js";
-import {
-  users,
-  skillSubmissions,
-  approvedSkills,
-  clientHeartbeats,
-  enrollmentTokens,
-  apiKeys,
-} from "../db/schema.js";
+import { users, skillSubmissions, approvedSkills, clientHeartbeats, enrollmentTokens, apiKeys } from "../db/schema.js";
 import { logAdminAction } from "../services/admin-audit.js";
 
 const CreateUserSchema = z.object({
@@ -245,10 +238,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
 
       // Reassign non-nullable references to the requesting admin.
       const adminId = request.authUser!.userId;
-      await tx
-        .update(skillSubmissions)
-        .set({ submittedBy: adminId })
-        .where(eq(skillSubmissions.submittedBy, userId));
+      await tx.update(skillSubmissions).set({ submittedBy: adminId }).where(eq(skillSubmissions.submittedBy, userId));
       await tx.update(enrollmentTokens).set({ createdBy: adminId }).where(eq(enrollmentTokens.createdBy, userId));
       await tx.update(apiKeys).set({ createdBy: adminId }).where(eq(apiKeys.createdBy, userId));
 

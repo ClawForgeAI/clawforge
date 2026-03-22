@@ -241,7 +241,9 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
                 event.agentId,
                 event.sessionKey,
                 event.metadata,
-              ].map(escapeCsvValue).join(",") + "\n";
+              ]
+                .map(escapeCsvValue)
+                .join(",") + "\n";
             }
           }
         })(),

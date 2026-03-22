@@ -73,9 +73,7 @@ export const policies = pgTable(
       .default("metadata"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index("policies_org_id_idx").on(table.orgId),
-  ],
+  (table) => [index("policies_org_id_idx").on(table.orgId)],
 );
 
 // ---------------------------------------------------------------------------
@@ -92,8 +90,7 @@ export const policyAssignments = pgTable(
     policyId: uuid("policy_id")
       .notNull()
       .references(() => policies.id, { onDelete: "cascade" }),
-    userId: uuid("user_id")
-      .references(() => users.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
     role: text("role"),
     priority: integer("priority").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -291,9 +288,7 @@ export const permissions = pgTable(
     action: text("action").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    uniqueIndex("permissions_name_idx").on(table.name),
-  ],
+  (table) => [uniqueIndex("permissions_name_idx").on(table.name)],
 );
 
 // ---------------------------------------------------------------------------
@@ -311,9 +306,7 @@ export const roles = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    uniqueIndex("roles_org_name_idx").on(table.orgId, table.name),
-  ],
+  (table) => [uniqueIndex("roles_org_name_idx").on(table.orgId, table.name)],
 );
 
 export const rolePermissions = pgTable(
@@ -327,7 +320,5 @@ export const rolePermissions = pgTable(
       .notNull()
       .references(() => permissions.id, { onDelete: "cascade" }),
   },
-  (table) => [
-    uniqueIndex("role_permissions_role_perm_idx").on(table.roleId, table.permissionId),
-  ],
+  (table) => [uniqueIndex("role_permissions_role_perm_idx").on(table.roleId, table.permissionId)],
 );

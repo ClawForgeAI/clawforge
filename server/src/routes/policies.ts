@@ -42,19 +42,25 @@ const KillSwitchBodySchema = z.object({
 const CreatePolicySchema = z.object({
   name: z.string().min(1).max(100),
   isDefault: z.boolean().optional(),
-  toolsConfig: z.object({
-    allow: z.array(z.string()).optional(),
-    deny: z.array(z.string()).optional(),
-    profile: z.string().optional(),
-  }).optional(),
-  skillsConfig: z.object({
-    requireApproval: z.boolean(),
-    approved: z.array(z.object({
-      name: z.string(),
-      key: z.string(),
-      scope: z.enum(["org", "self"]),
-    })),
-  }).optional(),
+  toolsConfig: z
+    .object({
+      allow: z.array(z.string()).optional(),
+      deny: z.array(z.string()).optional(),
+      profile: z.string().optional(),
+    })
+    .optional(),
+  skillsConfig: z
+    .object({
+      requireApproval: z.boolean(),
+      approved: z.array(
+        z.object({
+          name: z.string(),
+          key: z.string(),
+          scope: z.enum(["org", "self"]),
+        }),
+      ),
+    })
+    .optional(),
   auditLevel: z.enum(["full", "metadata", "off"]).optional(),
 });
 
@@ -99,19 +105,16 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
    * GET /api/v1/policies/:orgId/list
    * List all policies for an org.
    */
-  app.get<{ Params: { orgId: string } }>(
-    "/api/v1/policies/:orgId/list",
-    async (request, reply) => {
-      requireAdminOrViewer(request, reply);
-      if (reply.sent) return;
-      const { orgId } = request.params;
-      requireOrg(request, reply, orgId);
-      if (reply.sent) return;
+  app.get<{ Params: { orgId: string } }>("/api/v1/policies/:orgId/list", async (request, reply) => {
+    requireAdminOrViewer(request, reply);
+    if (reply.sent) return;
+    const { orgId } = request.params;
+    requireOrg(request, reply, orgId);
+    if (reply.sent) return;
 
-      const policyList = await policyService.listOrgPolicies(orgId);
-      return reply.send({ policies: policyList });
-    },
-  );
+    const policyList = await policyService.listOrgPolicies(orgId);
+    return reply.send({ policies: policyList });
+  });
 
   // ---------------------------------------------------------------------------
   // Get raw org policy (backward compatible, supports ?policyId=)
@@ -135,15 +138,16 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
         return reply.code(404).send({ error: "No policy found" });
       }
 
-    return reply.send({
-      ...policy,
-      tools: policy.toolsConfig ?? {},
-      killSwitch: {
-        active: policy.killSwitch ?? false,
-        message: policy.killSwitchMessage ?? undefined,
-      },
-    });
-  });
+      return reply.send({
+        ...policy,
+        tools: policy.toolsConfig ?? {},
+        killSwitch: {
+          active: policy.killSwitch ?? false,
+          message: policy.killSwitchMessage ?? undefined,
+        },
+      });
+    },
+  );
 
   // ---------------------------------------------------------------------------
   // Create a new policy (#23)
@@ -153,34 +157,31 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
    * POST /api/v1/policies/:orgId
    * Create a new named policy.
    */
-  app.post<{ Params: { orgId: string } }>(
-    "/api/v1/policies/:orgId",
-    async (request, reply) => {
-      requireAdmin(request, reply);
-      if (reply.sent) return;
-      const { orgId } = request.params;
-      requireOrg(request, reply, orgId);
-      if (reply.sent) return;
+  app.post<{ Params: { orgId: string } }>("/api/v1/policies/:orgId", async (request, reply) => {
+    requireAdmin(request, reply);
+    if (reply.sent) return;
+    const { orgId } = request.params;
+    requireOrg(request, reply, orgId);
+    if (reply.sent) return;
 
-      const parseResult = CreatePolicySchema.safeParse(request.body);
-      if (!parseResult.success) {
-        return reply.code(400).send({ error: "Invalid request body", details: parseResult.error.issues });
-      }
+    const parseResult = CreatePolicySchema.safeParse(request.body);
+    if (!parseResult.success) {
+      return reply.code(400).send({ error: "Invalid request body", details: parseResult.error.issues });
+    }
 
-      const created = await policyService.createPolicy(orgId, parseResult.data);
+    const created = await policyService.createPolicy(orgId, parseResult.data);
 
-      logAdminAction(app.db, {
-        orgId,
-        userId: request.authUser!.userId,
-        action: "policy_created",
-        resourceType: "policy",
-        resourceId: created.id,
-        details: { name: parseResult.data.name },
-      }).catch(() => {});
+    logAdminAction(app.db, {
+      orgId,
+      userId: request.authUser!.userId,
+      action: "policy_created",
+      resourceType: "policy",
+      resourceId: created.id,
+      details: { name: parseResult.data.name },
+    }).catch(() => {});
 
-      return reply.code(201).send(created);
-    },
-  );
+    return reply.code(201).send(created);
+  });
 
   // ---------------------------------------------------------------------------
   // Update org policy (backward compatible)
@@ -273,10 +274,12 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
       requireOrg(request, reply, orgId);
       if (reply.sent) return;
 
-      const assignSchema = z.object({
-        userId: z.string().uuid().optional(),
-        role: z.string().optional(),
-      }).refine((d) => d.userId || d.role, { message: "Either userId or role is required" });
+      const assignSchema = z
+        .object({
+          userId: z.string().uuid().optional(),
+          role: z.string().optional(),
+        })
+        .refine((d) => d.userId || d.role, { message: "Either userId or role is required" });
 
       const parseResult = assignSchema.safeParse(request.body);
       if (!parseResult.success) {

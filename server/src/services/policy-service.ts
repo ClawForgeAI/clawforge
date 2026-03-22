@@ -44,21 +44,14 @@ export class PolicyService {
     const [userAssignment] = await this.db
       .select({ policyId: policyAssignments.policyId })
       .from(policyAssignments)
-      .where(and(
-        eq(policyAssignments.orgId, orgId),
-        eq(policyAssignments.userId, userId),
-      ))
+      .where(and(eq(policyAssignments.orgId, orgId), eq(policyAssignments.userId, userId)))
       .orderBy(desc(policyAssignments.priority))
       .limit(1);
 
     let policy;
 
     if (userAssignment) {
-      [policy] = await this.db
-        .select()
-        .from(policies)
-        .where(eq(policies.id, userAssignment.policyId))
-        .limit(1);
+      [policy] = await this.db.select().from(policies).where(eq(policies.id, userAssignment.policyId)).limit(1);
     }
 
     // 2. If no user assignment, check role-based assignment
@@ -66,20 +59,18 @@ export class PolicyService {
       const [roleAssignment] = await this.db
         .select({ policyId: policyAssignments.policyId })
         .from(policyAssignments)
-        .where(and(
-          eq(policyAssignments.orgId, orgId),
-          eq(policyAssignments.role, userRole),
-          isNull(policyAssignments.userId),
-        ))
+        .where(
+          and(
+            eq(policyAssignments.orgId, orgId),
+            eq(policyAssignments.role, userRole),
+            isNull(policyAssignments.userId),
+          ),
+        )
         .orderBy(desc(policyAssignments.priority))
         .limit(1);
 
       if (roleAssignment) {
-        [policy] = await this.db
-          .select()
-          .from(policies)
-          .where(eq(policies.id, roleAssignment.policyId))
-          .limit(1);
+        [policy] = await this.db.select().from(policies).where(eq(policies.id, roleAssignment.policyId)).limit(1);
       }
     }
 
@@ -94,11 +85,7 @@ export class PolicyService {
 
     // 4. Last resort: any policy for this org
     if (!policy) {
-      [policy] = await this.db
-        .select()
-        .from(policies)
-        .where(eq(policies.orgId, orgId))
-        .limit(1);
+      [policy] = await this.db.select().from(policies).where(eq(policies.orgId, orgId)).limit(1);
     }
 
     if (!policy) {
@@ -152,11 +139,7 @@ export class PolicyService {
       .limit(1);
     if (defaultPolicy) return defaultPolicy;
 
-    const [anyPolicy] = await this.db
-      .select()
-      .from(policies)
-      .where(eq(policies.orgId, orgId))
-      .limit(1);
+    const [anyPolicy] = await this.db.select().from(policies).where(eq(policies.orgId, orgId)).limit(1);
     return anyPolicy ?? null;
   }
 
@@ -164,29 +147,28 @@ export class PolicyService {
    * List all policies for an org.
    */
   async listOrgPolicies(orgId: string) {
-    return this.db
-      .select()
-      .from(policies)
-      .where(eq(policies.orgId, orgId))
-      .orderBy(policies.name);
+    return this.db.select().from(policies).where(eq(policies.orgId, orgId)).orderBy(policies.name);
   }
 
   /**
    * Create a new named policy.
    */
-  async createPolicy(orgId: string, data: {
-    name: string;
-    isDefault?: boolean;
-    toolsConfig?: { allow?: string[]; deny?: string[]; profile?: string };
-    skillsConfig?: { requireApproval: boolean; approved: Array<{ name: string; key: string; scope: "org" | "self" }> };
-    auditLevel?: "full" | "metadata" | "off";
-  }) {
+  async createPolicy(
+    orgId: string,
+    data: {
+      name: string;
+      isDefault?: boolean;
+      toolsConfig?: { allow?: string[]; deny?: string[]; profile?: string };
+      skillsConfig?: {
+        requireApproval: boolean;
+        approved: Array<{ name: string; key: string; scope: "org" | "self" }>;
+      };
+      auditLevel?: "full" | "metadata" | "off";
+    },
+  ) {
     // If setting as default, unset other defaults
     if (data.isDefault) {
-      await this.db
-        .update(policies)
-        .set({ isDefault: false })
-        .where(eq(policies.orgId, orgId));
+      await this.db.update(policies).set({ isDefault: false }).where(eq(policies.orgId, orgId));
     }
 
     const [created] = await this.db
@@ -307,15 +289,9 @@ export class PolicyService {
     // Remove existing user assignment for this org
     await this.db
       .delete(policyAssignments)
-      .where(and(
-        eq(policyAssignments.orgId, orgId),
-        eq(policyAssignments.userId, userId),
-      ));
+      .where(and(eq(policyAssignments.orgId, orgId), eq(policyAssignments.userId, userId)));
 
-    const [assignment] = await this.db
-      .insert(policyAssignments)
-      .values({ orgId, policyId, userId })
-      .returning();
+    const [assignment] = await this.db.insert(policyAssignments).values({ orgId, policyId, userId }).returning();
     return assignment;
   }
 
@@ -326,16 +302,11 @@ export class PolicyService {
     // Remove existing role assignment for this org+role
     await this.db
       .delete(policyAssignments)
-      .where(and(
-        eq(policyAssignments.orgId, orgId),
-        eq(policyAssignments.role, role),
-        isNull(policyAssignments.userId),
-      ));
+      .where(
+        and(eq(policyAssignments.orgId, orgId), eq(policyAssignments.role, role), isNull(policyAssignments.userId)),
+      );
 
-    const [assignment] = await this.db
-      .insert(policyAssignments)
-      .values({ orgId, policyId, role })
-      .returning();
+    const [assignment] = await this.db.insert(policyAssignments).values({ orgId, policyId, role }).returning();
     return assignment;
   }
 
@@ -346,18 +317,13 @@ export class PolicyService {
     return this.db
       .select()
       .from(policyAssignments)
-      .where(and(
-        eq(policyAssignments.orgId, orgId),
-        eq(policyAssignments.policyId, policyId),
-      ));
+      .where(and(eq(policyAssignments.orgId, orgId), eq(policyAssignments.policyId, policyId)));
   }
 
   /**
    * Remove a policy assignment.
    */
   async removePolicyAssignment(assignmentId: string) {
-    await this.db
-      .delete(policyAssignments)
-      .where(eq(policyAssignments.id, assignmentId));
+    await this.db.delete(policyAssignments).where(eq(policyAssignments.id, assignmentId));
   }
 }

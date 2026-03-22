@@ -158,12 +158,7 @@ export function clonePolicy(orgId: string, policyId: string, token: string, name
   });
 }
 
-export function assignPolicy(
-  orgId: string,
-  policyId: string,
-  token: string,
-  body: { userId?: string; role?: string },
-) {
+export function assignPolicy(orgId: string, policyId: string, token: string, body: { userId?: string; role?: string }) {
   return apiFetch<PolicyAssignment>(`/api/v1/policies/${orgId}/${policyId}/assign`, {
     method: "POST",
     token,
