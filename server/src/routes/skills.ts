@@ -46,92 +46,83 @@ export async function skillRoutes(app: FastifyInstance): Promise<void> {
    * POST /api/v1/skills/:orgId/submit
    * Submit a skill for review.
    */
-  app.post<{ Params: { orgId: string } }>(
-    "/api/v1/skills/:orgId/submit",
-    async (request, reply) => {
-      const { orgId } = request.params;
-      requireOrg(request, reply, orgId);
-      if (reply.sent) return;
+  app.post<{ Params: { orgId: string } }>("/api/v1/skills/:orgId/submit", async (request, reply) => {
+    const { orgId } = request.params;
+    requireOrg(request, reply, orgId);
+    if (reply.sent) return;
 
-      const parseResult = SubmitSkillBodySchema.safeParse(request.body);
-      if (!parseResult.success) {
-        return reply.code(400).send({
-          error: "Invalid request body",
-          details: parseResult.error.issues,
-        });
-      }
-
-      const submission = await skillService.submitSkill({
-        orgId,
-        submittedBy: request.authUser!.userId,
-        ...parseResult.data,
+    const parseResult = SubmitSkillBodySchema.safeParse(request.body);
+    if (!parseResult.success) {
+      return reply.code(400).send({
+        error: "Invalid request body",
+        details: parseResult.error.issues,
       });
+    }
 
-      return reply.code(201).send(submission);
-    },
-  );
+    const submission = await skillService.submitSkill({
+      orgId,
+      submittedBy: request.authUser!.userId,
+      ...parseResult.data,
+    });
+
+    return reply.code(201).send(submission);
+  });
 
   /**
    * GET /api/v1/skills/:orgId/review
    * List pending skill submissions (admin or viewer).
    */
-  app.get<{ Params: { orgId: string } }>(
-    "/api/v1/skills/:orgId/review",
-    async (request, reply) => {
-      requireAdminOrViewer(request, reply);
-      if (reply.sent) return;
-      const { orgId } = request.params;
-      requireOrg(request, reply, orgId);
-      if (reply.sent) return;
+  app.get<{ Params: { orgId: string } }>("/api/v1/skills/:orgId/review", async (request, reply) => {
+    requireAdminOrViewer(request, reply);
+    if (reply.sent) return;
+    const { orgId } = request.params;
+    requireOrg(request, reply, orgId);
+    if (reply.sent) return;
 
-      const pending = await skillService.listPending(orgId);
-      return reply.send({ submissions: pending });
-    },
-  );
+    const pending = await skillService.listPending(orgId);
+    return reply.send({ submissions: pending });
+  });
 
   /**
    * PUT /api/v1/skills/:orgId/review/:id
    * Approve or reject a skill submission (admin only).
    */
-  app.put<{ Params: { orgId: string; id: string } }>(
-    "/api/v1/skills/:orgId/review/:id",
-    async (request, reply) => {
-      requireAdmin(request, reply);
-      if (reply.sent) return;
-      const { orgId, id } = request.params;
-      requireOrg(request, reply, orgId);
-      if (reply.sent) return;
+  app.put<{ Params: { orgId: string; id: string } }>("/api/v1/skills/:orgId/review/:id", async (request, reply) => {
+    requireAdmin(request, reply);
+    if (reply.sent) return;
+    const { orgId, id } = request.params;
+    requireOrg(request, reply, orgId);
+    if (reply.sent) return;
 
-      const parseResult = ReviewBodySchema.safeParse(request.body);
-      if (!parseResult.success) {
-        return reply.code(400).send({
-          error: "Invalid request body",
-          details: parseResult.error.issues,
-        });
-      }
-
-      const updated = await skillService.reviewSubmission({
-        id,
-        reviewedBy: request.authUser!.userId,
-        ...parseResult.data,
+    const parseResult = ReviewBodySchema.safeParse(request.body);
+    if (!parseResult.success) {
+      return reply.code(400).send({
+        error: "Invalid request body",
+        details: parseResult.error.issues,
       });
+    }
 
-      if (!updated) {
-        return reply.code(404).send({ error: "Submission not found" });
-      }
+    const updated = await skillService.reviewSubmission({
+      id,
+      reviewedBy: request.authUser!.userId,
+      ...parseResult.data,
+    });
 
-      logAdminAction(app.db, {
-        orgId,
-        userId: request.authUser!.userId,
-        action: `skill_${parseResult.data.status.replace("-", "_")}`,
-        resourceType: "skill_submission",
-        resourceId: id,
-        details: { skillName: updated.skillName, reviewNotes: parseResult.data.reviewNotes },
-      }).catch(() => {});
+    if (!updated) {
+      return reply.code(404).send({ error: "Submission not found" });
+    }
 
-      return reply.send(updated);
-    },
-  );
+    logAdminAction(app.db, {
+      orgId,
+      userId: request.authUser!.userId,
+      action: `skill_${parseResult.data.status.replace("-", "_")}`,
+      resourceType: "skill_submission",
+      resourceId: id,
+      details: { skillName: updated.skillName, reviewNotes: parseResult.data.reviewNotes },
+    }).catch(() => {});
+
+    return reply.send(updated);
+  });
 
   /**
    * POST /api/v1/skills/:orgId/review/:id/resubmit
@@ -160,35 +151,29 @@ export async function skillRoutes(app: FastifyInstance): Promise<void> {
    * Full approval history including revoked (admin or viewer).
    * NOTE: This must be registered BEFORE the /approved catch-all route.
    */
-  app.get<{ Params: { orgId: string } }>(
-    "/api/v1/skills/:orgId/approved/history",
-    async (request, reply) => {
-      requireAdminOrViewer(request, reply);
-      if (reply.sent) return;
-      const { orgId } = request.params;
-      requireOrg(request, reply, orgId);
-      if (reply.sent) return;
+  app.get<{ Params: { orgId: string } }>("/api/v1/skills/:orgId/approved/history", async (request, reply) => {
+    requireAdminOrViewer(request, reply);
+    if (reply.sent) return;
+    const { orgId } = request.params;
+    requireOrg(request, reply, orgId);
+    if (reply.sent) return;
 
-      const skills = await skillService.listAllApproved(orgId);
-      return reply.send({ skills });
-    },
-  );
+    const skills = await skillService.listAllApproved(orgId);
+    return reply.send({ skills });
+  });
 
   /**
    * GET /api/v1/skills/:orgId/approved
    * List approved skills for the org.
    */
-  app.get<{ Params: { orgId: string } }>(
-    "/api/v1/skills/:orgId/approved",
-    async (request, reply) => {
-      const { orgId } = request.params;
-      requireOrg(request, reply, orgId);
-      if (reply.sent) return;
+  app.get<{ Params: { orgId: string } }>("/api/v1/skills/:orgId/approved", async (request, reply) => {
+    const { orgId } = request.params;
+    requireOrg(request, reply, orgId);
+    if (reply.sent) return;
 
-      const approved = await skillService.listApproved(orgId);
-      return reply.send({ skills: approved });
-    },
-  );
+    const approved = await skillService.listApproved(orgId);
+    return reply.send({ skills: approved });
+  });
 
   /**
    * DELETE /api/v1/skills/:orgId/approved/:skillId

@@ -5,11 +5,20 @@
 <h1 align="center">ClawForge</h1>
 
 <p align="center">
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" />
+  </a>
   <a href="https://github.com/ClawForgeAI/clawforge/actions/workflows/ci.yml?query=branch%3Amain">
     <img src="https://github.com/ClawForgeAI/clawforge/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI Status" />
   </a>
   <a href="https://github.com/ClawForgeAI/clawforge/actions/workflows/github-code-scanning/codeql?query=branch%3Amain">
     <img src="https://github.com/ClawForgeAI/clawforge/actions/workflows/github-code-scanning/codeql/badge.svg?branch=main" alt="CodeQL Status" />
+  </a>
+  <a href="https://github.com/ClawForgeAI/clawforge/releases">
+    <img src="https://img.shields.io/github/v/release/ClawForgeAI/clawforge" alt="Release" />
+  </a>
+  <a href="https://github.com/ClawForgeAI/clawforge/pkgs/container/clawforge">
+    <img src="https://img.shields.io/badge/docker-ghcr.io-blue" alt="Docker" />
   </a>
 </p>
 
@@ -47,6 +56,7 @@
 ```bash
 git clone https://github.com/ClawForgeAI/clawforge.git
 cd clawforge
+cp .env.example .env
 docker compose up --build
 ```
 
@@ -55,19 +65,20 @@ Once running:
 - **Admin Console** — [localhost:4200](http://localhost:4200)
 - **API** — [localhost:4100](http://localhost:4100)
 - **Login** — `admin@clawforge.local` / `clawforge`
+- **One-off seed** — `docker compose run --rm seed`
 
 > For manual setup, SSO configuration, and connecting an OpenClaw gateway, see the [Setup Guide](docs/setup.md).
 
 ## Documentation
 
-| Guide | Description |
-| --- | --- |
-| [Setup Guide](docs/setup.md) | Docker, manual setup, SSO, connecting OpenClaw |
+| Guide                                               | Description                                                   |
+| --------------------------------------------------- | ------------------------------------------------------------- |
+| [Setup Guide](docs/setup.md)                        | Docker, manual setup, SSO, connecting OpenClaw                |
 | [Architecture & How It Works](docs/architecture.md) | Package structure, core concepts, data flows, database schema |
-| [API Reference](docs/api-reference.md) | Every endpoint with request/response examples |
-| [E2E Onboarding Guide](docs/e2e-guide.md) | Full walkthrough from zero to managed fleet |
-| [Configuration](docs/configuration.md) | Plugin config, server env vars, admin console env vars |
-| [Roadmap](docs/roadmap.md) | What's next for ClawForge |
+| [API Reference](docs/api-reference.md)              | Every endpoint with request/response examples                 |
+| [E2E Onboarding Guide](docs/e2e-guide.md)           | Full walkthrough from zero to managed fleet                   |
+| [Configuration](docs/configuration.md)              | Plugin config, server env vars, admin console env vars        |
+| [Roadmap](docs/roadmap.md)                          | What's next for ClawForge                                     |
 
 ## Contributing
 

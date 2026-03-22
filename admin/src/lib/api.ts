@@ -3,13 +3,22 @@
  */
 
 import { clearAuth } from "@/lib/auth";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4100";
+import { getApiBase } from "@/lib/runtime-config";
 
 type FetchOptions = {
   method?: string;
   body?: unknown;
   token?: string;
+};
+
+export type AuditQueryFilters = {
+  userId?: string;
+  eventType?: string;
+  toolName?: string;
+  outcome?: string;
+  from?: string;
+  to?: string;
+  limit?: string;
 };
 
 async function apiFetch<T>(path: string, opts: FetchOptions = {}): Promise<T> {
@@ -21,7 +30,7 @@ async function apiFetch<T>(path: string, opts: FetchOptions = {}): Promise<T> {
     headers.Authorization = `Bearer ${opts.token}`;
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(`${getApiBase()}${path}`, {
     method: opts.method ?? "GET",
     headers,
     body: opts.body ? JSON.stringify(opts.body) : undefined,
@@ -108,6 +117,66 @@ export function setKillSwitch(orgId: string, token: string, active: boolean, mes
   });
 }
 
+// --- Multiple Policies (#23) ---
+
+export type PolicySummary = {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  version: number;
+  auditLevel: string;
+  killSwitch: boolean;
+  updatedAt: string;
+};
+
+export type PolicyAssignment = {
+  id: string;
+  policyId: string;
+  userId?: string;
+  role?: string;
+  priority: number;
+  createdAt: string;
+};
+
+export function listPolicies(orgId: string, token: string) {
+  return apiFetch<{ policies: PolicySummary[] }>(`/api/v1/policies/${orgId}/list`, { token });
+}
+
+export function createPolicy(
+  orgId: string,
+  token: string,
+  body: { name: string; isDefault?: boolean; toolsConfig?: unknown; skillsConfig?: unknown; auditLevel?: string },
+) {
+  return apiFetch<PolicySummary>(`/api/v1/policies/${orgId}`, { method: "POST", token, body });
+}
+
+export function clonePolicy(orgId: string, policyId: string, token: string, name: string) {
+  return apiFetch<PolicySummary>(`/api/v1/policies/${orgId}/${policyId}/clone`, {
+    method: "POST",
+    token,
+    body: { name },
+  });
+}
+
+export function assignPolicy(orgId: string, policyId: string, token: string, body: { userId?: string; role?: string }) {
+  return apiFetch<PolicyAssignment>(`/api/v1/policies/${orgId}/${policyId}/assign`, {
+    method: "POST",
+    token,
+    body,
+  });
+}
+
+export function getPolicyAssignments(orgId: string, policyId: string, token: string) {
+  return apiFetch<{ assignments: PolicyAssignment[] }>(`/api/v1/policies/${orgId}/${policyId}/assignments`, { token });
+}
+
+export function removePolicyAssignment(orgId: string, assignmentId: string, token: string) {
+  return apiFetch<{ success: boolean }>(`/api/v1/policies/${orgId}/assignments/${assignmentId}`, {
+    method: "DELETE",
+    token,
+  });
+}
+
 // --- Skills ---
 
 export type SkillSubmission = {
@@ -150,18 +219,10 @@ export function getPendingSkills(orgId: string, token: string) {
 }
 
 export function getApprovedSkills(orgId: string, token: string) {
-  return apiFetch<{ skills: ApprovedSkill[] }>(
-    `/api/v1/skills/${orgId}/approved`,
-    { token },
-  );
+  return apiFetch<{ skills: ApprovedSkill[] }>(`/api/v1/skills/${orgId}/approved`, { token });
 }
 
-export function reviewSkill(
-  orgId: string,
-  id: string,
-  token: string,
-  body: { status: string; reviewNotes?: string },
-) {
+export function reviewSkill(orgId: string, id: string, token: string, body: { status: string; reviewNotes?: string }) {
   return apiFetch(`/api/v1/skills/${orgId}/review/${id}`, {
     method: "PUT",
     token,
@@ -201,9 +262,41 @@ export type AuditEvent = {
   timestamp: string;
 };
 
-export function queryAudit(orgId: string, token: string, params?: Record<string, string>) {
+export function queryAudit(orgId: string, token: string, params?: AuditQueryFilters) {
   const qs = params ? "?" + new URLSearchParams(params).toString() : "";
-  return apiFetch<{ events: AuditEvent[]; total: number; nextCursor?: string }>(`/api/v1/audit/${orgId}/query${qs}`, { token });
+  return apiFetch<{ events: AuditEvent[]; total: number; nextCursor?: string }>(`/api/v1/audit/${orgId}/query${qs}`, {
+    token,
+  });
+}
+
+export async function exportAudit(orgId: string, token: string, format: "csv" | "json", params?: AuditQueryFilters) {
+  const searchParams = new URLSearchParams({ ...(params ?? {}), format });
+  const response = await fetch(`${API_BASE}/api/v1/audit/${orgId}/export?${searchParams.toString()}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (response.status === 401) {
+    clearAuth();
+    if (typeof window !== "undefined") {
+      window.location.replace("/login?expired=1");
+    }
+    throw new Error("Session expired");
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || "Export failed");
+  }
+
+  return {
+    blob: await response.blob(),
+    filename:
+      response.headers.get("content-disposition")?.match(/filename="?([^";]+)"?/)?.[1] ??
+      `audit-export.${format === "csv" ? "csv" : "ndjson"}`,
+  };
 }
 
 export function getAuditEvent(orgId: string, eventId: string, token: string) {
@@ -283,12 +376,7 @@ export function createUser(
   });
 }
 
-export function updateUser(
-  orgId: string,
-  userId: string,
-  token: string,
-  body: { name?: string; role?: string },
-) {
+export function updateUser(orgId: string, userId: string, token: string, body: { name?: string; role?: string }) {
   return apiFetch<{ user: OrgUser }>(`/api/v1/users/${orgId}/${userId}`, {
     method: "PUT",
     token,
@@ -435,8 +523,30 @@ export type ClientsSummary = {
 };
 
 export function getConnectedClients(orgId: string, token: string) {
-  return apiFetch<{ clients: ConnectedClient[]; summary: ClientsSummary }>(
-    `/api/v1/heartbeat/${orgId}`,
-    { token },
-  );
+  return apiFetch<{ clients: ConnectedClient[]; summary: ClientsSummary }>(`/api/v1/heartbeat/${orgId}`, { token });
+}
+
+// --- Roles (#61) ---
+
+export type Permission = {
+  name: string;
+  resource: string;
+  action: string;
+  description: string;
+};
+
+export type Role = {
+  id: string;
+  name: string;
+  description?: string;
+  isBuiltIn: boolean;
+  permissions: string[];
+};
+
+export function getRoles(orgId: string, token: string) {
+  return apiFetch<{ roles: Role[] }>(`/api/v1/roles/${orgId}`, { token });
+}
+
+export function getPermissions(orgId: string, token: string) {
+  return apiFetch<{ permissions: Permission[] }>(`/api/v1/roles/${orgId}/permissions`, { token });
 }

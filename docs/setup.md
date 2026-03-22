@@ -46,11 +46,11 @@ pnpm db:seed  # Creates default org + admin user
 
 The seed creates a superadmin you can log in with immediately. Customize with env vars:
 
-| Variable | Default | Description |
-|---|---|---|
-| `SUPERADMIN_EMAIL` | `admin@clawforge.local` | Admin email |
-| `SUPERADMIN_PASSWORD` | `clawforge` | Admin password |
-| `SUPERADMIN_ORG_NAME` | `Default` | Organization name |
+| Variable              | Default                 | Description       |
+| --------------------- | ----------------------- | ----------------- |
+| `SUPERADMIN_EMAIL`    | `admin@clawforge.local` | Admin email       |
+| `SUPERADMIN_PASSWORD` | `clawforge`             | Admin password    |
+| `SUPERADMIN_ORG_NAME` | `Default`               | Organization name |
 
 ### 2. Start the Control Plane
 

@@ -2,17 +2,7 @@
  * Drizzle ORM schema for ClawForge control plane.
  */
 
-import {
-  pgTable,
-  uuid,
-  text,
-  timestamp,
-  integer,
-  jsonb,
-  boolean,
-  index,
-  uniqueIndex,
-} from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, integer, jsonb, boolean, index, uniqueIndex } from "drizzle-orm/pg-core";
 
 // ---------------------------------------------------------------------------
 // Organizations
@@ -57,9 +47,7 @@ export const users = pgTable(
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    uniqueIndex("users_org_email_idx").on(table.orgId, table.email),
-  ],
+  (table) => [uniqueIndex("users_org_email_idx").on(table.orgId, table.email)],
 );
 
 // ---------------------------------------------------------------------------
@@ -73,6 +61,8 @@ export const policies = pgTable(
     orgId: uuid("org_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull().default("Default Policy"),
+    isDefault: boolean("is_default").notNull().default(false),
     version: integer("version").notNull().default(1),
     toolsConfig: jsonb("tools_config").$type<{
       allow?: string[];
@@ -90,8 +80,31 @@ export const policies = pgTable(
       .default("metadata"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
+  (table) => [index("policies_org_id_idx").on(table.orgId)],
+);
+
+// ---------------------------------------------------------------------------
+// Policy Assignments (#23)
+// ---------------------------------------------------------------------------
+
+export const policyAssignments = pgTable(
+  "policy_assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    policyId: uuid("policy_id")
+      .notNull()
+      .references(() => policies.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+    role: text("role"),
+    priority: integer("priority").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
   (table) => [
-    uniqueIndex("policies_org_id_idx").on(table.orgId),
+    index("policy_assignments_org_idx").on(table.orgId),
+    index("policy_assignments_user_idx").on(table.userId),
   ],
 );
 
@@ -137,9 +150,7 @@ export const skillSubmissions = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index("skill_submissions_org_status_idx").on(table.orgId, table.status),
-  ],
+  (table) => [index("skill_submissions_org_status_idx").on(table.orgId, table.status)],
 );
 
 // ---------------------------------------------------------------------------
@@ -164,9 +175,7 @@ export const approvedSkills = pgTable(
     revokedBy: uuid("revoked_by").references(() => users.id),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index("approved_skills_org_idx").on(table.orgId),
-  ],
+  (table) => [index("approved_skills_org_idx").on(table.orgId)],
 );
 
 // ---------------------------------------------------------------------------
@@ -212,9 +221,7 @@ export const clientHeartbeats = pgTable(
     lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true }).notNull().defaultNow(),
     clientVersion: text("client_version"),
   },
-  (table) => [
-    uniqueIndex("client_heartbeats_org_user_idx").on(table.orgId, table.userId),
-  ],
+  (table) => [uniqueIndex("client_heartbeats_org_user_idx").on(table.orgId, table.userId)],
 );
 
 // ---------------------------------------------------------------------------
@@ -271,10 +278,56 @@ export const apiKeys = pgTable(
       .references(() => users.id),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index("api_keys_org_idx").on(table.orgId),
-    uniqueIndex("api_keys_prefix_idx").on(table.keyPrefix),
-  ],
+  (table) => [index("api_keys_org_idx").on(table.orgId), uniqueIndex("api_keys_prefix_idx").on(table.keyPrefix)],
+);
+
+// ---------------------------------------------------------------------------
+// Permissions (#61)
+// ---------------------------------------------------------------------------
+
+export const permissions = pgTable(
+  "permissions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    description: text("description"),
+    resource: text("resource").notNull(),
+    action: text("action").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("permissions_name_idx").on(table.name)],
+);
+
+// ---------------------------------------------------------------------------
+// Roles (#61)
+// ---------------------------------------------------------------------------
+
+export const roles = pgTable(
+  "roles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id").references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    isBuiltIn: boolean("is_built_in").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("roles_org_name_idx").on(table.orgId, table.name)],
+);
+
+export const rolePermissions = pgTable(
+  "role_permissions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    roleId: uuid("role_id")
+      .notNull()
+      .references(() => roles.id, { onDelete: "cascade" }),
+    permissionId: uuid("permission_id")
+      .notNull()
+      .references(() => permissions.id, { onDelete: "cascade" }),
+  },
+  (table) => [uniqueIndex("role_permissions_role_perm_idx").on(table.roleId, table.permissionId)],
 );
 
 // ---------------------------------------------------------------------------

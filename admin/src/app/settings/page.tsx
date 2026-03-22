@@ -153,11 +153,7 @@ export default function SettingsPage() {
             <h2 className="text-2xl font-bold">Organization Settings</h2>
             <p className="text-sm text-base-content/50 mt-1">Manage your organization profile and security</p>
           </div>
-          <button
-            onClick={handleSave}
-            disabled={saving || !orgName}
-            className="btn btn-primary btn-sm"
-          >
+          <button onClick={handleSave} disabled={saving || !orgName} className="btn btn-primary btn-sm">
             {saving && <span className="loading loading-spinner loading-xs" />}
             {saving ? "Saving..." : "Save Settings"}
           </button>
@@ -176,7 +172,9 @@ export default function SettingsPage() {
                 <CardTitle>General</CardTitle>
                 <div className="space-y-4">
                   <div className="form-control">
-                    <label className="label"><span className="label-text text-xs font-medium">Organization Name</span></label>
+                    <label className="label">
+                      <span className="label-text text-xs font-medium">Organization Name</span>
+                    </label>
                     <input
                       value={orgName}
                       onChange={(e) => setOrgName(e.target.value)}
@@ -224,7 +222,9 @@ export default function SettingsPage() {
                       className="grid grid-cols-1 md:grid-cols-2 gap-4"
                     >
                       <div className="form-control">
-                        <label className="label"><span className="label-text text-xs font-medium">Issuer URL *</span></label>
+                        <label className="label">
+                          <span className="label-text text-xs font-medium">Issuer URL *</span>
+                        </label>
                         <input
                           value={issuerUrl}
                           onChange={(e) => setIssuerUrl(e.target.value)}
@@ -233,7 +233,9 @@ export default function SettingsPage() {
                         />
                       </div>
                       <div className="form-control">
-                        <label className="label"><span className="label-text text-xs font-medium">Client ID *</span></label>
+                        <label className="label">
+                          <span className="label-text text-xs font-medium">Client ID *</span>
+                        </label>
                         <input
                           value={clientId}
                           onChange={(e) => setClientId(e.target.value)}
@@ -242,7 +244,9 @@ export default function SettingsPage() {
                         />
                       </div>
                       <div className="form-control md:col-span-2">
-                        <label className="label"><span className="label-text text-xs font-medium">Audience (optional)</span></label>
+                        <label className="label">
+                          <span className="label-text text-xs font-medium">Audience (optional)</span>
+                        </label>
                         <input
                           value={audience}
                           onChange={(e) => setAudience(e.target.value)}
@@ -349,7 +353,9 @@ export default function SettingsPage() {
                 <CardTitle>Change Password</CardTitle>
                 <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">
                   <div className="form-control">
-                    <label className="label"><span className="label-text text-xs font-medium">Current Password</span></label>
+                    <label className="label">
+                      <span className="label-text text-xs font-medium">Current Password</span>
+                    </label>
                     <input
                       type="password"
                       value={currentPassword}
@@ -361,7 +367,9 @@ export default function SettingsPage() {
                   </div>
 
                   <div className="form-control">
-                    <label className="label"><span className="label-text text-xs font-medium">New Password</span></label>
+                    <label className="label">
+                      <span className="label-text text-xs font-medium">New Password</span>
+                    </label>
                     <input
                       type="password"
                       value={newPassword}
@@ -374,7 +382,9 @@ export default function SettingsPage() {
                   </div>
 
                   <div className="form-control">
-                    <label className="label"><span className="label-text text-xs font-medium">Confirm New Password</span></label>
+                    <label className="label">
+                      <span className="label-text text-xs font-medium">Confirm New Password</span>
+                    </label>
                     <input
                       type="password"
                       value={confirmPassword}

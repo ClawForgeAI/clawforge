@@ -131,11 +131,16 @@ export default function SkillsPage() {
             {scan.findings.map((f, i) => (
               <div key={i} className="text-xs rounded-lg border border-base-300/50 p-3 bg-base-200/50">
                 <div className="flex items-center gap-2 mb-1">
-                  <Badge variant={f.severity === "critical" ? "danger" : f.severity === "warn" ? "warning" : "info"} size="xs">
+                  <Badge
+                    variant={f.severity === "critical" ? "danger" : f.severity === "warn" ? "warning" : "info"}
+                    size="xs"
+                  >
                     {f.severity}
                   </Badge>
                   <span className="font-medium">{f.ruleId}</span>
-                  <span className="text-base-content/40">{f.file}:{f.line}</span>
+                  <span className="text-base-content/40">
+                    {f.file}:{f.line}
+                  </span>
                 </div>
                 <p>{f.message}</p>
                 <pre className="mt-1 text-base-content/40 overflow-x-auto font-mono">{f.evidence}</pre>
@@ -184,7 +189,13 @@ export default function SkillsPage() {
         ) : tab === "pending" ? (
           pending.length === 0 ? (
             <div className="text-center py-16 text-base-content/40">
-              <svg className="w-12 h-12 mx-auto mb-3 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <svg
+                className="w-12 h-12 mx-auto mb-3 opacity-30"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              >
                 <path d="M9 12l2 2 4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
               </svg>
               <p className="text-sm">No pending skill submissions</p>
@@ -300,12 +311,12 @@ export default function SkillsPage() {
                         <td className="font-medium">{skill.skillName}</td>
                         <td className="font-mono text-xs text-base-content/50">{skill.skillKey}</td>
                         <td>
-                          <Badge variant={skill.scope === "org" ? "success" : "info"}>
-                            {skill.scope}
-                          </Badge>
+                          <Badge variant={skill.scope === "org" ? "success" : "info"}>{skill.scope}</Badge>
                         </td>
                         <td className="text-base-content/50">v{skill.version}</td>
-                        <td><Badge variant="success">Active</Badge></td>
+                        <td>
+                          <Badge variant="success">Active</Badge>
+                        </td>
                         <td>
                           <button
                             onClick={() => handleRevoke(skill.id)}
@@ -323,58 +334,52 @@ export default function SkillsPage() {
               </div>
             </Card>
           )
+        ) : /* History tab */
+        history.length === 0 ? (
+          <div className="text-center py-16 text-base-content/40">
+            <p className="text-sm">No skill approval history</p>
+          </div>
         ) : (
-          /* History tab */
-          history.length === 0 ? (
-            <div className="text-center py-16 text-base-content/40">
-              <p className="text-sm">No skill approval history</p>
-            </div>
-          ) : (
-            <Card>
-              <div className="overflow-x-auto -mx-5">
-                <table className="table table-sm">
-                  <thead>
-                    <tr className="text-base-content/40 text-xs uppercase">
-                      <th>Skill Name</th>
-                      <th>Key</th>
-                      <th>Scope</th>
-                      <th>Version</th>
-                      <th>Status</th>
-                      <th>Approved</th>
-                      <th>Revoked</th>
+          <Card>
+            <div className="overflow-x-auto -mx-5">
+              <table className="table table-sm">
+                <thead>
+                  <tr className="text-base-content/40 text-xs uppercase">
+                    <th>Skill Name</th>
+                    <th>Key</th>
+                    <th>Scope</th>
+                    <th>Version</th>
+                    <th>Status</th>
+                    <th>Approved</th>
+                    <th>Revoked</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.map((skill) => (
+                    <tr key={skill.id} className="table-row-hover">
+                      <td className="font-medium">{skill.skillName}</td>
+                      <td className="font-mono text-xs text-base-content/50">{skill.skillKey}</td>
+                      <td>
+                        <Badge variant={skill.scope === "org" ? "success" : "info"}>{skill.scope}</Badge>
+                      </td>
+                      <td className="text-base-content/50">v{skill.version}</td>
+                      <td>
+                        {skill.revokedAt ? (
+                          <Badge variant="danger">Revoked</Badge>
+                        ) : (
+                          <Badge variant="success">Active</Badge>
+                        )}
+                      </td>
+                      <td className="text-xs text-base-content/50">{new Date(skill.createdAt).toLocaleDateString()}</td>
+                      <td className="text-xs text-base-content/50">
+                        {skill.revokedAt ? new Date(skill.revokedAt).toLocaleDateString() : "\u2014"}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {history.map((skill) => (
-                      <tr key={skill.id} className="table-row-hover">
-                        <td className="font-medium">{skill.skillName}</td>
-                        <td className="font-mono text-xs text-base-content/50">{skill.skillKey}</td>
-                        <td>
-                          <Badge variant={skill.scope === "org" ? "success" : "info"}>
-                            {skill.scope}
-                          </Badge>
-                        </td>
-                        <td className="text-base-content/50">v{skill.version}</td>
-                        <td>
-                          {skill.revokedAt ? (
-                            <Badge variant="danger">Revoked</Badge>
-                          ) : (
-                            <Badge variant="success">Active</Badge>
-                          )}
-                        </td>
-                        <td className="text-xs text-base-content/50">
-                          {new Date(skill.createdAt).toLocaleDateString()}
-                        </td>
-                        <td className="text-xs text-base-content/50">
-                          {skill.revokedAt ? new Date(skill.revokedAt).toLocaleDateString() : "\u2014"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          )
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
         )}
       </main>
     </div>

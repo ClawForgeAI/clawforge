@@ -86,9 +86,7 @@ export async function performSsoLogin(config: ClawForgePluginConfig): Promise<Se
   const controlPlaneUrl = config.controlPlaneUrl;
 
   if (!issuerUrl || !clientId || !controlPlaneUrl) {
-    throw new Error(
-      "ClawForge SSO requires controlPlaneUrl, sso.issuerUrl, and sso.clientId in plugin config",
-    );
+    throw new Error("ClawForge SSO requires controlPlaneUrl, sso.issuerUrl, and sso.clientId in plugin config");
   }
 
   const codeVerifier = generateCodeVerifier();
@@ -164,9 +162,12 @@ export async function performSsoLogin(config: ClawForgePluginConfig): Promise<Se
     });
 
     // Timeout after 5 minutes.
-    setTimeout(() => {
-      server.close();
-      reject(new Error("SSO login timed out after 5 minutes"));
-    }, 5 * 60 * 1000);
+    setTimeout(
+      () => {
+        server.close();
+        reject(new Error("SSO login timed out after 5 minutes"));
+      },
+      5 * 60 * 1000,
+    );
   });
 }
