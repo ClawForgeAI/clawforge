@@ -27,6 +27,7 @@ const NAV_SECTIONS = [
       { href: "/users", label: "Users", icon: UsersIcon },
       { href: "/enrollment", label: "Enrollment", icon: KeyIcon },
       { href: "/audit", label: "Audit Logs", icon: AuditIcon },
+      { href: "/alerts", label: "Alerts", icon: AlertIcon },
     ],
   },
   {
