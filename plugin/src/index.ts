@@ -436,9 +436,25 @@ export function register(api: OpenClawPluginApi): void {
         const { bundleSkillForSubmission, submitSkillToControlPlane, formatScanSummary } =
           await import("./skills/submit-command.js");
 
+        logger.info(`Scanning skill "${skillNameOrPath}" before submission...`);
+
         const bundle = await bundleSkillForSubmission(skillNameOrPath, api.config.skills?.load?.extraDirs?.[0]);
 
         const scanSummary = formatScanSummary(bundle.scanResults);
+
+        // Block upload if critical security findings are detected (#19)
+        if (bundle.scanResults.critical > 0) {
+          const lines = [
+            `Skill "${bundle.skillName}" submission BLOCKED — critical security issues found.`,
+            ``,
+            `Security scan:`,
+            scanSummary,
+            ``,
+            `Fix the ${bundle.scanResults.critical} critical issue(s) before submitting.`,
+            `The skill was NOT uploaded to the control plane.`,
+          ];
+          return { text: lines.join("\n") };
+        }
 
         const result = await submitSkillToControlPlane({
           controlPlaneUrl: pluginConfig.controlPlaneUrl,
@@ -456,8 +472,8 @@ export function register(api: OpenClawPluginApi): void {
           scanSummary,
         ];
 
-        if (bundle.scanResults.critical > 0) {
-          lines.push("", "Note: Critical security issues were found. The admin will see these during review.");
+        if (bundle.scanResults.warn > 0) {
+          lines.push("", `Note: ${bundle.scanResults.warn} warning(s) found. The admin will see these during review.`);
         }
 
         return { text: lines.join("\n") };
