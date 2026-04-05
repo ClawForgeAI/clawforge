@@ -333,14 +333,15 @@ function formatDuration(ms: number): string {
 export function register(api: OpenClawPluginApi): void {
   const pluginConfig = (api.pluginConfig ?? {}) as ClawForgePluginConfig;
 
-  // Register the /clawforge-login command for manual SSO login.
+  // Register the /clawforge-login command for browser-open SSO login.
   api.registerCommand({
     name: "clawforge-login",
-    description: "Authenticate with your organization's SSO via ClawForge",
+    description: "Authenticate with your organization's SSO via ClawForge (opens browser)",
     acceptsArgs: false,
     handler: async () => {
       try {
         const { performSsoLogin } = await import("./auth/sso.js");
+        logger.info("Opening browser for SSO authentication...");
         const session = await performSsoLogin(pluginConfig);
         return { text: `Logged in as ${session.email ?? session.userId} (org: ${session.orgId})` };
       } catch (err) {
