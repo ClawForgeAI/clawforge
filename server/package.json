@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:generate": "tsx --env-file=.env ./node_modules/drizzle-kit/bin.cjs generate",
-    "db:migrate": "tsx --env-file=.env ./node_modules/drizzle-kit/bin.cjs migrate",
+    "db:migrate": "tsx --env-file=.env src/db/migrate.ts",
+    "db:migrate:drizzle": "tsx --env-file=.env ./node_modules/drizzle-kit/bin.cjs migrate",
     "db:seed": "tsx --env-file=.env src/db/seed.ts",
     "db:studio": "tsx --env-file=.env ./node_modules/drizzle-kit/bin.cjs studio"
   },
