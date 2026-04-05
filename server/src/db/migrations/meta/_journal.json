@@ -43,6 +43,20 @@
       "when": 1771797865352,
       "tag": "0004_v1_features",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1775405449000,
+      "tag": "0005_alert_and_rbac_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1775405450008,
+      "tag": "0006_flashy_wendell_rand",
+      "breakpoints": true
     }
   ]
 }

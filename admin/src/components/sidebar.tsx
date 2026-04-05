@@ -90,7 +90,8 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
             <ul className="menu menu-sm p-0 gap-0.5">
               {section.items.map((item) => {
                 const isActive =
-                  pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                  pathname === item.href ||
+                  (item.href !== "/dashboard" && item.href !== "/settings" && pathname.startsWith(item.href));
                 return (
                   <li key={item.href}>
                     <Link

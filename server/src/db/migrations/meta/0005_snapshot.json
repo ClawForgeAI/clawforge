@@ -1,6 +1,6 @@
 {
-  "id": "40de4e58-d672-463c-ba1e-1168513fc554",
-  "prevId": "0005_alert_and_rbac_tables",
+  "id": "0005_alert_and_rbac_tables",
+  "prevId": "d834ecae-0781-4594-941e-b6cf4c842a3a",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -981,12 +981,6 @@
         },
         "sso_config": {
           "name": "sso_config",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "settings": {
-          "name": "settings",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false
