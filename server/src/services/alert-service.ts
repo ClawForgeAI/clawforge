@@ -9,6 +9,7 @@ import { eq, and, desc, gte, sql } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { alertRules, alerts, auditEvents } from "../db/schema.js";
 import type * as schema from "../db/schema.js";
+import { WebhookService } from "./webhook.js";
 
 export type AlertRuleType =
   | "denied_tool_burst"
@@ -21,7 +22,11 @@ export type AlertRuleType =
 export type AlertStatus = "open" | "acknowledged" | "resolved";
 
 export class AlertService {
-  constructor(private db: PostgresJsDatabase<typeof schema>) {}
+  private webhookService: WebhookService;
+
+  constructor(private db: PostgresJsDatabase<typeof schema>) {
+    this.webhookService = new WebhookService(db);
+  }
 
   // ---------------------------------------------------------------------------
   // Alert Rules CRUD
@@ -244,14 +249,26 @@ export class AlertService {
           .limit(1);
 
         if (!existing) {
+          const title = `Denied tool burst: ${row.count} blocked calls in ${windowMinutes} minutes`;
           await this.db.insert(alerts).values({
             orgId,
             ruleId,
             userId: row.userId,
             severity: severity as "critical" | "high" | "medium" | "low",
-            title: `Denied tool burst: ${row.count} blocked calls in ${windowMinutes} minutes`,
+            title,
             details: { count: row.count, windowMinutes, threshold },
           });
+          this.webhookService
+            .deliverEvent(orgId, "anomaly.detected", {
+              orgId,
+              ruleType: "denied_tool_burst",
+              severity,
+              title,
+              userId: row.userId,
+              details: { count: row.count, windowMinutes, threshold },
+              timestamp: new Date().toISOString(),
+            })
+            .catch(() => {});
           created++;
         }
       }
@@ -304,14 +321,26 @@ export class AlertService {
           .limit(1);
 
         if (!existing) {
+          const title = `DLP violation burst: ${row.count} violations in ${windowMinutes} minutes`;
           await this.db.insert(alerts).values({
             orgId,
             ruleId,
             userId: row.userId,
             severity: severity as "critical" | "high" | "medium" | "low",
-            title: `DLP violation burst: ${row.count} violations in ${windowMinutes} minutes`,
+            title,
             details: { count: row.count, windowMinutes, threshold },
           });
+          this.webhookService
+            .deliverEvent(orgId, "anomaly.detected", {
+              orgId,
+              ruleType: "dlp_violation_burst",
+              severity,
+              title,
+              userId: row.userId,
+              details: { count: row.count, windowMinutes, threshold },
+              timestamp: new Date().toISOString(),
+            })
+            .catch(() => {});
           created++;
         }
       }
@@ -368,14 +397,26 @@ export class AlertService {
           .limit(1);
 
         if (!existing) {
+          const title = `Off-hours activity: ${row.count} tool calls outside business hours (${startHour}:00-${endHour}:00 ${timezone})`;
           await this.db.insert(alerts).values({
             orgId,
             ruleId,
             userId: row.userId,
             severity: severity as "critical" | "high" | "medium" | "low",
-            title: `Off-hours activity: ${row.count} tool calls outside business hours (${startHour}:00-${endHour}:00 ${timezone})`,
+            title,
             details: { count: row.count, startHour, endHour, timezone },
           });
+          this.webhookService
+            .deliverEvent(orgId, "anomaly.detected", {
+              orgId,
+              ruleType: "off_hours_activity",
+              severity,
+              title,
+              userId: row.userId,
+              details: { count: row.count, startHour, endHour, timezone },
+              timestamp: new Date().toISOString(),
+            })
+            .catch(() => {});
           created++;
         }
       }

@@ -8,6 +8,7 @@ import { z } from "zod";
 import { requireAdmin, requireAdminOrViewer, requireOrg } from "../middleware/auth.js";
 import { AuditService } from "../services/audit-service.js";
 import { getAuditStats } from "../services/audit-retention.js";
+import { WebhookService, type WebhookEventType } from "../services/webhook.js";
 
 const MAX_BATCH_SIZE = 500;
 
@@ -55,8 +56,15 @@ function escapeCsvValue(value: unknown): string {
   return stringValue;
 }
 
+/** Map audit event types to webhook event types. */
+const AUDIT_TO_WEBHOOK: Record<string, WebhookEventType> = {
+  tool_call_attempt: "policy.violation",
+  dlp_violation: "dlp.alert",
+};
+
 export async function auditRoutes(app: FastifyInstance): Promise<void> {
   const auditService = new AuditService(app.db);
+  const webhookService = new WebhookService(app.db);
 
   // POST /api/v1/audit/:orgId/events - Ingest (keep existing)
   app.post<{ Params: { orgId: string } }>(
@@ -98,6 +106,24 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
 
     // Track audit ingestion metric (#76)
     app.metrics.auditEventsCounter.inc(events.length);
+
+    // Deliver webhook events for policy violations and DLP alerts (#43)
+    for (const event of events) {
+      const webhookEvent = AUDIT_TO_WEBHOOK[event.eventType];
+      if (webhookEvent && (event.outcome === "blocked" || event.eventType === "dlp_violation")) {
+        webhookService
+          .deliverEvent(orgId, webhookEvent, {
+            orgId,
+            userId: event.userId,
+            eventType: event.eventType,
+            toolName: event.toolName,
+            outcome: event.outcome,
+            metadata: event.metadata,
+            timestamp: new Date(event.timestamp).toISOString(),
+          })
+          .catch(() => {});
+      }
+    }
 
     return reply.code(201).send({ ingested: events.length });
   });

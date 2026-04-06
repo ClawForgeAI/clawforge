@@ -655,3 +655,66 @@ export function resolveAlert(orgId: string, alertId: string, token: string) {
 export function evaluateAlertRules(orgId: string, token: string) {
   return apiFetch<{ alertsCreated: number }>(`/api/v1/alerts/${orgId}/evaluate`, { method: "POST", token });
 }
+
+// --- Webhooks (#43) ---
+
+export type Webhook = {
+  id: string;
+  orgId: string;
+  name: string;
+  url: string;
+  secret: string;
+  events: string[];
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type WebhookDelivery = {
+  id: string;
+  webhookId: string;
+  eventType: string;
+  payload: Record<string, unknown>;
+  status: "pending" | "success" | "failed";
+  responseCode?: number;
+  responseBody?: string;
+  latencyMs?: number;
+  attempt: number;
+  createdAt: string;
+};
+
+export function getWebhooks(orgId: string, token: string) {
+  return apiFetch<{ webhooks: Webhook[]; eventTypes: string[] }>(`/api/v1/webhooks/${orgId}`, { token });
+}
+
+export function createWebhook(
+  orgId: string,
+  token: string,
+  body: { name: string; url: string; secret: string; events: string[]; enabled?: boolean },
+) {
+  return apiFetch<Webhook>(`/api/v1/webhooks/${orgId}`, { method: "POST", token, body });
+}
+
+export function updateWebhook(
+  orgId: string,
+  webhookId: string,
+  token: string,
+  body: { name?: string; url?: string; secret?: string; events?: string[]; enabled?: boolean },
+) {
+  return apiFetch<Webhook>(`/api/v1/webhooks/${orgId}/${webhookId}`, { method: "PUT", token, body });
+}
+
+export function deleteWebhook(orgId: string, webhookId: string, token: string) {
+  return apiFetch<{ success: boolean }>(`/api/v1/webhooks/${orgId}/${webhookId}`, { method: "DELETE", token });
+}
+
+export function testWebhook(orgId: string, webhookId: string, token: string) {
+  return apiFetch<{ success: boolean; statusCode?: number; latencyMs?: number }>(
+    `/api/v1/webhooks/${orgId}/${webhookId}/test`,
+    { method: "POST", token },
+  );
+}
+
+export function getWebhookDeliveries(orgId: string, webhookId: string, token: string) {
+  return apiFetch<{ deliveries: WebhookDelivery[] }>(`/api/v1/webhooks/${orgId}/${webhookId}/deliveries`, { token });
+}

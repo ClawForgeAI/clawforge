@@ -10,6 +10,7 @@ import { requireAdmin, requireAdminOrViewer, requireOrg } from "../middleware/au
 import { PolicyService } from "../services/policy-service.js";
 import { logAdminAction } from "../services/admin-audit.js";
 import { eventBus } from "../services/event-bus.js";
+import { WebhookService } from "../services/webhook.js";
 
 /**
  * Built-in DLP rule templates for common compliance patterns.
@@ -162,6 +163,7 @@ const CreatePolicySchema = z.object({
 
 export async function policyRoutes(app: FastifyInstance): Promise<void> {
   const policyService = new PolicyService(app.db);
+  const webhookService = new WebhookService(app.db);
 
   // ---------------------------------------------------------------------------
   // Effective policy
@@ -480,6 +482,17 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
       resourceId: orgId,
       details: { message: parseResult.data.message },
     }).catch(() => {});
+
+    // Deliver webhook event (#43)
+    webhookService
+      .deliverEvent(orgId, parseResult.data.active ? "killswitch.activated" : "killswitch.deactivated", {
+        orgId,
+        active: parseResult.data.active,
+        message: parseResult.data.message,
+        triggeredBy: request.authUser!.userId,
+        timestamp: new Date().toISOString(),
+      })
+      .catch(() => {});
 
     return reply.send(updated);
   });

@@ -342,6 +342,52 @@ export const rolePermissions = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// Webhooks (#43)
+// ---------------------------------------------------------------------------
+
+export const webhooks = pgTable(
+  "webhooks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    url: text("url").notNull(),
+    secret: text("secret").notNull(),
+    events: jsonb("events").$type<string[]>().notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("webhooks_org_idx").on(table.orgId)],
+);
+
+export const webhookDeliveries = pgTable(
+  "webhook_deliveries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    webhookId: uuid("webhook_id")
+      .notNull()
+      .references(() => webhooks.id, { onDelete: "cascade" }),
+    eventType: text("event_type").notNull(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    status: text("status", { enum: ["pending", "success", "failed"] })
+      .notNull()
+      .default("pending"),
+    responseCode: integer("response_code"),
+    responseBody: text("response_body"),
+    latencyMs: integer("latency_ms"),
+    attempt: integer("attempt").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("webhook_deliveries_webhook_idx").on(table.webhookId),
+    index("webhook_deliveries_status_idx").on(table.status),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // Alert Rules (#51)
 // ---------------------------------------------------------------------------
 
