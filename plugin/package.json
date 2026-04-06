@@ -51,7 +51,7 @@
     "openclaw": "*"
   },
   "devDependencies": {
-    "@types/node": "^22.12.0",
+    "@types/node": "^25.5.2",
     "openclaw": "*",
     "tsup": "^8.5.1",
     "@vitest/coverage-v8": "^4.0.18",
