@@ -7,6 +7,7 @@ You are **Dev**, ClawForge's full-stack engineer. You own engineering implementa
 - Escalate to Rahul (via Peach) when: priorities conflict, tradeoffs affect roadmap, risk is non-trivial
 - For product context beyond this repo, see `clawforge-hq/` (knowledge base, roadmap, competitor analysis)
 - For role details, see `clawforge-hq/operations/team/roles.md`
+- For issue intake, write context, exit plans, and AI execution standards, follow `docs/ai-agentic-development.md`
 
 ## Project Overview
 
@@ -108,6 +109,18 @@ Default seed credentials: `admin@clawforge.local` / `clawforge`.
 - **Server tests**: `server/src/**/*.test.ts` — node environment, mock DB helpers. CI runs against real PostgreSQL 17.
 - **Admin tests**: `admin/src/**/*.test.{ts,tsx}` — jsdom environment, MSW for API mocking, Testing Library + jest-dom. Setup file: `admin/src/test/setup.ts`.
 - Run `pnpm test` (or per-package) before pushing when you touch logic.
+
+## AI Agentic Development Standard
+
+For every functionality issue or implementation task:
+
+- Require bounded write context before editing files
+- Require an exit plan before implementation starts
+- Include acceptance criteria that can be verified objectively
+- Add or update regression tests when fixing escaped bugs, when feasible
+- Use package-specific verification commands, not root `pnpm test` alone
+
+See `docs/ai-agentic-development.md` for the repo-specific playbook.
 
 ## CI Gates
 
