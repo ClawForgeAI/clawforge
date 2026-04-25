@@ -28,6 +28,59 @@ v1.x    Orchestration     <- Cross-client memory, smart routing, marketplace, tr
 
 ---
 
+## Weekly Release Issue List (GitHub Snapshot)
+
+_Last verified against GitHub issues and milestones on **April 22, 2026**._
+
+### Week 1 Release — v0.3.0 Enterprise Governance (6 open)
+
+- [#64](https://github.com/ClawForgeAI/clawforge/issues/64) — Instance grouping & tagging for fleet organization
+- [#62](https://github.com/ClawForgeAI/clawforge/issues/62) — Policy change audit trail & approval workflow
+- [#60](https://github.com/ClawForgeAI/clawforge/issues/60) — API key management for external integrations
+- [#57](https://github.com/ClawForgeAI/clawforge/issues/57) — Gateway crash & restart event tracking
+- [#56](https://github.com/ClawForgeAI/clawforge/issues/56) — Fleet-wide version compliance enforcement
+- [#53](https://github.com/ClawForgeAI/clawforge/issues/53) — Prompt injection detection in audit logs
+
+### Week 2 Release — v0.4.0 Visibility & Intelligence (9 open)
+
+- [#82](https://github.com/ClawForgeAI/clawforge/issues/82) — Audit log real-time streaming view (SSE/WebSocket)
+- [#70](https://github.com/ClawForgeAI/clawforge/issues/70) — Risk-level authorization tiers for tool access
+- [#69](https://github.com/ClawForgeAI/clawforge/issues/69) — Per-session cost tracking aggregation across fleet
+- [#67](https://github.com/ClawForgeAI/clawforge/issues/67) — Session recording & replay for incident investigation
+- [#65](https://github.com/ClawForgeAI/clawforge/issues/65) — Compliance report generation (SOC2, ISO 27001)
+- [#59](https://github.com/ClawForgeAI/clawforge/issues/59) — Auth profile & credential rotation policy
+- [#55](https://github.com/ClawForgeAI/clawforge/issues/55) — Channel health monitoring per instance
+- [#54](https://github.com/ClawForgeAI/clawforge/issues/54) — Model usage & fallback visibility dashboard
+- [#34](https://github.com/ClawForgeAI/clawforge/issues/34) — Cost tracking & budget enforcement
+
+### Week 3 Release — v0.5.0 Admin Experience (10 open)
+
+- [#81](https://github.com/ClawForgeAI/clawforge/issues/81) — Bulk operations on instances (multi-select actions)
+- [#80](https://github.com/ClawForgeAI/clawforge/issues/80) — Keyboard shortcuts for admin console power users
+- [#79](https://github.com/ClawForgeAI/clawforge/issues/79) — Dark mode support for admin console
+- [#78](https://github.com/ClawForgeAI/clawforge/issues/78) — Global search across audit logs, users, and policies
+- [#72](https://github.com/ClawForgeAI/clawforge/issues/72) — Cron job governance and visibility
+- [#71](https://github.com/ClawForgeAI/clawforge/issues/71) — Prompt caching policy controls
+- [#68](https://github.com/ClawForgeAI/clawforge/issues/68) — Plugin configuration distribution via control plane
+- [#63](https://github.com/ClawForgeAI/clawforge/issues/63) — Scheduled policy activation (time-based rules)
+- [#58](https://github.com/ClawForgeAI/clawforge/issues/58) — Post-restart task continuation governance
+- [#50](https://github.com/ClawForgeAI/clawforge/issues/50) — Slack/Teams integration for admin notifications
+
+### Week 4 Release — v1.0.0 General Availability Backlog (10 open)
+
+- [#77](https://github.com/ClawForgeAI/clawforge/issues/77) — Horizontal scaling: stateless server mode with external session store
+- [#49](https://github.com/ClawForgeAI/clawforge/issues/49) — Terraform/Pulumi provider for policy-as-code
+- [#48](https://github.com/ClawForgeAI/clawforge/issues/48) — Multi-org management UI and org creation flow
+- [#37](https://github.com/ClawForgeAI/clawforge/issues/37) — Backup & restore: one-click agent state export/import
+- [#36](https://github.com/ClawForgeAI/clawforge/issues/36) — Event-driven triggers across clients
+- [#35](https://github.com/ClawForgeAI/clawforge/issues/35) — Shared skill marketplace (private/org-scoped)
+- [#33](https://github.com/ClawForgeAI/clawforge/issues/33) — Per-context profiles (work mode / personal mode)
+- [#32](https://github.com/ClawForgeAI/clawforge/issues/32) — Smart routing / task delegation across fleet
+- [#31](https://github.com/ClawForgeAI/clawforge/issues/31) — Cross-client memory/context sharing
+- [#30](https://github.com/ClawForgeAI/clawforge/issues/30) — Multi-agent orchestration dashboard
+
+---
+
 ## Must-Have Capabilities Overview
 
 | # | Capability | Shipped | Remaining Issues | New Issues |
