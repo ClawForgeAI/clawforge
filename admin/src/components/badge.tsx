@@ -20,9 +20,5 @@ export function Badge({
     sm: "badge-sm text-xs px-2",
   };
 
-  return (
-    <span className={`badge font-medium gap-1 ${styles[variant]} ${sizes[size]}`}>
-      {children}
-    </span>
-  );
+  return <span className={`badge font-medium gap-1 ${styles[variant]} ${sizes[size]}`}>{children}</span>;
 }

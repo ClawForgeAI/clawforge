@@ -2,11 +2,11 @@
 
 ## Three Packages
 
-| Package | Path | Runs On | Description |
-|---|---|---|---|
-| `@ClawForgeAI/clawforge` | `plugin/` | Employee's machine | OpenClaw plugin — hooks into the gateway lifecycle, enforces policies, uploads audit events, polls heartbeat |
+| Package                         | Path      | Runs On              | Description                                                                                                          |
+| ------------------------------- | --------- | -------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `@ClawForgeAI/clawforge`        | `plugin/` | Employee's machine   | OpenClaw plugin — hooks into the gateway lifecycle, enforces policies, uploads audit events, polls heartbeat         |
 | `@ClawForgeAI/clawforge-server` | `server/` | Org's server / cloud | Fastify control plane API (port 4100) — manages auth, policies, skill reviews, audit storage, heartbeat, kill switch |
-| `@ClawForgeAI/clawforge-admin` | `admin/` | Org's server / cloud | Next.js admin UI (port 4200) — dashboard for managing everything |
+| `@ClawForgeAI/clawforge-admin`  | `admin/`  | Org's server / cloud | Next.js admin UI (port 4200) — dashboard for managing everything                                                     |
 
 ## How It All Connects
 
@@ -146,16 +146,16 @@ On heartbeat:
 
 8 tables managed by Drizzle ORM:
 
-| Table | Purpose |
-|---|---|
-| `organizations` | Org registry with optional SSO config (issuer, client ID, audience) |
-| `users` | Org members with role (`admin` / `user`) and optional password hash |
-| `policies` | Versioned org policies (tools, skills, audit level, kill switch) |
-| `skill_submissions` | Skill review queue with security scan results |
-| `approved_skills` | Approved skills per org, with optional per-user scope |
-| `audit_events` | Tool calls, session lifecycle, LLM I/O events |
-| `client_heartbeats` | Last heartbeat timestamp per user per org |
-| `enrollment_tokens` | Admin-generated tokens for user onboarding |
+| Table               | Purpose                                                             |
+| ------------------- | ------------------------------------------------------------------- |
+| `organizations`     | Org registry with optional SSO config (issuer, client ID, audience) |
+| `users`             | Org members with role (`admin` / `user`) and optional password hash |
+| `policies`          | Versioned org policies (tools, skills, audit level, kill switch)    |
+| `skill_submissions` | Skill review queue with security scan results                       |
+| `approved_skills`   | Approved skills per org, with optional per-user scope               |
+| `audit_events`      | Tool calls, session lifecycle, LLM I/O events                       |
+| `client_heartbeats` | Last heartbeat timestamp per user per org                           |
+| `enrollment_tokens` | Admin-generated tokens for user onboarding                          |
 
 ### Entity Relationship
 
@@ -173,119 +173,119 @@ organizations (1) ──┬── (N) users
 
 #### `organizations`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | UUID (PK) | Auto-generated |
-| `name` | TEXT | Org display name |
-| `sso_config` | JSONB | `{issuerUrl, clientId, audience?}` |
-| `created_at` | TIMESTAMPTZ | |
-| `updated_at` | TIMESTAMPTZ | |
+| Column       | Type        | Description                        |
+| ------------ | ----------- | ---------------------------------- |
+| `id`         | UUID (PK)   | Auto-generated                     |
+| `name`       | TEXT        | Org display name                   |
+| `sso_config` | JSONB       | `{issuerUrl, clientId, audience?}` |
+| `created_at` | TIMESTAMPTZ |                                    |
+| `updated_at` | TIMESTAMPTZ |                                    |
 
 #### `users`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | UUID (PK) | Auto-generated |
-| `org_id` | UUID (FK → organizations) | |
-| `email` | TEXT | Unique per org |
-| `name` | TEXT | From OIDC claims or enrollment |
-| `role` | TEXT | `admin` or `user` |
-| `password_hash` | TEXT | Bcrypt hash (null for SSO-only users) |
-| `last_seen_at` | TIMESTAMPTZ | Updated on auth |
-| `created_at` | TIMESTAMPTZ | |
+| Column          | Type                      | Description                           |
+| --------------- | ------------------------- | ------------------------------------- |
+| `id`            | UUID (PK)                 | Auto-generated                        |
+| `org_id`        | UUID (FK → organizations) |                                       |
+| `email`         | TEXT                      | Unique per org                        |
+| `name`          | TEXT                      | From OIDC claims or enrollment        |
+| `role`          | TEXT                      | `admin` or `user`                     |
+| `password_hash` | TEXT                      | Bcrypt hash (null for SSO-only users) |
+| `last_seen_at`  | TIMESTAMPTZ               | Updated on auth                       |
+| `created_at`    | TIMESTAMPTZ               |                                       |
 
 Unique index: `(org_id, email)`
 
 #### `policies`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | UUID (PK) | Auto-generated |
-| `org_id` | UUID (FK, unique) | One policy per org |
-| `version` | INT | Incremented on each update |
-| `tools_config` | JSONB | `{allow?, deny?, profile?}` |
-| `skills_config` | JSONB | `{requireApproval, approved[]}` |
-| `kill_switch` | BOOLEAN | |
-| `kill_switch_message` | TEXT | Shown to users when active |
-| `audit_level` | TEXT | `full`, `metadata`, or `off` |
-| `updated_at` | TIMESTAMPTZ | |
+| Column                | Type              | Description                     |
+| --------------------- | ----------------- | ------------------------------- |
+| `id`                  | UUID (PK)         | Auto-generated                  |
+| `org_id`              | UUID (FK, unique) | One policy per org              |
+| `version`             | INT               | Incremented on each update      |
+| `tools_config`        | JSONB             | `{allow?, deny?, profile?}`     |
+| `skills_config`       | JSONB             | `{requireApproval, approved[]}` |
+| `kill_switch`         | BOOLEAN           |                                 |
+| `kill_switch_message` | TEXT              | Shown to users when active      |
+| `audit_level`         | TEXT              | `full`, `metadata`, or `off`    |
+| `updated_at`          | TIMESTAMPTZ       |                                 |
 
 #### `skill_submissions`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | UUID (PK) | |
-| `org_id` | UUID (FK) | |
-| `submitted_by` | UUID (FK → users) | |
-| `skill_name` | TEXT | |
-| `skill_key` | TEXT | Optional unique key |
-| `metadata` | JSONB | Arbitrary key-value data |
-| `manifest_content` | TEXT | Full SKILL.md content |
-| `scan_results` | JSONB | `{scannedFiles, critical, warn, info, findings[]}` |
-| `status` | TEXT | `pending`, `approved-org`, `approved-self`, `rejected` |
-| `reviewed_by` | UUID (FK → users) | |
-| `review_notes` | TEXT | |
-| `created_at` | TIMESTAMPTZ | |
-| `updated_at` | TIMESTAMPTZ | |
+| Column             | Type              | Description                                            |
+| ------------------ | ----------------- | ------------------------------------------------------ |
+| `id`               | UUID (PK)         |                                                        |
+| `org_id`           | UUID (FK)         |                                                        |
+| `submitted_by`     | UUID (FK → users) |                                                        |
+| `skill_name`       | TEXT              |                                                        |
+| `skill_key`        | TEXT              | Optional unique key                                    |
+| `metadata`         | JSONB             | Arbitrary key-value data                               |
+| `manifest_content` | TEXT              | Full SKILL.md content                                  |
+| `scan_results`     | JSONB             | `{scannedFiles, critical, warn, info, findings[]}`     |
+| `status`           | TEXT              | `pending`, `approved-org`, `approved-self`, `rejected` |
+| `reviewed_by`      | UUID (FK → users) |                                                        |
+| `review_notes`     | TEXT              |                                                        |
+| `created_at`       | TIMESTAMPTZ       |                                                        |
+| `updated_at`       | TIMESTAMPTZ       |                                                        |
 
 Index: `(org_id, status)`
 
 #### `approved_skills`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | UUID (PK) | |
-| `org_id` | UUID (FK) | |
-| `skill_name` | TEXT | |
-| `skill_key` | TEXT | |
-| `scope` | TEXT | `org` or `self` |
+| Column              | Type              | Description          |
+| ------------------- | ----------------- | -------------------- |
+| `id`                | UUID (PK)         |                      |
+| `org_id`            | UUID (FK)         |                      |
+| `skill_name`        | TEXT              |                      |
+| `skill_key`         | TEXT              |                      |
+| `scope`             | TEXT              | `org` or `self`      |
 | `approved_for_user` | UUID (FK → users) | Set for `self` scope |
-| `created_at` | TIMESTAMPTZ | |
+| `created_at`        | TIMESTAMPTZ       |                      |
 
 Index: `(org_id)`
 
 #### `audit_events`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | UUID | |
-| `org_id` | UUID (FK) | |
-| `user_id` | UUID | |
-| `event_type` | TEXT | `tool_call_attempt`, `tool_call_result`, `session_start`, etc. |
-| `tool_name` | TEXT | For tool-related events |
-| `outcome` | TEXT | `allowed`, `blocked`, `error`, `success` |
-| `agent_id` | TEXT | |
-| `session_key` | TEXT | |
-| `metadata` | JSONB | |
-| `timestamp` | TIMESTAMPTZ | Event time |
+| Column        | Type        | Description                                                    |
+| ------------- | ----------- | -------------------------------------------------------------- |
+| `id`          | UUID        |                                                                |
+| `org_id`      | UUID (FK)   |                                                                |
+| `user_id`     | UUID        |                                                                |
+| `event_type`  | TEXT        | `tool_call_attempt`, `tool_call_result`, `session_start`, etc. |
+| `tool_name`   | TEXT        | For tool-related events                                        |
+| `outcome`     | TEXT        | `allowed`, `blocked`, `error`, `success`                       |
+| `agent_id`    | TEXT        |                                                                |
+| `session_key` | TEXT        |                                                                |
+| `metadata`    | JSONB       |                                                                |
+| `timestamp`   | TIMESTAMPTZ | Event time                                                     |
 
 Indexes: `(org_id, timestamp)`, `(org_id, user_id)`. Partitioned by range on `timestamp` (after migration 0001).
 
 #### `client_heartbeats`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | UUID (PK) | |
-| `org_id` | UUID (FK) | |
-| `user_id` | UUID (FK → users) | |
-| `last_heartbeat_at` | TIMESTAMPTZ | |
-| `client_version` | TEXT | |
+| Column              | Type              | Description |
+| ------------------- | ----------------- | ----------- |
+| `id`                | UUID (PK)         |             |
+| `org_id`            | UUID (FK)         |             |
+| `user_id`           | UUID (FK → users) |             |
+| `last_heartbeat_at` | TIMESTAMPTZ       |             |
+| `client_version`    | TEXT              |             |
 
 Unique index: `(org_id, user_id)` — upserted on each heartbeat.
 
 #### `enrollment_tokens`
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | UUID (PK) | Auto-generated |
-| `org_id` | UUID (FK → organizations) | |
-| `token` | TEXT (unique) | Base64url token string |
-| `label` | TEXT | Optional human-readable label |
-| `expires_at` | TIMESTAMPTZ | Optional expiry |
-| `max_uses` | INT | Optional usage cap |
-| `used_count` | INT | Current usage count (default 0) |
-| `created_by` | UUID (FK → users) | Admin who created the token |
-| `revoked_at` | TIMESTAMPTZ | Set when revoked |
-| `created_at` | TIMESTAMPTZ | |
+| Column       | Type                      | Description                     |
+| ------------ | ------------------------- | ------------------------------- |
+| `id`         | UUID (PK)                 | Auto-generated                  |
+| `org_id`     | UUID (FK → organizations) |                                 |
+| `token`      | TEXT (unique)             | Base64url token string          |
+| `label`      | TEXT                      | Optional human-readable label   |
+| `expires_at` | TIMESTAMPTZ               | Optional expiry                 |
+| `max_uses`   | INT                       | Optional usage cap              |
+| `used_count` | INT                       | Current usage count (default 0) |
+| `created_by` | UUID (FK → users)         | Admin who created the token     |
+| `revoked_at` | TIMESTAMPTZ               | Set when revoked                |
+| `created_at` | TIMESTAMPTZ               |                                 |
 
 Indexes: `(org_id)`, unique on `(token)`

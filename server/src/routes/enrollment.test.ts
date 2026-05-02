@@ -11,14 +11,30 @@ vi.mock("../services/admin-audit.js", () => ({
 
 function makeChain(result: unknown[] = []) {
   const c: any = {};
-  for (const m of ["select", "from", "where", "limit", "orderBy", "set", "values", "returning", "insert", "update", "delete"]) {
+  for (const m of [
+    "select",
+    "from",
+    "where",
+    "limit",
+    "orderBy",
+    "set",
+    "values",
+    "returning",
+    "insert",
+    "update",
+    "delete",
+  ]) {
     c[m] = vi.fn().mockReturnValue(c);
   }
   c.then = (resolve: (v: unknown) => void) => resolve(result);
   return c;
 }
 
-function createTestDb(selectResults: unknown[][] = [[]], insertResults: unknown[][] = [[]], updateResults: unknown[][] = [[]]) {
+function createTestDb(
+  selectResults: unknown[][] = [[]],
+  insertResults: unknown[][] = [[]],
+  updateResults: unknown[][] = [[]],
+) {
   let selectCall = 0;
   let insertCall = 0;
   let updateCall = 0;
@@ -34,6 +50,15 @@ async function buildApp(db: any) {
   const app = Fastify({ logger: false });
   await app.register(jwtPlugin, { secret: JWT_SECRET });
   app.decorate("db", db as never);
+  const noopCounter = { inc: () => {} };
+  const noopGauge = { set: () => {}, inc: () => {}, dec: () => {} };
+  app.decorate("metrics", {
+    heartbeatCounter: noopCounter,
+    auditEventsCounter: noopCounter,
+    activeInstancesGauge: noopGauge,
+    policyFetchCounter: noopCounter,
+    killSwitchGauge: noopGauge,
+  } as never);
   await registerAuthMiddleware(app);
   await app.register(enrollmentRoutes);
   await app.ready();

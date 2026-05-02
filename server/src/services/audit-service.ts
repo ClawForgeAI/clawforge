@@ -32,6 +32,10 @@ export type AuditQueryParams = {
   cursor?: string;
 };
 
+export type AuditExportParams = AuditQueryParams & {
+  batchSize?: number;
+};
+
 export class AuditService {
   constructor(private db: PostgresJsDatabase<typeof schema>) {}
 
@@ -91,12 +95,38 @@ export class AuditService {
     return result?.total ?? 0;
   }
 
+  async *streamEventsForExport(params: AuditExportParams) {
+    const totalLimit = Math.min(params.limit ?? 10000, 100000);
+    const batchSize = Math.min(params.batchSize ?? 1000, totalLimit);
+
+    let remaining = totalLimit;
+    let cursor = params.cursor;
+
+    while (remaining > 0) {
+      const events = await this.queryEvents({
+        ...params,
+        cursor,
+        limit: Math.min(batchSize, remaining),
+        offset: 0,
+      });
+
+      if (events.length === 0) {
+        break;
+      }
+
+      yield events;
+
+      remaining -= events.length;
+      cursor = events[events.length - 1]?.id;
+
+      if (events.length < Math.min(batchSize, remaining + events.length)) {
+        break;
+      }
+    }
+  }
+
   async getEvent(id: string) {
-    const [event] = await this.db
-      .select()
-      .from(auditEvents)
-      .where(eq(auditEvents.id, id))
-      .limit(1);
+    const [event] = await this.db.select().from(auditEvents).where(eq(auditEvents.id, id)).limit(1);
     return event ?? null;
   }
 
