@@ -9,14 +9,7 @@ import { Badge } from "@/components/badge";
 import { CardSkeleton } from "@/components/skeleton";
 import { useToast } from "@/components/toast";
 import { getAuth } from "@/lib/auth";
-import {
-  getWebhooks,
-  createWebhook,
-  updateWebhook,
-  deleteWebhook,
-  testWebhook,
-  getWebhookDeliveries,
-} from "@/lib/api";
+import { getWebhooks, createWebhook, updateWebhook, deleteWebhook, testWebhook, getWebhookDeliveries } from "@/lib/api";
 import type { Webhook, WebhookDelivery } from "@/lib/api";
 
 const STATUS_VARIANTS: Record<string, "success" | "danger" | "warning" | "default"> = {
@@ -193,9 +186,7 @@ export default function WebhooksPage() {
   }
 
   function toggleEvent(eventType: string) {
-    setFormEvents((prev) =>
-      prev.includes(eventType) ? prev.filter((e) => e !== eventType) : [...prev, eventType],
-    );
+    setFormEvents((prev) => (prev.includes(eventType) ? prev.filter((e) => e !== eventType) : [...prev, eventType]));
   }
 
   return (
@@ -336,10 +327,7 @@ export default function WebhooksPage() {
                               "Test"
                             )}
                           </button>
-                          <button
-                            className="btn btn-xs btn-ghost"
-                            onClick={() => handleViewDeliveries(webhook.id)}
-                          >
+                          <button className="btn btn-xs btn-ghost" onClick={() => handleViewDeliveries(webhook.id)}>
                             {deliveriesWebhookId === webhook.id ? "Hide" : "Deliveries"}
                           </button>
                           <button
