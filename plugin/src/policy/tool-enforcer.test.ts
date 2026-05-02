@@ -59,6 +59,43 @@ describe("tool-enforcer", () => {
       });
     });
 
+    it("blocks tools when kill switch is active and offlineOverride is 'allow'", () => {
+      state.killSwitchActive = true;
+      state.killSwitchMessage = "Emergency shutdown";
+      state.offlineOverride = "allow";
+      const hook = createToolEnforcerHook(state, auditLogger);
+
+      const result = hook({ toolName: "exec", params: {} }, makeCtx());
+
+      expect(result).toEqual({
+        block: true,
+        blockReason: "Emergency shutdown",
+      });
+      expect((auditLogger.enqueue as ReturnType<typeof vi.fn>).mock.calls[0][0]).toMatchObject({
+        outcome: "blocked",
+        metadata: { reason: "kill_switch" },
+      });
+    });
+
+    it("blocks tools when kill switch is active and offlineOverride is 'cached'", () => {
+      state.killSwitchActive = true;
+      state.killSwitchMessage = "Emergency shutdown";
+      state.policy = makePolicy();
+      state.offlineOverride = "cached";
+      const hook = createToolEnforcerHook(state, auditLogger);
+
+      const result = hook({ toolName: "read", params: {} }, makeCtx());
+
+      expect(result).toEqual({
+        block: true,
+        blockReason: "Emergency shutdown",
+      });
+      expect((auditLogger.enqueue as ReturnType<typeof vi.fn>).mock.calls[0][0]).toMatchObject({
+        outcome: "blocked",
+        metadata: { reason: "kill_switch" },
+      });
+    });
+
     it("uses default message when killSwitchMessage is undefined", () => {
       state.killSwitchActive = true;
       const hook = createToolEnforcerHook(state, auditLogger);
@@ -67,6 +104,49 @@ describe("tool-enforcer", () => {
 
       expect(result?.block).toBe(true);
       expect(result?.blockReason).toContain("kill switch");
+    });
+  });
+
+  describe("pending initialization", () => {
+    it("blocks all tools when pendingInit is true and no policy is loaded", () => {
+      state.pendingInit = true;
+      const hook = createToolEnforcerHook(state, auditLogger);
+
+      const result = hook({ toolName: "read", params: {} }, makeCtx());
+
+      expect(result).toEqual({
+        block: true,
+        blockReason: "ClawForge: Plugin is still initializing. Please try again shortly.",
+      });
+      expect((auditLogger.enqueue as ReturnType<typeof vi.fn>).mock.calls[0][0]).toMatchObject({
+        outcome: "blocked",
+        metadata: { reason: "pending_init" },
+      });
+    });
+
+    it("allows tools when pendingInit is true but policy is already loaded", () => {
+      state.pendingInit = true;
+      state.policy = makePolicy();
+      const hook = createToolEnforcerHook(state, auditLogger);
+
+      const result = hook({ toolName: "read", params: {} }, makeCtx());
+
+      expect(result).toBeUndefined();
+    });
+
+    it("allows tools after pendingInit is cleared", () => {
+      state.pendingInit = true;
+      const hook = createToolEnforcerHook(state, auditLogger);
+
+      // First call — blocked
+      expect(hook({ toolName: "read", params: {} }, makeCtx())?.block).toBe(true);
+
+      // Init completes
+      state.pendingInit = false;
+
+      // Second call — allowed (no policy = allow by default)
+      const result = hook({ toolName: "read", params: {} }, makeCtx());
+      expect(result).toBeUndefined();
     });
   });
 
