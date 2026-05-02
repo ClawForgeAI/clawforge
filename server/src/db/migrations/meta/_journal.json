@@ -71,6 +71,13 @@
       "when": 1777060900000,
       "tag": "0008_policy_change_approvals",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1777109405147,
+      "tag": "0009_prompt_injection_audit",
+      "breakpoints": true
     }
   ]
 }

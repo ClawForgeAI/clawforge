@@ -31,8 +31,7 @@ export default function AuditPage() {
   const [filterType, setFilterType] = useState("");
   const [filterTool, setFilterTool] = useState("");
   const [filterOutcome, setFilterOutcome] = useState("");
-  const [filterTag, setFilterTag] = useState("");
-  const [filterGroup, setFilterGroup] = useState("");
+  const [filterPromptInjection, setFilterPromptInjection] = useState("");
   const [filterFrom, setFilterFrom] = useState("");
   const [filterTo, setFilterTo] = useState("");
 
@@ -42,12 +41,11 @@ export default function AuditPage() {
     if (filterType) params.eventType = filterType;
     if (filterTool) params.toolName = filterTool;
     if (filterOutcome) params.outcome = filterOutcome;
-    if (filterTag) params.tag = filterTag;
-    if (filterGroup) params.group = filterGroup;
+    if (filterPromptInjection) params.promptInjectionDetected = filterPromptInjection;
     if (filterFrom) params.from = filterFrom;
     if (filterTo) params.to = filterTo;
     return params;
-  }, [filterUser, filterType, filterTool, filterOutcome, filterTag, filterGroup, filterFrom, filterTo]);
+  }, [filterUser, filterType, filterTool, filterOutcome, filterPromptInjection, filterFrom, filterTo]);
 
   const loadEvents = useCallback(async () => {
     const auth = getAuth();
@@ -188,7 +186,7 @@ export default function AuditPage() {
         {/* Filters */}
         <Card className="mb-6">
           <CardTitle>Filters</CardTitle>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
             <input
               value={filterUser}
               onChange={(e) => setFilterUser(e.target.value)}
@@ -218,18 +216,16 @@ export default function AuditPage() {
               <option value="blocked">Blocked</option>
               <option value="error">Error</option>
             </select>
-            <input
-              value={filterTag}
-              onChange={(e) => setFilterTag(e.target.value)}
-              placeholder="Instance tag"
-              className="input input-bordered input-sm w-full"
-            />
-            <input
-              value={filterGroup}
-              onChange={(e) => setFilterGroup(e.target.value)}
-              placeholder="Instance group"
-              className="input input-bordered input-sm w-full"
-            />
+            <select
+              data-testid="prompt-injection-filter"
+              value={filterPromptInjection}
+              onChange={(e) => setFilterPromptInjection(e.target.value)}
+              className="select select-bordered select-sm w-full"
+            >
+              <option value="">Injection risk (all)</option>
+              <option value="true">Flagged</option>
+              <option value="false">Not flagged</option>
+            </select>
             <input
               type="date"
               value={filterFrom}
@@ -286,6 +282,7 @@ export default function AuditPage() {
                     <th>Event</th>
                     <th>Tool</th>
                     <th>Outcome</th>
+                    <th>Injection Risk</th>
                     <th>Session</th>
                   </tr>
                 </thead>
@@ -315,6 +312,11 @@ export default function AuditPage() {
                             {event.outcome}
                           </Badge>
                         </td>
+                        <td>
+                          <Badge variant={event.promptInjectionDetected ? "danger" : "default"}>
+                            {event.promptInjectionDetected ? `Flagged (${event.promptInjectionConfidence}%)` : "Clear"}
+                          </Badge>
+                        </td>
                         <td className="font-mono text-xs text-base-content/40">
                           {event.sessionKey?.slice(0, 8) ?? "-"}
                         </td>
@@ -326,7 +328,7 @@ export default function AuditPage() {
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
                         >
-                          <td colSpan={6} className="py-3 px-4 bg-base-200/50">
+                          <td colSpan={7} className="py-3 px-4 bg-base-200/50">
                             <div className="space-y-2 text-xs">
                               <div>
                                 <span className="font-semibold">ID:</span> <span className="font-mono">{event.id}</span>
@@ -345,6 +347,17 @@ export default function AuditPage() {
                                 <div>
                                   <span className="font-semibold">Session Key:</span>{" "}
                                   <span className="font-mono">{event.sessionKey}</span>
+                                </div>
+                              )}
+                              <div>
+                                <span className="font-semibold">Prompt injection detection:</span>{" "}
+                                {event.promptInjectionDetected ? "Flagged" : "Not flagged"} (
+                                {event.promptInjectionConfidence}% confidence)
+                              </div>
+                              {event.promptInjectionSignals && event.promptInjectionSignals.length > 0 && (
+                                <div>
+                                  <span className="font-semibold">Detection signals:</span>{" "}
+                                  <span className="font-mono">{event.promptInjectionSignals.join(", ")}</span>
                                 </div>
                               )}
                               {event.metadata && (
