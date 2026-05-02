@@ -47,7 +47,13 @@ async function buildApp(db: any) {
   app.decorate("db", db as never);
   const noopCounter = { inc: () => {} };
   const noopGauge = { set: () => {}, inc: () => {}, dec: () => {} };
-  app.decorate("metrics", { heartbeatCounter: noopCounter, auditEventsCounter: noopCounter, activeInstancesGauge: noopGauge, policyFetchCounter: noopCounter, killSwitchGauge: noopGauge } as never);
+  app.decorate("metrics", {
+    heartbeatCounter: noopCounter,
+    auditEventsCounter: noopCounter,
+    activeInstancesGauge: noopGauge,
+    policyFetchCounter: noopCounter,
+    killSwitchGauge: noopGauge,
+  } as never);
   await registerAuthMiddleware(app);
   await app.register(organizationRoutes);
   await app.ready();

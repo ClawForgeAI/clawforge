@@ -68,7 +68,7 @@ describe("Policy Routes", () => {
         role: "user",
       });
 
-      // Mock select to return empty (no policy)
+      // Mock select to return empty (no policy, no assignments)
       mockDb.select = vi.fn(() => mockDbChain([]) as ReturnType<MockDb["select"]>);
 
       const res = await app.inject({
@@ -88,11 +88,22 @@ describe("Policy Routes", () => {
         role: "user",
       });
 
-      // First select: policy, second select: approved skills
+      // getEffectivePolicy does multiple selects:
+      // 1: user assignment -> empty
+      // 2: role-based assignment -> empty (userRole is "user")
+      // 3: default policy -> testPolicy
+      // 4: approved skills -> empty
       let callCount = 0;
       mockDb.select = vi.fn(() => {
         callCount++;
-        const result = callCount === 1 ? [testPolicy] : [];
+        let result: unknown[];
+        if (callCount <= 2) {
+          result = []; // no user assignment, no role assignment
+        } else if (callCount === 3) {
+          result = [testPolicy]; // default policy
+        } else {
+          result = []; // no approved skills
+        }
         return mockDbChain(result) as ReturnType<MockDb["select"]>;
       });
 
@@ -170,6 +181,7 @@ describe("Policy Routes", () => {
       const body = res.json();
       expect(body).toHaveProperty("id");
       expect(body).toHaveProperty("orgId", TEST_ORG_ID);
+      expect(body).toHaveProperty("name", "Default Policy");
     });
   });
 
@@ -212,20 +224,26 @@ describe("Policy Routes", () => {
       expect(res.statusCode).toBe(400);
     });
 
-    it("updates the policy successfully", async () => {
+    it("creates a pending approval request for policy updates", async () => {
       const token = generateTestToken(app, {
         userId: TEST_ADMIN_ID,
         orgId: TEST_ORG_ID,
         role: "admin",
       });
 
-      const updatedPolicy = { ...testPolicy, auditLevel: "full", version: 2 };
+      const pendingRequest = {
+        id: "00000000-0000-4000-8000-000000000300",
+        orgId: TEST_ORG_ID,
+        policyId: testPolicy.id,
+        status: "pending",
+      };
 
-      // upsertOrgPolicy calls getOrgPolicy (select) then update
       mockDb.select = vi.fn(() => mockDbChain([testPolicy]) as ReturnType<MockDb["select"]>);
-      mockDb.update = vi.fn(() => mockDbChain([updatedPolicy]) as ReturnType<MockDb["update"]>);
-      // Mock insert for the audit log (logAdminAction)
-      mockDb.insert = vi.fn(() => mockDbChain([]) as ReturnType<MockDb["insert"]>);
+      let insertCount = 0;
+      mockDb.insert = vi.fn(() => {
+        insertCount += 1;
+        return mockDbChain(insertCount === 1 ? [pendingRequest] : []) as ReturnType<MockDb["insert"]>;
+      });
 
       const res = await app.inject({
         method: "PUT",
@@ -234,10 +252,199 @@ describe("Policy Routes", () => {
         payload: { auditLevel: "full" },
       });
 
+      expect(res.statusCode).toBe(202);
+      const body = res.json();
+      expect(body).toHaveProperty("status", "pending_approval");
+      expect(body).toHaveProperty("requestId", pendingRequest.id);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Policy approvals (#62)
+  // -------------------------------------------------------------------------
+
+  describe("POST /api/v1/policies/:orgId/approvals/:requestId/approve", () => {
+    it("rejects same-admin approval attempts", async () => {
+      const token = generateTestToken(app, {
+        userId: TEST_ADMIN_ID,
+        orgId: TEST_ORG_ID,
+        role: "admin",
+      });
+      const pendingRequest = {
+        id: "00000000-0000-4000-8000-000000000301",
+        orgId: TEST_ORG_ID,
+        policyId: testPolicy.id,
+        requestedBy: TEST_ADMIN_ID,
+        status: "pending",
+        proposedChanges: { auditLevel: "full" },
+      };
+
+      let selectCount = 0;
+      mockDb.select = vi.fn(() => {
+        selectCount += 1;
+        return mockDbChain(selectCount === 1 ? [pendingRequest] : [testPolicy]) as ReturnType<MockDb["select"]>;
+      });
+
+      const res = await app.inject({
+        method: "POST",
+        url: `/api/v1/policies/${TEST_ORG_ID}/approvals/${pendingRequest.id}/approve`,
+        headers: { authorization: `Bearer ${token}` },
+      });
+
+      expect(res.statusCode).toBe(403);
+      expect(res.json()).toEqual({ error: "A different admin must approve this policy change" });
+    });
+
+    it("approves with a second admin and applies policy update", async () => {
+      const approverId = "00000000-0000-4000-8000-000000000099";
+      const token = generateTestToken(app, {
+        userId: approverId,
+        orgId: TEST_ORG_ID,
+        role: "admin",
+      });
+      const pendingRequest = {
+        id: "00000000-0000-4000-8000-000000000302",
+        orgId: TEST_ORG_ID,
+        policyId: testPolicy.id,
+        requestedBy: TEST_ADMIN_ID,
+        status: "pending",
+        proposedChanges: { auditLevel: "full" },
+        beforeState: { auditLevel: "metadata" },
+      };
+      const updatedPolicy = { ...testPolicy, auditLevel: "full", version: 2 };
+
+      let selectCount = 0;
+      mockDb.select = vi.fn(() => {
+        selectCount += 1;
+        return mockDbChain(selectCount === 1 ? [pendingRequest] : [testPolicy]) as ReturnType<MockDb["select"]>;
+      });
+      let updateCount = 0;
+      mockDb.update = vi.fn(() => {
+        updateCount += 1;
+        return mockDbChain(updateCount === 1 ? [updatedPolicy] : []) as ReturnType<MockDb["update"]>;
+      });
+      mockDb.insert = vi.fn(() => mockDbChain([]) as ReturnType<MockDb["insert"]>);
+
+      const res = await app.inject({
+        method: "POST",
+        url: `/api/v1/policies/${TEST_ORG_ID}/approvals/${pendingRequest.id}/approve`,
+        headers: { authorization: `Bearer ${token}` },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toMatchObject({ status: "approved", policy: { auditLevel: "full", version: 2 } });
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // POST /api/v1/policies/:orgId (#23 - create new policy)
+  // -------------------------------------------------------------------------
+
+  describe("POST /api/v1/policies/:orgId", () => {
+    it("returns 403 for non-admin users", async () => {
+      const token = generateTestToken(app, {
+        userId: TEST_USER_ID,
+        orgId: TEST_ORG_ID,
+        role: "user",
+      });
+
+      const res = await app.inject({
+        method: "POST",
+        url: `/api/v1/policies/${TEST_ORG_ID}`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { name: "New Policy" },
+      });
+
+      expect(res.statusCode).toBe(403);
+    });
+
+    it("returns 400 for missing name", async () => {
+      const token = generateTestToken(app, {
+        userId: TEST_ADMIN_ID,
+        orgId: TEST_ORG_ID,
+        role: "admin",
+      });
+
+      const res = await app.inject({
+        method: "POST",
+        url: `/api/v1/policies/${TEST_ORG_ID}`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: {},
+      });
+
+      expect(res.statusCode).toBe(400);
+    });
+
+    it("creates a new policy successfully", async () => {
+      const token = generateTestToken(app, {
+        userId: TEST_ADMIN_ID,
+        orgId: TEST_ORG_ID,
+        role: "admin",
+      });
+
+      const newPolicy = {
+        ...testPolicy,
+        id: "00000000-0000-4000-8000-000000000200",
+        name: "Engineering",
+        isDefault: false,
+      };
+
+      mockDb.insert = vi.fn(() => mockDbChain([newPolicy]) as ReturnType<MockDb["insert"]>);
+
+      const res = await app.inject({
+        method: "POST",
+        url: `/api/v1/policies/${TEST_ORG_ID}`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { name: "Engineering" },
+      });
+
+      expect(res.statusCode).toBe(201);
+      const body = res.json();
+      expect(body).toHaveProperty("name", "Engineering");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // GET /api/v1/policies/:orgId/list (#23)
+  // -------------------------------------------------------------------------
+
+  describe("GET /api/v1/policies/:orgId/list", () => {
+    it("returns 403 for non-admin users", async () => {
+      const token = generateTestToken(app, {
+        userId: TEST_USER_ID,
+        orgId: TEST_ORG_ID,
+        role: "user",
+      });
+
+      const res = await app.inject({
+        method: "GET",
+        url: `/api/v1/policies/${TEST_ORG_ID}/list`,
+        headers: { authorization: `Bearer ${token}` },
+      });
+
+      expect(res.statusCode).toBe(403);
+    });
+
+    it("returns list of policies for admin", async () => {
+      const token = generateTestToken(app, {
+        userId: TEST_ADMIN_ID,
+        orgId: TEST_ORG_ID,
+        role: "admin",
+      });
+
+      const policyList = [testPolicy];
+      mockDb.select = vi.fn(() => mockDbChain(policyList) as ReturnType<MockDb["select"]>);
+
+      const res = await app.inject({
+        method: "GET",
+        url: `/api/v1/policies/${TEST_ORG_ID}/list`,
+        headers: { authorization: `Bearer ${token}` },
+      });
+
       expect(res.statusCode).toBe(200);
       const body = res.json();
-      expect(body).toHaveProperty("auditLevel", "full");
-      expect(body).toHaveProperty("version", 2);
+      expect(body).toHaveProperty("policies");
+      expect(body.policies).toHaveLength(1);
     });
   });
 

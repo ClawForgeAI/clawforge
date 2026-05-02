@@ -63,6 +63,8 @@ export const testAdmin = {
 export const testPolicy = {
   id: "00000000-0000-4000-8000-000000000100",
   orgId: TEST_ORG_ID,
+  name: "Default Policy",
+  isDefault: true,
   version: 1,
   toolsConfig: { allow: ["Read", "Write"], deny: ["Bash"] },
   skillsConfig: { requireApproval: true, approved: [] },
