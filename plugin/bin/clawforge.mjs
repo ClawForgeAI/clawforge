@@ -13,7 +13,8 @@ import path from "node:path";
 import os from "node:os";
 import { parseArgs } from "node:util";
 
-const GLOBAL_CONFIG = path.join(os.homedir(), ".openclaw", "openclaw.json");
+const CONFIG_DIR = path.join(os.homedir(), ".openclaw");
+const GLOBAL_CONFIG = path.join(CONFIG_DIR, "openclaw.json");
 
 function readConfig(configPath) {
   try {
@@ -24,7 +25,8 @@ function readConfig(configPath) {
 }
 
 function writeConfig(configPath, config) {
-  fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");
+  fs.mkdirSync(path.dirname(configPath), { recursive: true });
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n", { mode: 0o600 });
 }
 
 function install(args) {
@@ -51,10 +53,19 @@ function install(args) {
     config.plugins.entries.clawforge = { enabled: true };
   }
 
+  // Merge into existing config to preserve SSO and other settings
+  // that may have been set previously.
+  const existingPluginConfig = config.plugins.entries.clawforge.config ?? {};
   config.plugins.entries.clawforge.config = {
+    ...existingPluginConfig,
     controlPlaneUrl: values.url,
     orgId: values.org,
   };
+
+  // If an allowlist exists, ensure clawforge is included so the plugin loads.
+  if (Array.isArray(config.plugins.allow) && !config.plugins.allow.includes("clawforge")) {
+    config.plugins.allow.push("clawforge");
+  }
 
   writeConfig(GLOBAL_CONFIG, config);
   console.log(`ClawForge plugin configured in ${GLOBAL_CONFIG}`);
@@ -73,6 +84,13 @@ function uninstall() {
   if (config.plugins?.entries?.clawforge) {
     delete config.plugins.entries.clawforge;
     if (Object.keys(config.plugins.entries).length === 0) delete config.plugins.entries;
+
+    // Remove from allowlist if present.
+    if (Array.isArray(config.plugins.allow)) {
+      config.plugins.allow = config.plugins.allow.filter((id) => id !== "clawforge");
+      if (config.plugins.allow.length === 0) delete config.plugins.allow;
+    }
+
     writeConfig(GLOBAL_CONFIG, config);
     console.log(`ClawForge plugin removed from ${GLOBAL_CONFIG}`);
   } else {

@@ -14,7 +14,7 @@ const CreateTokenSchema = z.object({
   label: z.string().optional(),
   expiresAt: z.string().datetime().optional(),
   maxUses: z.number().int().positive().optional(),
-  defaultRole: z.enum(["admin", "viewer", "user"]).optional(),
+  defaultRole: z.enum(["super_admin", "admin", "policy_admin", "security_admin", "viewer", "user"]).optional(),
 });
 
 const EnrollSchema = z.object({

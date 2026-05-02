@@ -7,6 +7,7 @@ import { z } from "zod";
 import { requireAdmin, requireAdminOrViewer, requireOrg } from "../middleware/auth.js";
 import { SkillReviewService } from "../services/skill-review-service.js";
 import { logAdminAction } from "../services/admin-audit.js";
+import { WebhookService } from "../services/webhook.js";
 
 const SubmitSkillBodySchema = z.object({
   skillName: z.string().min(1),
@@ -41,6 +42,7 @@ const ReviewBodySchema = z.object({
 
 export async function skillRoutes(app: FastifyInstance): Promise<void> {
   const skillService = new SkillReviewService(app.db);
+  const webhookService = new WebhookService(app.db);
 
   /**
    * POST /api/v1/skills/:orgId/submit
@@ -64,6 +66,17 @@ export async function skillRoutes(app: FastifyInstance): Promise<void> {
       submittedBy: request.authUser!.userId,
       ...parseResult.data,
     });
+
+    // Deliver webhook event (#43)
+    webhookService
+      .deliverEvent(orgId, "skill.submitted", {
+        orgId,
+        submissionId: submission.id,
+        skillName: parseResult.data.skillName,
+        submittedBy: request.authUser!.userId,
+        timestamp: new Date().toISOString(),
+      })
+      .catch(() => {});
 
     return reply.code(201).send(submission);
   });
@@ -120,6 +133,20 @@ export async function skillRoutes(app: FastifyInstance): Promise<void> {
       resourceId: id,
       details: { skillName: updated.skillName, reviewNotes: parseResult.data.reviewNotes },
     }).catch(() => {});
+
+    // Deliver webhook event (#43)
+    const webhookEvent =
+      parseResult.data.status === "rejected" ? ("skill.rejected" as const) : ("skill.approved" as const);
+    webhookService
+      .deliverEvent(orgId, webhookEvent, {
+        orgId,
+        submissionId: id,
+        skillName: updated.skillName,
+        status: parseResult.data.status,
+        reviewedBy: request.authUser!.userId,
+        timestamp: new Date().toISOString(),
+      })
+      .catch(() => {});
 
     return reply.send(updated);
   });

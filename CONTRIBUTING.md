@@ -92,6 +92,7 @@ pnpm changeset
 ```
 
 This will prompt you to:
+
 1. Select the package (`@clawforgeai/clawforge`)
 2. Choose a bump type (patch / minor / major)
 3. Write a short summary of the change

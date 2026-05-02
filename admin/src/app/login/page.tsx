@@ -4,9 +4,8 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { setAuth } from "@/lib/auth";
 import { login } from "@/lib/api";
+import { getApiBase } from "@/lib/runtime-config";
 import { motion } from "framer-motion";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4100";
 
 type AuthMode = { methods: string[] };
 
@@ -30,7 +29,9 @@ function LoginForm() {
   const expired = searchParams.get("expired") === "1";
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/v1/auth/mode`)
+    const apiBase = getApiBase();
+
+    fetch(`${apiBase}/api/v1/auth/mode`)
       .then((res) => res.json())
       .then((data: AuthMode) => setAuthMethods(data.methods ?? []))
       .catch(() => setAuthMethods(["password"]));
@@ -66,7 +67,8 @@ function LoginForm() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/api/v1/auth/exchange`, {
+      const apiBase = getApiBase();
+      const res = await fetch(`${apiBase}/api/v1/auth/exchange`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
