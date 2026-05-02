@@ -21,7 +21,7 @@ const CreateAlertRuleSchema = z.object({
     "session_anomaly",
     "blocked_tool_persistence",
   ]),
-  config: z.record(z.unknown()),
+  config: z.record(z.string(), z.unknown()),
   severity: z.enum(["critical", "high", "medium", "low"]).optional(),
   webhookUrl: z.string().url().optional(),
   enabled: z.boolean().optional(),
@@ -30,7 +30,7 @@ const CreateAlertRuleSchema = z.object({
 const UpdateAlertRuleSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   description: z.string().max(500).optional(),
-  config: z.record(z.unknown()).optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
   severity: z.enum(["critical", "high", "medium", "low"]).optional(),
   webhookUrl: z.string().url().nullable().optional(),
   enabled: z.boolean().optional(),
