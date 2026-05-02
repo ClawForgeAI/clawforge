@@ -106,7 +106,14 @@ export function getEffectivePolicy(orgId: string, token: string) {
 }
 
 export function updatePolicy(orgId: string, token: string, body: unknown) {
-  return apiFetch(`/api/v1/policies/${orgId}`, { method: "PUT", token, body });
+  return apiFetch<{ status?: string; requestId?: string; message?: string; version?: number }>(
+    `/api/v1/policies/${orgId}`,
+    {
+      method: "PUT",
+      token,
+      body,
+    },
+  );
 }
 
 export function setKillSwitch(orgId: string, token: string, active: boolean, message?: string) {
@@ -135,6 +142,21 @@ export type PolicyAssignment = {
   userId?: string;
   role?: string;
   priority: number;
+  createdAt: string;
+};
+
+export type PolicyChangeRequest = {
+  id: string;
+  orgId: string;
+  policyId: string;
+  changeType: "create" | "update" | "delete";
+  status: "pending" | "approved" | "rejected";
+  requestedBy: string;
+  reviewedBy?: string;
+  proposedChanges: Record<string, unknown>;
+  beforeState?: Record<string, unknown>;
+  rejectionReason?: string;
+  reviewedAt?: string;
   createdAt: string;
 };
 
@@ -174,6 +196,31 @@ export function removePolicyAssignment(orgId: string, assignmentId: string, toke
   return apiFetch<{ success: boolean }>(`/api/v1/policies/${orgId}/assignments/${assignmentId}`, {
     method: "DELETE",
     token,
+  });
+}
+
+export function listPolicyApprovals(
+  orgId: string,
+  token: string,
+  status: "pending" | "approved" | "rejected" = "pending",
+) {
+  return apiFetch<{ requests: PolicyChangeRequest[] }>(`/api/v1/policies/${orgId}/approvals?status=${status}`, {
+    token,
+  });
+}
+
+export function approvePolicyChange(orgId: string, requestId: string, token: string) {
+  return apiFetch<{ status: "approved" }>(`/api/v1/policies/${orgId}/approvals/${requestId}/approve`, {
+    method: "POST",
+    token,
+  });
+}
+
+export function rejectPolicyChange(orgId: string, requestId: string, token: string, reason?: string) {
+  return apiFetch<{ status: "rejected" }>(`/api/v1/policies/${orgId}/approvals/${requestId}/reject`, {
+    method: "POST",
+    token,
+    body: { reason },
   });
 }
 
