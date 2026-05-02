@@ -21,7 +21,9 @@ describe("buildReadinessResponse", () => {
       throw new Error(`Unexpected query: ${query}`);
     });
 
-    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ issuer: "https://example.okta.com" }), { status: 200 }));
+    const fetchImpl = vi.fn(
+      async () => new Response(JSON.stringify({ issuer: "https://example.okta.com" }), { status: 200 }),
+    );
 
     const result = await buildReadinessResponse({
       sql: sql as never,

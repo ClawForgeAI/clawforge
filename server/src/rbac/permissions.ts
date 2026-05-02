@@ -62,9 +62,12 @@ export const BUILT_IN_ROLES: Record<string, { description: string; permissions: 
   policy_admin: {
     description: "Can manage policies and skills",
     permissions: [
-      "policy:read", "policy:write",
-      "killswitch:read", "killswitch:activate",
-      "skills:read", "skills:review",
+      "policy:read",
+      "policy:write",
+      "killswitch:read",
+      "killswitch:activate",
+      "skills:read",
+      "skills:review",
       "audit:read",
       "clients:read",
     ],
@@ -72,11 +75,15 @@ export const BUILT_IN_ROLES: Record<string, { description: string; permissions: 
   security_admin: {
     description: "Can manage security settings and audit",
     permissions: [
-      "audit:read", "audit:delete",
-      "killswitch:read", "killswitch:activate",
+      "audit:read",
+      "audit:delete",
+      "killswitch:read",
+      "killswitch:activate",
       "users:read",
-      "settings:read", "settings:write",
-      "apikeys:read", "apikeys:write",
+      "settings:read",
+      "settings:write",
+      "apikeys:read",
+      "apikeys:write",
       "clients:read",
     ],
   },
@@ -96,9 +103,6 @@ export const BUILT_IN_ROLES: Record<string, { description: string; permissions: 
   },
   user: {
     description: "Basic user with limited access",
-    permissions: [
-      "policy:read",
-      "audit:write",
-    ],
+    permissions: ["policy:read", "audit:write"],
   },
 };

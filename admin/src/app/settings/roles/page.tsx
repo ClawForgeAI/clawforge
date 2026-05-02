@@ -25,10 +25,7 @@ export default function RolesPage() {
       return;
     }
 
-    Promise.all([
-      getRoles(auth.orgId, auth.accessToken),
-      getPermissions(auth.orgId, auth.accessToken),
-    ])
+    Promise.all([getRoles(auth.orgId, auth.accessToken), getPermissions(auth.orgId, auth.accessToken)])
       .then(([rolesData, permsData]) => {
         setRoles(rolesData.roles);
         setPermissions(permsData.permissions);
@@ -64,11 +61,7 @@ export default function RolesPage() {
             <div className="lg:col-span-1 space-y-3">
               <h3 className="text-sm font-semibold text-base-content/60 uppercase tracking-wider mb-2">Roles</h3>
               {roles.map((role) => (
-                <motion.div
-                  key={role.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                >
+                <motion.div key={role.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}>
                   <button
                     onClick={() => setSelectedRole(role)}
                     className={`w-full text-left p-3 rounded-lg border transition-all ${
@@ -79,13 +72,9 @@ export default function RolesPage() {
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-medium text-sm">{role.name.replace(/_/g, " ")}</span>
-                      {role.isBuiltIn && (
-                        <Badge variant="default">Built-in</Badge>
-                      )}
+                      {role.isBuiltIn && <Badge variant="default">Built-in</Badge>}
                     </div>
-                    {role.description && (
-                      <p className="text-xs text-base-content/50 mt-1">{role.description}</p>
-                    )}
+                    {role.description && <p className="text-xs text-base-content/50 mt-1">{role.description}</p>}
                     <p className="text-xs text-base-content/40 mt-1">
                       {role.permissions.length} permission{role.permissions.length !== 1 ? "s" : ""}
                     </p>
@@ -105,9 +94,7 @@ export default function RolesPage() {
                         <p className="text-sm text-base-content/50 mt-1">{selectedRole.description}</p>
                       )}
                     </div>
-                    {selectedRole.isBuiltIn && (
-                      <Badge variant="default">Built-in (read-only)</Badge>
-                    )}
+                    {selectedRole.isBuiltIn && <Badge variant="default">Built-in (read-only)</Badge>}
                   </div>
                   <div className="space-y-4">
                     {Object.entries(groupedPerms).map(([resource, perms]) => (
