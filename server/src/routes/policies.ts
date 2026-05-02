@@ -5,8 +5,10 @@
  */
 
 import type { FastifyInstance } from "fastify";
+import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireAdmin, requireAdminOrViewer, requireOrg } from "../middleware/auth.js";
+import { policies, policyChangeRequests } from "../db/schema.js";
 import { PolicyService } from "../services/policy-service.js";
 import { logAdminAction } from "../services/admin-audit.js";
 import { eventBus } from "../services/event-bus.js";
@@ -161,6 +163,26 @@ const CreatePolicySchema = z.object({
   dlpConfig: DlpConfigSchema.optional(),
 });
 
+const ApprovalDecisionSchema = z.object({
+  reason: z.string().max(500).optional(),
+});
+
+function sanitizePolicyForAudit(policy: {
+  toolsConfig?: unknown;
+  skillsConfig?: unknown;
+  auditLevel?: unknown;
+  dlpConfig?: unknown;
+  version?: unknown;
+}) {
+  return {
+    toolsConfig: policy.toolsConfig ?? null,
+    skillsConfig: policy.skillsConfig ?? null,
+    auditLevel: policy.auditLevel ?? null,
+    dlpConfig: policy.dlpConfig ?? null,
+    version: policy.version ?? null,
+  };
+}
+
 export async function policyRoutes(app: FastifyInstance): Promise<void> {
   const policyService = new PolicyService(app.db);
   const webhookService = new WebhookService(app.db);
@@ -272,6 +294,10 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
         return reply.code(400).send({ error: "Invalid request body", details: parseResult.error.issues });
       }
 
+      if (parseResult.data.isDefault) {
+        return reply.code(400).send({ error: "Use approval workflow to replace the default policy" });
+      }
+
       const created = await policyService.createPolicy(orgId, parseResult.data);
 
       logAdminAction(app.db, {
@@ -310,24 +336,198 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
       });
     }
 
-    const updated = await policyService.upsertOrgPolicy(orgId, parseResult.data);
+    const existing = await policyService.getOrgPolicy(orgId);
+    if (!existing) {
+      const created = await policyService.upsertOrgPolicy(orgId, parseResult.data);
+      return reply.send(created);
+    }
 
-    // Broadcast policy update to all connected SSE clients in the org.
-    eventBus.broadcast(orgId, "policy_updated", {
-      version: updated.version,
-    });
+    const [pending] = await app.db
+      .insert(policyChangeRequests)
+      .values({
+        orgId,
+        policyId: existing.id,
+        changeType: "update",
+        requestedBy: request.authUser!.userId,
+        proposedChanges: parseResult.data,
+        beforeState: sanitizePolicyForAudit(existing),
+      })
+      .returning();
 
     logAdminAction(app.db, {
       orgId,
       userId: request.authUser!.userId,
-      action: "policy_updated",
+      action: "policy_update_requested",
       resourceType: "policy",
-      resourceId: orgId,
-      details: { fields: Object.keys(parseResult.data) },
+      resourceId: existing.id,
+      details: {
+        requestId: pending.id,
+        fields: Object.keys(parseResult.data),
+        before: sanitizePolicyForAudit(existing),
+        after: parseResult.data,
+      },
     }).catch(() => {});
 
-    return reply.send(updated);
+    return reply.code(202).send({
+      status: "pending_approval",
+      requestId: pending.id,
+      message: "Policy change is pending second-admin approval",
+    });
   });
+
+  app.get<{ Params: { orgId: string }; Querystring: { status?: "pending" | "approved" | "rejected" } }>(
+    "/api/v1/policies/:orgId/approvals",
+    async (request, reply) => {
+      requireAdminOrViewer(request, reply);
+      if (reply.sent) return;
+      const { orgId } = request.params;
+      requireOrg(request, reply, orgId);
+      if (reply.sent) return;
+
+      const status = request.query.status;
+      const rows = await app.db
+        .select()
+        .from(policyChangeRequests)
+        .where(
+          status
+            ? and(eq(policyChangeRequests.orgId, orgId), eq(policyChangeRequests.status, status))
+            : eq(policyChangeRequests.orgId, orgId),
+        )
+        .orderBy(desc(policyChangeRequests.createdAt));
+
+      return reply.send({ requests: rows });
+    },
+  );
+
+  app.post<{ Params: { orgId: string; requestId: string } }>(
+    "/api/v1/policies/:orgId/approvals/:requestId/approve",
+    async (request, reply) => {
+      requireAdmin(request, reply);
+      if (reply.sent) return;
+      const { orgId, requestId } = request.params;
+      requireOrg(request, reply, orgId);
+      if (reply.sent) return;
+
+      const [changeRequest] = await app.db
+        .select()
+        .from(policyChangeRequests)
+        .where(and(eq(policyChangeRequests.id, requestId), eq(policyChangeRequests.orgId, orgId)))
+        .limit(1);
+      if (!changeRequest) return reply.code(404).send({ error: "Approval request not found" });
+      if (changeRequest.status !== "pending")
+        return reply.code(409).send({ error: "Approval request already resolved" });
+      if (changeRequest.requestedBy === request.authUser!.userId) {
+        return reply.code(403).send({ error: "A different admin must approve this policy change" });
+      }
+
+      const [policy] = await app.db
+        .select()
+        .from(policies)
+        .where(and(eq(policies.id, changeRequest.policyId), eq(policies.orgId, orgId)))
+        .limit(1);
+      if (!policy) return reply.code(404).send({ error: "Policy not found" });
+
+      const changes = changeRequest.proposedChanges as {
+        toolsConfig?: Record<string, unknown>;
+        skillsConfig?: Record<string, unknown>;
+        auditLevel?: "full" | "metadata" | "off";
+        dlpConfig?: { rules: unknown[] };
+      };
+      const [updated] = await app.db
+        .update(policies)
+        .set({
+          toolsConfig: (changes.toolsConfig as typeof policy.toolsConfig | undefined) ?? policy.toolsConfig,
+          skillsConfig: (changes.skillsConfig as typeof policy.skillsConfig | undefined) ?? policy.skillsConfig,
+          auditLevel: changes.auditLevel ?? policy.auditLevel,
+          dlpConfig: (changes.dlpConfig as typeof policy.dlpConfig | undefined) ?? policy.dlpConfig,
+          version: policy.version + 1,
+          updatedAt: new Date(),
+        })
+        .where(eq(policies.id, policy.id))
+        .returning();
+
+      await app.db
+        .update(policyChangeRequests)
+        .set({
+          status: "approved",
+          reviewedBy: request.authUser!.userId,
+          reviewedAt: new Date(),
+        })
+        .where(eq(policyChangeRequests.id, requestId));
+
+      eventBus.broadcast(orgId, "policy_updated", {
+        version: updated.version,
+      });
+
+      logAdminAction(app.db, {
+        orgId,
+        userId: request.authUser!.userId,
+        action: "policy_update_approved",
+        resourceType: "policy",
+        resourceId: policy.id,
+        details: {
+          requestId,
+          before: changeRequest.beforeState ?? null,
+          after: sanitizePolicyForAudit(updated),
+        },
+      }).catch(() => {});
+
+      return reply.send({ status: "approved", policy: updated });
+    },
+  );
+
+  app.post<{ Params: { orgId: string; requestId: string } }>(
+    "/api/v1/policies/:orgId/approvals/:requestId/reject",
+    async (request, reply) => {
+      requireAdmin(request, reply);
+      if (reply.sent) return;
+      const { orgId, requestId } = request.params;
+      requireOrg(request, reply, orgId);
+      if (reply.sent) return;
+      const parse = ApprovalDecisionSchema.safeParse(request.body ?? {});
+      if (!parse.success) {
+        return reply.code(400).send({ error: "Invalid request body", details: parse.error.issues });
+      }
+
+      const [changeRequest] = await app.db
+        .select()
+        .from(policyChangeRequests)
+        .where(and(eq(policyChangeRequests.id, requestId), eq(policyChangeRequests.orgId, orgId)))
+        .limit(1);
+      if (!changeRequest) return reply.code(404).send({ error: "Approval request not found" });
+      if (changeRequest.status !== "pending")
+        return reply.code(409).send({ error: "Approval request already resolved" });
+      if (changeRequest.requestedBy === request.authUser!.userId) {
+        return reply.code(403).send({ error: "A different admin must reject this policy change" });
+      }
+
+      await app.db
+        .update(policyChangeRequests)
+        .set({
+          status: "rejected",
+          reviewedBy: request.authUser!.userId,
+          reviewedAt: new Date(),
+          rejectionReason: parse.data.reason ?? null,
+        })
+        .where(eq(policyChangeRequests.id, requestId));
+
+      logAdminAction(app.db, {
+        orgId,
+        userId: request.authUser!.userId,
+        action: "policy_update_rejected",
+        resourceType: "policy",
+        resourceId: changeRequest.policyId,
+        details: {
+          requestId,
+          reason: parse.data.reason ?? null,
+          before: changeRequest.beforeState ?? null,
+          after: changeRequest.proposedChanges,
+        },
+      }).catch(() => {});
+
+      return reply.send({ status: "rejected" });
+    },
+  );
 
   // ---------------------------------------------------------------------------
   // Clone a policy (#23)
