@@ -27,11 +27,16 @@ const NAV_SECTIONS = [
       { href: "/users", label: "Users", icon: UsersIcon },
       { href: "/enrollment", label: "Enrollment", icon: KeyIcon },
       { href: "/audit", label: "Audit Logs", icon: AuditIcon },
+      { href: "/alerts", label: "Alerts", icon: AlertIcon },
+      { href: "/webhooks", label: "Webhooks", icon: WebhookIcon },
     ],
   },
   {
     title: "System",
-    items: [{ href: "/settings", label: "Settings", icon: SettingsIcon }],
+    items: [
+      { href: "/settings/roles", label: "Roles", icon: RolesIcon },
+      { href: "/settings", label: "Settings", icon: SettingsIcon },
+    ],
   },
 ];
 
@@ -39,9 +44,27 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const [auth, setAuthState] = useState<ReturnType<typeof getAuth>>(null);
+  const [pendingSkillsCount, setPendingSkillsCount] = useState(0);
 
   useEffect(() => {
     setAuthState(getAuth());
+  }, []);
+
+  useEffect(() => {
+    async function fetchPendingCount() {
+      const auth = getAuth();
+      if (!auth) return;
+      try {
+        const { getPendingSkills } = await import("@/lib/api");
+        const data = await getPendingSkills(auth.orgId, auth.accessToken);
+        setPendingSkillsCount(data.submissions.length);
+      } catch {
+        // ignore
+      }
+    }
+    fetchPendingCount();
+    const interval = setInterval(fetchPendingCount, 30_000);
+    return () => clearInterval(interval);
   }, []);
 
   function handleSignOut() {
@@ -68,7 +91,8 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
             <ul className="menu menu-sm p-0 gap-0.5">
               {section.items.map((item) => {
                 const isActive =
-                  pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                  pathname === item.href ||
+                  (item.href !== "/dashboard" && item.href !== "/settings" && pathname.startsWith(item.href));
                 return (
                   <li key={item.href}>
                     <Link
@@ -82,6 +106,9 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
                     >
                       <item.icon className="w-[18px] h-[18px] shrink-0" />
                       {item.label}
+                      {item.href === "/skills" && pendingSkillsCount > 0 && (
+                        <span className="badge badge-warning badge-xs ml-auto">{pendingSkillsCount}</span>
+                      )}
                     </Link>
                   </li>
                 );
@@ -312,6 +339,56 @@ function SettingsIcon({ className }: { className?: string }) {
     >
       <circle cx="12" cy="12" r="3" />
       <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  );
+}
+
+function RolesIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+  );
+}
+
+function AlertIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
+  );
+}
+
+function WebhookIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
     </svg>
   );
 }

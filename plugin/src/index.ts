@@ -333,14 +333,15 @@ function formatDuration(ms: number): string {
 export function register(api: OpenClawPluginApi): void {
   const pluginConfig = (api.pluginConfig ?? {}) as ClawForgePluginConfig;
 
-  // Register the /clawforge-login command for manual SSO login.
+  // Register the /clawforge-login command for browser-open SSO login.
   api.registerCommand({
     name: "clawforge-login",
-    description: "Authenticate with your organization's SSO via ClawForge",
+    description: "Authenticate with your organization's SSO via ClawForge (opens browser)",
     acceptsArgs: false,
     handler: async () => {
       try {
         const { performSsoLogin } = await import("./auth/sso.js");
+        logger.info("Opening browser for SSO authentication...");
         const session = await performSsoLogin(pluginConfig);
         return { text: `Logged in as ${session.email ?? session.userId} (org: ${session.orgId})` };
       } catch (err) {
@@ -435,9 +436,25 @@ export function register(api: OpenClawPluginApi): void {
         const { bundleSkillForSubmission, submitSkillToControlPlane, formatScanSummary } =
           await import("./skills/submit-command.js");
 
+        logger.info(`Scanning skill "${skillNameOrPath}" before submission...`);
+
         const bundle = await bundleSkillForSubmission(skillNameOrPath, api.config.skills?.load?.extraDirs?.[0]);
 
         const scanSummary = formatScanSummary(bundle.scanResults);
+
+        // Block upload if critical security findings are detected (#19)
+        if (bundle.scanResults.critical > 0) {
+          const lines = [
+            `Skill "${bundle.skillName}" submission BLOCKED — critical security issues found.`,
+            ``,
+            `Security scan:`,
+            scanSummary,
+            ``,
+            `Fix the ${bundle.scanResults.critical} critical issue(s) before submitting.`,
+            `The skill was NOT uploaded to the control plane.`,
+          ];
+          return { text: lines.join("\n") };
+        }
 
         const result = await submitSkillToControlPlane({
           controlPlaneUrl: pluginConfig.controlPlaneUrl,
@@ -455,8 +472,8 @@ export function register(api: OpenClawPluginApi): void {
           scanSummary,
         ];
 
-        if (bundle.scanResults.critical > 0) {
-          lines.push("", "Note: Critical security issues were found. The admin will see these during review.");
+        if (bundle.scanResults.warn > 0) {
+          lines.push("", `Note: ${bundle.scanResults.warn} warning(s) found. The admin will see these during review.`);
         }
 
         return { text: lines.join("\n") };
