@@ -30,6 +30,8 @@ export type AuditQueryParams = {
   limit?: number;
   offset?: number;
   cursor?: string;
+  tag?: string;
+  group?: string;
 };
 
 export type AuditExportParams = AuditQueryParams & {
@@ -65,6 +67,28 @@ export class AuditService {
     if (params.outcome) conditions.push(eq(auditEvents.outcome, params.outcome));
     if (params.from) conditions.push(gte(auditEvents.timestamp, params.from));
     if (params.to) conditions.push(lte(auditEvents.timestamp, params.to));
+    if (params.tag) {
+      conditions.push(
+        sql`EXISTS (
+          SELECT 1
+          FROM "client_heartbeats" AS ch
+          WHERE ch."org_id" = ${params.orgId}
+            AND ch."user_id" = ${auditEvents.userId}
+            AND ch."tags" ? ${params.tag}
+        )`,
+      );
+    }
+    if (params.group) {
+      conditions.push(
+        sql`EXISTS (
+          SELECT 1
+          FROM "client_heartbeats" AS ch
+          WHERE ch."org_id" = ${params.orgId}
+            AND ch."user_id" = ${auditEvents.userId}
+            AND ch."group_name" = ${params.group}
+        )`,
+      );
+    }
     return conditions;
   }
 

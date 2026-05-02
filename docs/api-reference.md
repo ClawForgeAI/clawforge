@@ -184,6 +184,8 @@ Status values: `approved-org`, `approved-self`, `rejected`
 | `eventType` | Filter by event type                                         |
 | `toolName`  | Filter by tool name                                          |
 | `outcome`   | Filter by outcome (`allowed`, `blocked`, `error`, `success`) |
+| `tag`       | Filter by instance tag (from heartbeat metadata)             |
+| `group`     | Filter by instance group name                                |
 | `from`      | Start time (ISO-8601)                                        |
 | `to`        | End time (ISO-8601)                                          |
 | `limit`     | Max results                                                  |
@@ -227,10 +229,12 @@ offset=0" \
 
 ## Heartbeat
 
-| Method | Path                                      | Auth         | Description                                                   |
-| ------ | ----------------------------------------- | ------------ | ------------------------------------------------------------- |
-| `GET`  | `/api/v1/heartbeat/:orgId/:userId`        | User         | Client heartbeat — returns kill switch state + policy version |
-| `GET`  | `/api/v1/heartbeat/:orgId/:userId/events` | Admin/Viewer | Crash/restart lifecycle history for a client                  |
+| Method | Path                                        | Auth         | Description                                                          |
+| ------ | ------------------------------------------- | ------------ | -------------------------------------------------------------------- |
+| `GET`  | `/api/v1/heartbeat/:orgId`                  | Admin/Viewer | List connected instances (supports `status`, `tag`, `group` filters) |
+| `GET`  | `/api/v1/heartbeat/:orgId/:userId`          | User         | Client heartbeat — returns kill switch state + policy version        |
+| `GET`  | `/api/v1/heartbeat/:orgId/:userId/events`   | Admin/Viewer | Crash/restart lifecycle history for a client                         |
+| `PUT`  | `/api/v1/heartbeat/:orgId/:userId/metadata` | Admin/Viewer | Update instance grouping metadata (`groupName`, `tags`)              |
 
 ### Query parameters (`/api/v1/heartbeat/:orgId/:userId`)
 

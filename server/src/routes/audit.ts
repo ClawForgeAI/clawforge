@@ -45,6 +45,8 @@ const ExportQuerySchema = z.object({
   from: z.string().optional(),
   to: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100000).default(10000),
+  tag: z.string().optional(),
+  group: z.string().optional(),
 });
 
 function escapeCsvValue(value: unknown): string {
@@ -142,6 +144,8 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
       limit?: string;
       offset?: string;
       cursor?: string;
+      tag?: string;
+      group?: string;
     };
   }>("/api/v1/audit/:orgId/query", async (request, reply) => {
     requireAdminOrViewer(request, reply);
@@ -162,6 +166,8 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
       offset: query.offset ? parseInt(query.offset, 10) : undefined,
       cursor: query.cursor,
+      tag: query.tag,
+      group: query.group,
     };
 
     const [events, total] = await Promise.all([auditService.queryEvents(params), auditService.countEvents(params)]);
@@ -220,6 +226,8 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
       from?: string;
       to?: string;
       limit?: string;
+      tag?: string;
+      group?: string;
     };
   }>("/api/v1/audit/:orgId/export", async (request, reply) => {
     requireAdmin(request, reply);
@@ -246,6 +254,8 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
       from: query.from ? new Date(query.from) : undefined,
       to: query.to ? new Date(query.to) : undefined,
       limit: query.limit,
+      tag: query.tag,
+      group: query.group,
     };
 
     const dateSuffix = new Date().toISOString().slice(0, 10);

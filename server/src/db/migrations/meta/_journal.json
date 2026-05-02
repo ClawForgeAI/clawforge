@@ -61,8 +61,22 @@
     {
       "idx": 8,
       "version": "7",
+      "when": 1777060800000,
+      "tag": "0007_instance_grouping_tags",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1777060900000,
+      "tag": "0008_policy_change_approvals",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
       "when": 1777109488004,
-      "tag": "0007_gateway_restart_tracking",
+      "tag": "0010_gateway_restart_tracking",
       "breakpoints": true
     }
   ]

@@ -31,6 +31,8 @@ export default function AuditPage() {
   const [filterType, setFilterType] = useState("");
   const [filterTool, setFilterTool] = useState("");
   const [filterOutcome, setFilterOutcome] = useState("");
+  const [filterTag, setFilterTag] = useState("");
+  const [filterGroup, setFilterGroup] = useState("");
   const [filterFrom, setFilterFrom] = useState("");
   const [filterTo, setFilterTo] = useState("");
 
@@ -40,10 +42,12 @@ export default function AuditPage() {
     if (filterType) params.eventType = filterType;
     if (filterTool) params.toolName = filterTool;
     if (filterOutcome) params.outcome = filterOutcome;
+    if (filterTag) params.tag = filterTag;
+    if (filterGroup) params.group = filterGroup;
     if (filterFrom) params.from = filterFrom;
     if (filterTo) params.to = filterTo;
     return params;
-  }, [filterUser, filterType, filterTool, filterOutcome, filterFrom, filterTo]);
+  }, [filterUser, filterType, filterTool, filterOutcome, filterTag, filterGroup, filterFrom, filterTo]);
 
   const loadEvents = useCallback(async () => {
     const auth = getAuth();
@@ -184,7 +188,7 @@ export default function AuditPage() {
         {/* Filters */}
         <Card className="mb-6">
           <CardTitle>Filters</CardTitle>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-3">
             <input
               value={filterUser}
               onChange={(e) => setFilterUser(e.target.value)}
@@ -214,6 +218,18 @@ export default function AuditPage() {
               <option value="blocked">Blocked</option>
               <option value="error">Error</option>
             </select>
+            <input
+              value={filterTag}
+              onChange={(e) => setFilterTag(e.target.value)}
+              placeholder="Instance tag"
+              className="input input-bordered input-sm w-full"
+            />
+            <input
+              value={filterGroup}
+              onChange={(e) => setFilterGroup(e.target.value)}
+              placeholder="Instance group"
+              className="input input-bordered input-sm w-full"
+            />
             <input
               type="date"
               value={filterFrom}
