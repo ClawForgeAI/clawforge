@@ -57,6 +57,13 @@
       "when": 1775405450008,
       "tag": "0006_flashy_wendell_rand",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1777060800000,
+      "tag": "0007_instance_grouping_tags",
+      "breakpoints": true
     }
   ]
 }
