@@ -244,15 +244,15 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
 
         // Nullify user references in audit-relevant tables.
         await tx.update(skillSubmissions).set({ reviewedBy: null }).where(eq(skillSubmissions.reviewedBy, userId));
-        await tx.update(approvedSkills).set({ approvedForUser: null }).where(eq(approvedSkills.approvedForUser, userId));
+        await tx
+          .update(approvedSkills)
+          .set({ approvedForUser: null })
+          .where(eq(approvedSkills.approvedForUser, userId));
         await tx.update(approvedSkills).set({ revokedBy: null }).where(eq(approvedSkills.revokedBy, userId));
 
         // Reassign non-nullable references to the requesting admin.
         const adminId = request.authUser!.userId;
-        await tx
-          .update(skillSubmissions)
-          .set({ submittedBy: adminId })
-          .where(eq(skillSubmissions.submittedBy, userId));
+        await tx.update(skillSubmissions).set({ submittedBy: adminId }).where(eq(skillSubmissions.submittedBy, userId));
         await tx.update(enrollmentTokens).set({ createdBy: adminId }).where(eq(enrollmentTokens.createdBy, userId));
         await tx.update(apiKeys).set({ createdBy: adminId }).where(eq(apiKeys.createdBy, userId));
 
