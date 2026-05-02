@@ -238,6 +238,38 @@ describe("KillSwitchManager", () => {
     expect(version).toMatch(/^\d+\.\d+\.\d+/);
   });
 
+  it("includes startupId query param in heartbeat URL", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        policyVersion: 1,
+        killSwitch: false,
+        refreshPolicyNow: false,
+      }),
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const mockLogger = makeLogger();
+    const connState = new ConnectionStateManager({ failureThreshold: 3, logger: mockLogger });
+    const mgr = new KillSwitchManager({
+      config: makeConfig(),
+      session: makeSession(),
+      enforcerState: state,
+      connectionStateManager: connState,
+      logger: mockLogger,
+    });
+
+    mgr.start();
+    await vi.advanceTimersByTimeAsync(150);
+    mgr.stop();
+
+    const calledUrl = fetchSpy.mock.calls[0][0] as string;
+    const url = new URL(calledUrl);
+    const startupId = url.searchParams.get("startupId");
+    expect(startupId).toBeTruthy();
+    expect(startupId?.length).toBeGreaterThan(5);
+  });
+
   it("does nothing when no controlPlaneUrl configured", async () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
