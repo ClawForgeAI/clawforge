@@ -4,4 +4,4 @@ dist
 **/.env
 *.tsbuildinfo
 .DS_Store
-.claude/
+.claude/worktrees/

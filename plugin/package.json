@@ -10,6 +10,10 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./sdk": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
     }
   },
   "bin": {
