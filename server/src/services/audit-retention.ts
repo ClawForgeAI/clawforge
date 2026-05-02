@@ -21,10 +21,7 @@ let cleanupTimer: ReturnType<typeof setInterval> | null = null;
 /**
  * Start the audit retention cleanup job.
  */
-export function startAuditRetentionJob(
-  db: PostgresJsDatabase<typeof schema>,
-  config: RetentionConfig,
-): void {
+export function startAuditRetentionJob(db: PostgresJsDatabase<typeof schema>, config: RetentionConfig): void {
   const intervalMs = config.intervalHours * 60 * 60 * 1000;
 
   // Run immediately on startup
@@ -58,10 +55,7 @@ export function stopAuditRetentionJob(): void {
 /**
  * Run a single cleanup pass, deleting old events in batches.
  */
-async function runCleanup(
-  db: PostgresJsDatabase<typeof schema>,
-  config: RetentionConfig,
-): Promise<void> {
+async function runCleanup(db: PostgresJsDatabase<typeof schema>, config: RetentionConfig): Promise<void> {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - config.retentionDays);
 
@@ -102,10 +96,7 @@ export async function getAuditStats(
   oldestEvent: string | null;
   newestEvent: string | null;
 }> {
-  const [countResult] = await db
-    .select({ total: count() })
-    .from(auditEvents)
-    .where(eq(auditEvents.orgId, orgId));
+  const [countResult] = await db.select({ total: count() }).from(auditEvents).where(eq(auditEvents.orgId, orgId));
 
   const [oldest] = await db
     .select({ timestamp: auditEvents.timestamp })

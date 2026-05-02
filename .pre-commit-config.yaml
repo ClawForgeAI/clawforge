@@ -7,8 +7,25 @@ repos:
       - id: check-yaml
       - id: check-json
       - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=500"]
 
   - repo: https://github.com/Yelp/detect-secrets
     rev: v1.5.0
     hooks:
       - id: detect-secrets
+
+  - repo: local
+    hooks:
+      - id: eslint
+        name: ESLint
+        entry: pnpm lint
+        language: system
+        pass_filenames: false
+        types_or: [ts, tsx]
+      - id: prettier
+        name: Prettier
+        entry: pnpm format:check
+        language: system
+        pass_filenames: false
+        types_or: [ts, tsx, json, yaml, markdown]

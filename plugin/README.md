@@ -66,31 +66,31 @@ You can also edit `~/.openclaw/openclaw.json` directly:
 
 All options are set in the plugin's `config` block:
 
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `controlPlaneUrl` | `string` | — | Base URL of the ClawForge control plane |
-| `orgId` | `string` | — | Organization identifier |
-| `sso.issuerUrl` | `string` | — | OIDC issuer URL |
-| `sso.clientId` | `string` | — | OIDC client ID |
-| `offlineMode` | `"block" \| "allow" \| "cached"` | `"block"` | Behavior when the control plane is unreachable |
-| `policyCacheTtlMs` | `number` | `3600000` | Policy cache TTL (ms) |
-| `heartbeatIntervalMs` | `number` | `30000` | Heartbeat polling interval (ms) |
-| `heartbeatFailureThreshold` | `number` | `10` | Consecutive failures before degraded mode |
-| `auditBatchSize` | `number` | `100` | Audit events to buffer before shipping |
-| `auditFlushIntervalMs` | `number` | `30000` | Audit flush interval (ms) |
-| `maxAuditBufferSize` | `number` | `10000` | Max buffered audit events before dropping oldest |
-| `sseEnabled` | `boolean` | `true` | Enable real-time SSE for instant kill switch and policy updates |
+| Option                      | Type                             | Default   | Description                                                     |
+| --------------------------- | -------------------------------- | --------- | --------------------------------------------------------------- |
+| `controlPlaneUrl`           | `string`                         | —         | Base URL of the ClawForge control plane                         |
+| `orgId`                     | `string`                         | —         | Organization identifier                                         |
+| `sso.issuerUrl`             | `string`                         | —         | OIDC issuer URL                                                 |
+| `sso.clientId`              | `string`                         | —         | OIDC client ID                                                  |
+| `offlineMode`               | `"block" \| "allow" \| "cached"` | `"block"` | Behavior when the control plane is unreachable                  |
+| `policyCacheTtlMs`          | `number`                         | `3600000` | Policy cache TTL (ms)                                           |
+| `heartbeatIntervalMs`       | `number`                         | `30000`   | Heartbeat polling interval (ms)                                 |
+| `heartbeatFailureThreshold` | `number`                         | `10`      | Consecutive failures before degraded mode                       |
+| `auditBatchSize`            | `number`                         | `100`     | Audit events to buffer before shipping                          |
+| `auditFlushIntervalMs`      | `number`                         | `30000`   | Audit flush interval (ms)                                       |
+| `maxAuditBufferSize`        | `number`                         | `10000`   | Max buffered audit events before dropping oldest                |
+| `sseEnabled`                | `boolean`                        | `true`    | Enable real-time SSE for instant kill switch and policy updates |
 
 ## Commands
 
 The plugin registers the following OpenClaw slash commands:
 
-| Command | Description |
-|---|---|
-| `/clawforge-login` | Authenticate via SSO |
-| `/clawforge-enroll <token> <email>` | Enroll with an enrollment token |
-| `/clawforge-submit <skill>` | Submit a skill for org approval |
-| `/clawforge-status` | Display current governance status |
+| Command                             | Description                       |
+| ----------------------------------- | --------------------------------- |
+| `/clawforge-login`                  | Authenticate via SSO              |
+| `/clawforge-enroll <token> <email>` | Enroll with an enrollment token   |
+| `/clawforge-submit <skill>`         | Submit a skill for org approval   |
+| `/clawforge-status`                 | Display current governance status |
 
 ## Uninstall
 

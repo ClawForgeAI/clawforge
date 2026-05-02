@@ -16,7 +16,7 @@ import { logAdminAction } from "../services/admin-audit.js";
 
 const CreateApiKeySchema = z.object({
   name: z.string().min(1).max(100),
-  role: z.enum(["admin", "viewer"]).default("viewer"),
+  role: z.enum(["super_admin", "admin", "policy_admin", "security_admin", "viewer"]).default("viewer"),
   expiresAt: z.string().datetime().optional(),
   ipAllowlist: z.array(z.string()).optional(),
 });
@@ -36,6 +36,7 @@ export async function apiKeyRoutes(app: FastifyInstance): Promise<void> {
    */
   app.post<{ Params: { orgId: string } }>(
     "/api/v1/api-keys/:orgId",
+    { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } },
     async (request, reply) => {
       requireAdmin(request, reply);
       if (reply.sent) return;
@@ -100,6 +101,7 @@ export async function apiKeyRoutes(app: FastifyInstance): Promise<void> {
    */
   app.get<{ Params: { orgId: string } }>(
     "/api/v1/api-keys/:orgId",
+    { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } },
     async (request, reply) => {
       requireAdmin(request, reply);
       if (reply.sent) return;
@@ -119,12 +121,7 @@ export async function apiKeyRoutes(app: FastifyInstance): Promise<void> {
           createdAt: apiKeys.createdAt,
         })
         .from(apiKeys)
-        .where(
-          and(
-            eq(apiKeys.orgId, orgId),
-            isNull(apiKeys.revokedAt),
-          ),
-        )
+        .where(and(eq(apiKeys.orgId, orgId), isNull(apiKeys.revokedAt)))
         .orderBy(apiKeys.createdAt);
 
       return reply.send({ apiKeys: keys });
@@ -137,6 +134,7 @@ export async function apiKeyRoutes(app: FastifyInstance): Promise<void> {
    */
   app.delete<{ Params: { orgId: string; keyId: string } }>(
     "/api/v1/api-keys/:orgId/:keyId",
+    { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } },
     async (request, reply) => {
       requireAdmin(request, reply);
       if (reply.sent) return;
@@ -147,13 +145,7 @@ export async function apiKeyRoutes(app: FastifyInstance): Promise<void> {
       const [revoked] = await app.db
         .update(apiKeys)
         .set({ revokedAt: new Date() })
-        .where(
-          and(
-            eq(apiKeys.id, keyId),
-            eq(apiKeys.orgId, orgId),
-            isNull(apiKeys.revokedAt),
-          ),
-        )
+        .where(and(eq(apiKeys.id, keyId), eq(apiKeys.orgId, orgId), isNull(apiKeys.revokedAt)))
         .returning();
 
       if (!revoked) {

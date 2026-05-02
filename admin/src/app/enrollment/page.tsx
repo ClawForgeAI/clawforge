@@ -9,11 +9,7 @@ import { Badge } from "@/components/badge";
 import { CardSkeleton } from "@/components/skeleton";
 import { useToast } from "@/components/toast";
 import { getAuth } from "@/lib/auth";
-import {
-  getEnrollmentTokens,
-  createEnrollmentToken,
-  revokeEnrollmentToken,
-} from "@/lib/api";
+import { getEnrollmentTokens, createEnrollmentToken, revokeEnrollmentToken } from "@/lib/api";
 import type { EnrollmentToken } from "@/lib/api";
 
 export default function EnrollmentPage() {
@@ -110,11 +106,23 @@ export default function EnrollmentPage() {
             <p className="text-sm text-base-content/50 mt-1">Generate tokens to onboard new agent clients</p>
           </div>
           <button
-            onClick={() => { setShowCreate(true); setNewToken(null); }}
+            onClick={() => {
+              setShowCreate(true);
+              setNewToken(null);
+            }}
             className="btn btn-primary btn-sm gap-2"
           >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            <svg
+              className="w-4 h-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
             Create Token
           </button>
@@ -131,7 +139,13 @@ export default function EnrollmentPage() {
               <Card className="border-success/30 bg-success/5">
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-xl bg-success/15 flex items-center justify-center shrink-0">
-                    <svg className="w-5 h-5 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg
+                      className="w-5 h-5 text-success"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
                       <path d="M9 12l2 2 4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
                     </svg>
                   </div>
@@ -170,7 +184,9 @@ export default function EnrollmentPage() {
                 <CardTitle>Create Enrollment Token</CardTitle>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="form-control">
-                    <label className="label"><span className="label-text text-xs font-medium">Label (optional)</span></label>
+                    <label className="label">
+                      <span className="label-text text-xs font-medium">Label (optional)</span>
+                    </label>
                     <input
                       value={label}
                       onChange={(e) => setLabel(e.target.value)}
@@ -179,7 +195,9 @@ export default function EnrollmentPage() {
                     />
                   </div>
                   <div className="form-control">
-                    <label className="label"><span className="label-text text-xs font-medium">Max Uses (optional)</span></label>
+                    <label className="label">
+                      <span className="label-text text-xs font-medium">Max Uses (optional)</span>
+                    </label>
                     <input
                       type="number"
                       value={maxUses}
@@ -189,7 +207,9 @@ export default function EnrollmentPage() {
                     />
                   </div>
                   <div className="form-control">
-                    <label className="label"><span className="label-text text-xs font-medium">Expires In Hours (optional)</span></label>
+                    <label className="label">
+                      <span className="label-text text-xs font-medium">Expires In Hours (optional)</span>
+                    </label>
                     <input
                       type="number"
                       value={expiresIn}
@@ -200,18 +220,11 @@ export default function EnrollmentPage() {
                   </div>
                 </div>
                 <div className="flex gap-2 mt-4">
-                  <button
-                    onClick={handleCreate}
-                    disabled={creating}
-                    className="btn btn-primary btn-sm"
-                  >
+                  <button onClick={handleCreate} disabled={creating} className="btn btn-primary btn-sm">
                     {creating && <span className="loading loading-spinner loading-xs" />}
                     {creating ? "Creating..." : "Create"}
                   </button>
-                  <button
-                    onClick={() => setShowCreate(false)}
-                    className="btn btn-ghost btn-sm"
-                  >
+                  <button onClick={() => setShowCreate(false)} className="btn btn-ghost btn-sm">
                     Cancel
                   </button>
                 </div>
@@ -224,7 +237,13 @@ export default function EnrollmentPage() {
           <CardSkeleton />
         ) : tokens.length === 0 ? (
           <div className="text-center py-16 text-base-content/40">
-            <svg className="w-12 h-12 mx-auto mb-3 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <svg
+              className="w-12 h-12 mx-auto mb-3 opacity-30"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            >
               <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
             </svg>
             <p className="text-sm">No active enrollment tokens</p>
@@ -257,12 +276,11 @@ export default function EnrollmentPage() {
                         className="table-row-hover"
                       >
                         <td className="font-medium">{t.label || "-"}</td>
-                        <td className="font-mono text-xs text-base-content/40">
-                          {t.token.slice(0, 12)}...
-                        </td>
+                        <td className="font-mono text-xs text-base-content/40">{t.token.slice(0, 12)}...</td>
                         <td>
                           <Badge variant={isMaxed ? "danger" : "default"}>
-                            {t.usedCount}{t.maxUses != null ? `/${t.maxUses}` : ""} used
+                            {t.usedCount}
+                            {t.maxUses != null ? `/${t.maxUses}` : ""} used
                           </Badge>
                         </td>
                         <td>
@@ -274,9 +292,7 @@ export default function EnrollmentPage() {
                             <span className="text-base-content/40 text-sm">Never</span>
                           )}
                         </td>
-                        <td className="text-base-content/50 text-sm">
-                          {new Date(t.createdAt).toLocaleDateString()}
-                        </td>
+                        <td className="text-base-content/50 text-sm">{new Date(t.createdAt).toLocaleDateString()}</td>
                         <td>
                           <button
                             onClick={() => setRevokeTarget({ id: t.id, label: t.label })}
@@ -313,7 +329,15 @@ export default function EnrollmentPage() {
               >
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 rounded-xl bg-error/15 flex items-center justify-center">
-                    <svg className="w-5 h-5 text-error" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg
+                      className="w-5 h-5 text-error"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
                       <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                       <line x1="12" y1="9" x2="12" y2="13" />
                       <line x1="12" y1="17" x2="12.01" y2="17" />
@@ -322,21 +346,14 @@ export default function EnrollmentPage() {
                   <h3 className="font-semibold text-lg">Revoke Token</h3>
                 </div>
                 <p className="text-sm text-base-content/60 mb-5">
-                  Revoke <strong>{revokeTarget.label || "this token"}</strong>? It will no longer accept new enrollments. This action cannot be undone.
+                  Revoke <strong>{revokeTarget.label || "this token"}</strong>? It will no longer accept new
+                  enrollments. This action cannot be undone.
                 </p>
                 <div className="flex justify-end gap-2">
-                  <button
-                    onClick={() => setRevokeTarget(null)}
-                    disabled={revoking}
-                    className="btn btn-ghost btn-sm"
-                  >
+                  <button onClick={() => setRevokeTarget(null)} disabled={revoking} className="btn btn-ghost btn-sm">
                     Cancel
                   </button>
-                  <button
-                    onClick={handleRevoke}
-                    disabled={revoking}
-                    className="btn btn-error btn-sm"
-                  >
+                  <button onClick={handleRevoke} disabled={revoking} className="btn btn-error btn-sm">
                     {revoking && <span className="loading loading-spinner loading-xs" />}
                     {revoking ? "Revoking..." : "Revoke"}
                   </button>
