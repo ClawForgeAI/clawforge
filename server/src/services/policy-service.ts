@@ -360,6 +360,7 @@ export class PolicyService {
       } catch (err) {
         throw new Error(
           `Invalid regex pattern in DLP rule "${rule.name}": ${err instanceof Error ? err.message : String(err)}`,
+          { cause: err },
         );
       }
     }
