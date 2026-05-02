@@ -271,6 +271,7 @@ export const clientHeartbeats = pgTable(
       .references(() => users.id),
     lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true }).notNull().defaultNow(),
     clientVersion: text("client_version"),
+    startupId: text("startup_id"),
     groupName: text("group_name"),
     tags: jsonb("tags").$type<string[]>().notNull().default([]),
   },
