@@ -28,25 +28,6 @@ const ExchangeBodySchema = z.discriminatedUnion("grantType", [
 ]);
 
 export async function authRoutes(app: FastifyInstance): Promise<void> {
-  // Route-specific rate limits for auth endpoints (#40)
-  const authRateLimit = {
-    config: {
-      rateLimit: {
-        max: 10,
-        timeWindow: "1 minute",
-      },
-    },
-  };
-
-  const exchangeRateLimit = {
-    config: {
-      rateLimit: {
-        max: 30,
-        timeWindow: "1 minute",
-      },
-    },
-  };
-
   /**
    * POST /api/v1/auth/exchange
    * Exchange an IdP token for a ClawForge session token.
@@ -56,238 +37,228 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
    * - id_token: Directly validate an id_token against the org's SSO config
    * - refresh_token: Refresh a ClawForge session token
    */
-  app.post("/api/v1/auth/exchange", async (request, reply) => {
-    const parseResult = ExchangeBodySchema.safeParse(request.body);
-    if (!parseResult.success) {
-      return reply.code(400).send({
-        error: "Invalid request body",
-        details: parseResult.error.issues,
-      });
-    }
-
-    const body = parseResult.data;
-    const db = app.db;
-
-    if (body.grantType === "authorization_code") {
-      // 1. We need to identify which org this code belongs to.
-      //    The client must have stored the orgId context. We look it up
-      //    from a header or query param provided alongside the code exchange.
-      //    For simplicity, require an X-ClawForge-Org header.
-      const orgId = (request.headers["x-clawforge-org"] as string) ?? "";
-      if (!orgId) {
+  app.post(
+    "/api/v1/auth/exchange",
+    { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } },
+    async (request, reply) => {
+      const parseResult = ExchangeBodySchema.safeParse(request.body);
+      if (!parseResult.success) {
         return reply.code(400).send({
-          error: "Missing X-ClawForge-Org header. Include the orgId for code exchange.",
+          error: "Invalid request body",
+          details: parseResult.error.issues,
         });
       }
 
-      // 2. Look up the org's SSO config.
-      const [org] = await db
-        .select()
-        .from(organizations)
-        .where(eq(organizations.id, orgId))
-        .limit(1);
+      const body = parseResult.data;
+      const db = app.db;
 
-      if (!org?.ssoConfig) {
-        return reply.code(404).send({
-          error: "Organization not found or SSO not configured.",
-        });
-      }
-
-      const ssoConfig = org.ssoConfig;
-
-      try {
-        // 3. Exchange the code at the IdP's token endpoint.
-        const idpTokens = await exchangeCodeAtIdp({
-          issuerUrl: ssoConfig.issuerUrl,
-          clientId: ssoConfig.clientId,
-          code: body.code,
-          codeVerifier: body.codeVerifier,
-          redirectUri: body.redirectUri,
-        });
-
-        // 4. Verify the id_token.
-        const claims = await verifyIdToken(idpTokens.id_token, {
-          issuerUrl: ssoConfig.issuerUrl,
-          clientId: ssoConfig.clientId,
-          audience: ssoConfig.audience,
-        });
-
-        // 5. Upsert user and issue ClawForge JWTs.
-        return await issueClawForgeTokens(app, db, orgId, claims);
-      } catch (err) {
-        return reply.code(401).send({
-          error: `OIDC token exchange failed: ${err instanceof Error ? err.message : String(err)}`,
-        });
-      }
-    }
-
-    if (body.grantType === "id_token") {
-      // Direct id_token validation. The client already obtained the token
-      // from their IdP and passes it directly.
-      const orgId = body.orgId;
-
-      const [org] = await db
-        .select()
-        .from(organizations)
-        .where(eq(organizations.id, orgId))
-        .limit(1);
-
-      if (!org?.ssoConfig) {
-        return reply.code(404).send({
-          error: "Organization not found or SSO not configured.",
-        });
-      }
-
-      const ssoConfig = org.ssoConfig;
-
-      try {
-        const claims = await verifyIdToken(body.idToken, {
-          issuerUrl: ssoConfig.issuerUrl,
-          clientId: ssoConfig.clientId,
-          audience: ssoConfig.audience,
-        });
-
-        return await issueClawForgeTokens(app, db, orgId, claims);
-      } catch (err) {
-        return reply.code(401).send({
-          error: `ID token validation failed: ${err instanceof Error ? err.message : String(err)}`,
-        });
-      }
-    }
-
-    if (body.grantType === "refresh_token") {
-      try {
-        const decoded = app.jwt.verify<{
-          userId: string;
-          orgId: string;
-          email: string;
-          role: string;
-          type: string;
-        }>(body.refreshToken);
-
-        if (decoded.type !== "refresh") {
-          return reply.code(400).send({ error: "Invalid refresh token" });
+      if (body.grantType === "authorization_code") {
+        // 1. We need to identify which org this code belongs to.
+        //    The client must have stored the orgId context. We look it up
+        //    from a header or query param provided alongside the code exchange.
+        //    For simplicity, require an X-ClawForge-Org header.
+        const orgId = (request.headers["x-clawforge-org"] as string) ?? "";
+        if (!orgId) {
+          return reply.code(400).send({
+            error: "Missing X-ClawForge-Org header. Include the orgId for code exchange.",
+          });
         }
 
-        const accessToken = app.jwt.sign(
-          {
-            userId: decoded.userId,
-            orgId: decoded.orgId,
-            email: decoded.email,
-            role: decoded.role,
-          },
-          { expiresIn: "1h" },
-        );
+        // 2. Look up the org's SSO config.
+        const [org] = await db.select().from(organizations).where(eq(organizations.id, orgId)).limit(1);
 
-        const refreshToken = app.jwt.sign(
-          {
-            userId: decoded.userId,
-            orgId: decoded.orgId,
-            email: decoded.email,
-            role: decoded.role,
-            type: "refresh",
-          },
-          { expiresIn: "30d" },
-        );
+        if (!org?.ssoConfig) {
+          return reply.code(404).send({
+            error: "Organization not found or SSO not configured.",
+          });
+        }
 
-        // Update last seen.
-        await db
-          .update(users)
-          .set({ lastSeenAt: new Date() })
-          .where(eq(users.id, decoded.userId));
+        const ssoConfig = org.ssoConfig;
 
-        return reply.send({
-          accessToken,
-          refreshToken,
-          expiresAt: Date.now() + 60 * 60 * 1000,
-          userId: decoded.userId,
-          orgId: decoded.orgId,
-          email: decoded.email,
-          roles: [decoded.role],
-        });
-      } catch {
-        return reply.code(401).send({ error: "Invalid or expired refresh token" });
+        try {
+          // 3. Exchange the code at the IdP's token endpoint.
+          const idpTokens = await exchangeCodeAtIdp({
+            issuerUrl: ssoConfig.issuerUrl,
+            clientId: ssoConfig.clientId,
+            code: body.code,
+            codeVerifier: body.codeVerifier,
+            redirectUri: body.redirectUri,
+          });
+
+          // 4. Verify the id_token.
+          const claims = await verifyIdToken(idpTokens.id_token, {
+            issuerUrl: ssoConfig.issuerUrl,
+            clientId: ssoConfig.clientId,
+            audience: ssoConfig.audience,
+          });
+
+          // 5. Upsert user and issue ClawForge JWTs.
+          return await issueClawForgeTokens(app, db, orgId, claims);
+        } catch (err) {
+          return reply.code(401).send({
+            error: `OIDC token exchange failed: ${err instanceof Error ? err.message : String(err)}`,
+          });
+        }
       }
-    }
-  });
+
+      if (body.grantType === "id_token") {
+        // Direct id_token validation. The client already obtained the token
+        // from their IdP and passes it directly.
+        const orgId = body.orgId;
+
+        const [org] = await db.select().from(organizations).where(eq(organizations.id, orgId)).limit(1);
+
+        if (!org?.ssoConfig) {
+          return reply.code(404).send({
+            error: "Organization not found or SSO not configured.",
+          });
+        }
+
+        const ssoConfig = org.ssoConfig;
+
+        try {
+          const claims = await verifyIdToken(body.idToken, {
+            issuerUrl: ssoConfig.issuerUrl,
+            clientId: ssoConfig.clientId,
+            audience: ssoConfig.audience,
+          });
+
+          return await issueClawForgeTokens(app, db, orgId, claims);
+        } catch (err) {
+          return reply.code(401).send({
+            error: `ID token validation failed: ${err instanceof Error ? err.message : String(err)}`,
+          });
+        }
+      }
+
+      if (body.grantType === "refresh_token") {
+        try {
+          const decoded = app.jwt.verify<{
+            userId: string;
+            orgId: string;
+            email: string;
+            role: string;
+            type: string;
+          }>(body.refreshToken);
+
+          if (decoded.type !== "refresh") {
+            return reply.code(400).send({ error: "Invalid refresh token" });
+          }
+
+          const accessToken = app.jwt.sign(
+            {
+              userId: decoded.userId,
+              orgId: decoded.orgId,
+              email: decoded.email,
+              role: decoded.role,
+            },
+            { expiresIn: "1h" },
+          );
+
+          const refreshToken = app.jwt.sign(
+            {
+              userId: decoded.userId,
+              orgId: decoded.orgId,
+              email: decoded.email,
+              role: decoded.role,
+              type: "refresh",
+            },
+            { expiresIn: "30d" },
+          );
+
+          // Update last seen.
+          await db.update(users).set({ lastSeenAt: new Date() }).where(eq(users.id, decoded.userId));
+
+          return reply.send({
+            accessToken,
+            refreshToken,
+            expiresAt: Date.now() + 60 * 60 * 1000,
+            userId: decoded.userId,
+            orgId: decoded.orgId,
+            email: decoded.email,
+            roles: [decoded.role],
+          });
+        } catch {
+          return reply.code(401).send({ error: "Invalid or expired refresh token" });
+        }
+      }
+    },
+  );
 
   /**
    * POST /api/v1/auth/login
    * Email/password login.
    */
-  app.post("/api/v1/auth/login", async (request, reply) => {
-    const loginSchema = z.object({
-      email: z.string().email(),
-      password: z.string().min(1),
-      orgId: z.string().uuid().optional(),
-    });
-
-    const parseResult = loginSchema.safeParse(request.body);
-    if (!parseResult.success) {
-      return reply.code(400).send({
-        error: "Invalid request body",
-        details: parseResult.error.issues,
+  app.post(
+    "/api/v1/auth/login",
+    { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } },
+    async (request, reply) => {
+      const loginSchema = z.object({
+        email: z.string().email(),
+        password: z.string().min(1),
+        orgId: z.string().uuid().optional(),
       });
-    }
 
-    const { email, password } = parseResult.data;
-    let orgId = parseResult.data.orgId;
-    const db = app.db;
-
-    // For single-org deployments: auto-discover the org if not provided
-    if (!orgId) {
-      const [defaultOrg] = await db.select().from(organizations).limit(1);
-      if (!defaultOrg) {
-        return reply.code(400).send({ error: "No organization found. Please run the seed script." });
+      const parseResult = loginSchema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.code(400).send({
+          error: "Invalid request body",
+          details: parseResult.error.issues,
+        });
       }
-      orgId = defaultOrg.id;
-    }
 
-    const condition = and(eq(users.orgId, orgId), eq(users.email, email));
+      const { email, password } = parseResult.data;
+      let orgId = parseResult.data.orgId;
+      const db = app.db;
 
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(condition)
-      .limit(1);
+      // For single-org deployments: auto-discover the org if not provided
+      if (!orgId) {
+        const [defaultOrg] = await db.select().from(organizations).limit(1);
+        if (!defaultOrg) {
+          return reply.code(400).send({ error: "No organization found. Please run the seed script." });
+        }
+        orgId = defaultOrg.id;
+      }
 
-    if (!user || !user.passwordHash) {
-      return reply.code(401).send({ error: "Invalid email or password" });
-    }
+      const condition = and(eq(users.orgId, orgId), eq(users.email, email));
 
-    const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) {
-      return reply.code(401).send({ error: "Invalid email or password" });
-    }
+      const [user] = await db.select().from(users).where(condition).limit(1);
 
-    const resolvedOrgId = orgId ?? user.orgId;
+      if (!user || !user.passwordHash) {
+        return reply.code(401).send({ error: "Invalid email or password" });
+      }
 
-    // Update last seen
-    await db
-      .update(users)
-      .set({ lastSeenAt: new Date() })
-      .where(eq(users.id, user.id));
+      const valid = await bcrypt.compare(password, user.passwordHash);
+      if (!valid) {
+        return reply.code(401).send({ error: "Invalid email or password" });
+      }
 
-    // Issue tokens
-    const accessToken = app.jwt.sign(
-      { userId: user.id, orgId: resolvedOrgId, email: user.email, role: user.role },
-      { expiresIn: "1h" },
-    );
-    const refreshToken = app.jwt.sign(
-      { userId: user.id, orgId: resolvedOrgId, email: user.email, role: user.role, type: "refresh" },
-      { expiresIn: "30d" },
-    );
+      const resolvedOrgId = orgId ?? user.orgId;
 
-    return reply.send({
-      accessToken,
-      refreshToken,
-      expiresAt: Date.now() + 60 * 60 * 1000,
-      userId: user.id,
-      orgId: resolvedOrgId,
-      email: user.email,
-      roles: [user.role],
-    });
-  });
+      // Update last seen
+      await db.update(users).set({ lastSeenAt: new Date() }).where(eq(users.id, user.id));
+
+      // Issue tokens
+      const accessToken = app.jwt.sign(
+        { userId: user.id, orgId: resolvedOrgId, email: user.email, role: user.role },
+        { expiresIn: "1h" },
+      );
+      const refreshToken = app.jwt.sign(
+        { userId: user.id, orgId: resolvedOrgId, email: user.email, role: user.role, type: "refresh" },
+        { expiresIn: "30d" },
+      );
+
+      return reply.send({
+        accessToken,
+        refreshToken,
+        expiresAt: Date.now() + 60 * 60 * 1000,
+        userId: user.id,
+        orgId: resolvedOrgId,
+        email: user.email,
+        roles: [user.role],
+      });
+    },
+  );
 
   /**
    * GET /api/v1/auth/mode
@@ -325,11 +296,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     const db = app.db;
 
     // Fetch user
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
 
     if (!user) {
       return reply.code(404).send({ error: "User not found" });
@@ -348,10 +315,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
     // Hash and save new password
     const newHash = await bcrypt.hash(newPassword, 12);
-    await db
-      .update(users)
-      .set({ passwordHash: newHash })
-      .where(eq(users.id, userId));
+    await db.update(users).set({ passwordHash: newHash }).where(eq(users.id, userId));
 
     return reply.send({ success: true });
   });
@@ -387,11 +351,7 @@ async function issueClawForgeTokens(
       .where(eq(users.id, userId));
   } else {
     // First user in an org becomes admin, subsequent users are regular users.
-    const userCount = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.orgId, orgId))
-      .limit(1);
+    const userCount = await db.select({ id: users.id }).from(users).where(eq(users.orgId, orgId)).limit(1);
 
     role = userCount.length === 0 ? "admin" : "user";
 
@@ -409,15 +369,9 @@ async function issueClawForgeTokens(
   }
 
   // Issue ClawForge JWTs.
-  const accessToken = app.jwt.sign(
-    { userId, orgId, email, role },
-    { expiresIn: "1h" },
-  );
+  const accessToken = app.jwt.sign({ userId, orgId, email, role }, { expiresIn: "1h" });
 
-  const refreshToken = app.jwt.sign(
-    { userId, orgId, email, role, type: "refresh" },
-    { expiresIn: "30d" },
-  );
+  const refreshToken = app.jwt.sign({ userId, orgId, email, role, type: "refresh" }, { expiresIn: "30d" });
 
   return {
     accessToken,

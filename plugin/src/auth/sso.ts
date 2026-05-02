@@ -1,10 +1,18 @@
 /**
  * OIDC SSO login for ClawForge.
  * Uses Authorization Code flow with PKCE via the control plane's token exchange endpoint.
+ *
+ * The login flow:
+ * 1. Start a local HTTP server on localhost to receive the OIDC callback
+ * 2. Open the user's default browser to the authorization URL
+ * 3. User authenticates with their SSO provider in the browser
+ * 4. SSO provider redirects back to localhost callback
+ * 5. Exchange the authorization code for ClawForge session tokens
  */
 
 import crypto from "node:crypto";
 import http from "node:http";
+import { exec } from "node:child_process";
 import type { ClawForgePluginConfig, SessionTokens } from "../types.js";
 import { saveSession } from "./token-store.js";
 
@@ -77,8 +85,46 @@ async function exchangeCodeForSession(params: {
 }
 
 /**
+ * Open a URL in the user's default browser.
+ *
+ * Uses platform-specific commands:
+ * - macOS: `open`
+ * - Linux: `xdg-open`
+ * - Windows: `start`
+ *
+ * Returns true if the browser was opened successfully, false otherwise.
+ */
+export function openBrowser(url: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const platform = process.platform;
+    let command: string;
+
+    if (platform === "darwin") {
+      command = `open "${url}"`;
+    } else if (platform === "win32") {
+      command = `start "" "${url}"`;
+    } else {
+      // Linux and others
+      command = `xdg-open "${url}"`;
+    }
+
+    exec(command, (err) => {
+      if (err) {
+        resolve(false);
+      } else {
+        resolve(true);
+      }
+    });
+  });
+}
+
+/**
  * Start a temporary local server to receive the OIDC callback,
- * then exchange the code for a ClawForge session token.
+ * open the browser for SSO authentication, then exchange the code
+ * for a ClawForge session token.
+ *
+ * The flow is similar to `gh auth login` — the browser opens automatically
+ * and the user is redirected back after authentication.
  */
 export async function performSsoLogin(config: ClawForgePluginConfig): Promise<SessionTokens> {
   const issuerUrl = config.sso?.issuerUrl;
@@ -86,9 +132,7 @@ export async function performSsoLogin(config: ClawForgePluginConfig): Promise<Se
   const controlPlaneUrl = config.controlPlaneUrl;
 
   if (!issuerUrl || !clientId || !controlPlaneUrl) {
-    throw new Error(
-      "ClawForge SSO requires controlPlaneUrl, sso.issuerUrl, and sso.clientId in plugin config",
-    );
+    throw new Error("ClawForge SSO requires controlPlaneUrl, sso.issuerUrl, and sso.clientId in plugin config");
   }
 
   const codeVerifier = generateCodeVerifier();
@@ -158,15 +202,24 @@ export async function performSsoLogin(config: ClawForgePluginConfig): Promise<Se
     });
 
     server.listen(CALLBACK_PORT, "127.0.0.1", () => {
-      // In a real implementation, we would open the browser to `authUrl`.
-      // The caller (plugin register) should handle opening the URL.
+      // Open the user's default browser to the SSO authorization URL
+      openBrowser(authUrl).then((opened) => {
+        if (!opened) {
+          // If browser open fails, expose the URL so the caller can display it
+          console.error(`Could not open browser automatically. Please visit:\n${authUrl}`);
+        }
+      });
+      // Also expose the URL for programmatic access (testing, fallback display)
       (server as http.Server & { authUrl?: string }).authUrl = authUrl;
     });
 
     // Timeout after 5 minutes.
-    setTimeout(() => {
-      server.close();
-      reject(new Error("SSO login timed out after 5 minutes"));
-    }, 5 * 60 * 1000);
+    setTimeout(
+      () => {
+        server.close();
+        reject(new Error("SSO login timed out after 5 minutes"));
+      },
+      5 * 60 * 1000,
+    );
   });
 }
