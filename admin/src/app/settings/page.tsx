@@ -272,41 +272,71 @@ export default function SettingsPage() {
                 </div>
                 <div className="space-y-4 mt-4">
                   <div className="form-control">
-                    <label className="label"><span className="label-text text-xs font-medium">Audit Retention (days)</span></label>
+                    <label className="label">
+                      <span className="label-text text-xs font-medium">Audit Retention (days)</span>
+                    </label>
                     <input
                       type="number"
                       value={orgSettings.auditRetentionDays ?? ""}
-                      onChange={(e) => setOrgSettings({ ...orgSettings, auditRetentionDays: e.target.value ? parseInt(e.target.value, 10) : undefined })}
+                      onChange={(e) =>
+                        setOrgSettings({
+                          ...orgSettings,
+                          auditRetentionDays: e.target.value ? parseInt(e.target.value, 10) : undefined,
+                        })
+                      }
                       placeholder="90"
                       className="input input-bordered input-sm w-full max-w-xs"
                       min={1}
                       max={3650}
                     />
-                    <label className="label"><span className="label-text-alt text-xs text-base-content/40">How long to retain audit logs before cleanup</span></label>
+                    <label className="label">
+                      <span className="label-text-alt text-xs text-base-content/40">
+                        How long to retain audit logs before cleanup
+                      </span>
+                    </label>
                   </div>
                   <div className="form-control">
-                    <label className="label"><span className="label-text text-xs font-medium">Default Role for New Users</span></label>
+                    <label className="label">
+                      <span className="label-text text-xs font-medium">Default Role for New Users</span>
+                    </label>
                     <select
                       value={orgSettings.defaultNewUserRole ?? "user"}
-                      onChange={(e) => setOrgSettings({ ...orgSettings, defaultNewUserRole: e.target.value as "admin" | "viewer" | "user" })}
+                      onChange={(e) =>
+                        setOrgSettings({
+                          ...orgSettings,
+                          defaultNewUserRole: e.target.value as "admin" | "viewer" | "user",
+                        })
+                      }
                       className="select select-bordered select-sm w-full max-w-xs"
                     >
                       <option value="user">User</option>
                       <option value="viewer">Viewer</option>
                       <option value="admin">Admin</option>
                     </select>
-                    <label className="label"><span className="label-text-alt text-xs text-base-content/40">Role assigned to newly enrolled users</span></label>
+                    <label className="label">
+                      <span className="label-text-alt text-xs text-base-content/40">
+                        Role assigned to newly enrolled users
+                      </span>
+                    </label>
                   </div>
                   <div className="form-control">
-                    <label className="label"><span className="label-text text-xs font-medium">Kill Switch Default Message</span></label>
+                    <label className="label">
+                      <span className="label-text text-xs font-medium">Kill Switch Default Message</span>
+                    </label>
                     <input
                       type="text"
                       value={orgSettings.killSwitchDefaultMessage ?? ""}
-                      onChange={(e) => setOrgSettings({ ...orgSettings, killSwitchDefaultMessage: e.target.value || undefined })}
+                      onChange={(e) =>
+                        setOrgSettings({ ...orgSettings, killSwitchDefaultMessage: e.target.value || undefined })
+                      }
                       placeholder="All agent tool calls are currently blocked."
                       className="input input-bordered input-sm w-full max-w-md"
                     />
-                    <label className="label"><span className="label-text-alt text-xs text-base-content/40">Default message shown when kill switch is activated</span></label>
+                    <label className="label">
+                      <span className="label-text-alt text-xs text-base-content/40">
+                        Default message shown when kill switch is activated
+                      </span>
+                    </label>
                   </div>
                 </div>
               </Card>
@@ -318,30 +348,56 @@ export default function SettingsPage() {
                 <CardTitle>Heartbeat Thresholds</CardTitle>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="form-control">
-                    <label className="label"><span className="label-text text-xs font-medium">Online Threshold (minutes)</span></label>
+                    <label className="label">
+                      <span className="label-text text-xs font-medium">Online Threshold (minutes)</span>
+                    </label>
                     <input
                       type="number"
-                      value={orgSettings.heartbeatOnlineThresholdMs ? orgSettings.heartbeatOnlineThresholdMs / 60000 : ""}
-                      onChange={(e) => setOrgSettings({ ...orgSettings, heartbeatOnlineThresholdMs: e.target.value ? parseFloat(e.target.value) * 60000 : undefined })}
+                      value={
+                        orgSettings.heartbeatOnlineThresholdMs ? orgSettings.heartbeatOnlineThresholdMs / 60000 : ""
+                      }
+                      onChange={(e) =>
+                        setOrgSettings({
+                          ...orgSettings,
+                          heartbeatOnlineThresholdMs: e.target.value ? parseFloat(e.target.value) * 60000 : undefined,
+                        })
+                      }
                       placeholder="5"
                       className="input input-bordered input-sm w-full"
                       min={0.5}
                       step={0.5}
                     />
-                    <label className="label"><span className="label-text-alt text-xs text-base-content/40">Client is considered online within this window</span></label>
+                    <label className="label">
+                      <span className="label-text-alt text-xs text-base-content/40">
+                        Client is considered online within this window
+                      </span>
+                    </label>
                   </div>
                   <div className="form-control">
-                    <label className="label"><span className="label-text text-xs font-medium">Offline Threshold (minutes)</span></label>
+                    <label className="label">
+                      <span className="label-text text-xs font-medium">Offline Threshold (minutes)</span>
+                    </label>
                     <input
                       type="number"
-                      value={orgSettings.heartbeatOfflineThresholdMs ? orgSettings.heartbeatOfflineThresholdMs / 60000 : ""}
-                      onChange={(e) => setOrgSettings({ ...orgSettings, heartbeatOfflineThresholdMs: e.target.value ? parseFloat(e.target.value) * 60000 : undefined })}
+                      value={
+                        orgSettings.heartbeatOfflineThresholdMs ? orgSettings.heartbeatOfflineThresholdMs / 60000 : ""
+                      }
+                      onChange={(e) =>
+                        setOrgSettings({
+                          ...orgSettings,
+                          heartbeatOfflineThresholdMs: e.target.value ? parseFloat(e.target.value) * 60000 : undefined,
+                        })
+                      }
                       placeholder="10"
                       className="input input-bordered input-sm w-full"
                       min={1}
                       step={0.5}
                     />
-                    <label className="label"><span className="label-text-alt text-xs text-base-content/40">Client is considered offline after this window</span></label>
+                    <label className="label">
+                      <span className="label-text-alt text-xs text-base-content/40">
+                        Client is considered offline after this window
+                      </span>
+                    </label>
                   </div>
                 </div>
               </Card>
