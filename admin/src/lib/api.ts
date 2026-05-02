@@ -20,6 +20,8 @@ export type AuditQueryFilters = {
   from?: string;
   to?: string;
   limit?: string;
+  tag?: string;
+  group?: string;
 };
 
 async function apiFetch<T>(path: string, opts: FetchOptions = {}): Promise<T> {
@@ -107,7 +109,14 @@ export function getEffectivePolicy(orgId: string, token: string) {
 }
 
 export function updatePolicy(orgId: string, token: string, body: unknown) {
-  return apiFetch(`/api/v1/policies/${orgId}`, { method: "PUT", token, body });
+  return apiFetch<{ status?: string; requestId?: string; message?: string; version?: number }>(
+    `/api/v1/policies/${orgId}`,
+    {
+      method: "PUT",
+      token,
+      body,
+    },
+  );
 }
 
 export function setKillSwitch(orgId: string, token: string, active: boolean, message?: string) {
@@ -136,6 +145,21 @@ export type PolicyAssignment = {
   userId?: string;
   role?: string;
   priority: number;
+  createdAt: string;
+};
+
+export type PolicyChangeRequest = {
+  id: string;
+  orgId: string;
+  policyId: string;
+  changeType: "create" | "update" | "delete";
+  status: "pending" | "approved" | "rejected";
+  requestedBy: string;
+  reviewedBy?: string;
+  proposedChanges: Record<string, unknown>;
+  beforeState?: Record<string, unknown>;
+  rejectionReason?: string;
+  reviewedAt?: string;
   createdAt: string;
 };
 
@@ -175,6 +199,31 @@ export function removePolicyAssignment(orgId: string, assignmentId: string, toke
   return apiFetch<{ success: boolean }>(`/api/v1/policies/${orgId}/assignments/${assignmentId}`, {
     method: "DELETE",
     token,
+  });
+}
+
+export function listPolicyApprovals(
+  orgId: string,
+  token: string,
+  status: "pending" | "approved" | "rejected" = "pending",
+) {
+  return apiFetch<{ requests: PolicyChangeRequest[] }>(`/api/v1/policies/${orgId}/approvals?status=${status}`, {
+    token,
+  });
+}
+
+export function approvePolicyChange(orgId: string, requestId: string, token: string) {
+  return apiFetch<{ status: "approved" }>(`/api/v1/policies/${orgId}/approvals/${requestId}/approve`, {
+    method: "POST",
+    token,
+  });
+}
+
+export function rejectPolicyChange(orgId: string, requestId: string, token: string, reason?: string) {
+  return apiFetch<{ status: "rejected" }>(`/api/v1/policies/${orgId}/approvals/${requestId}/reject`, {
+    method: "POST",
+    token,
+    body: { reason },
   });
 }
 
@@ -517,6 +566,8 @@ export type ConnectedClient = {
   role: string;
   lastHeartbeatAt: string;
   clientVersion?: string;
+  groupName?: string | null;
+  tags: string[];
   status: "online" | "offline";
 };
 
@@ -526,8 +577,42 @@ export type ClientsSummary = {
   offline: number;
 };
 
-export function getConnectedClients(orgId: string, token: string) {
-  return apiFetch<{ clients: ConnectedClient[]; summary: ClientsSummary }>(`/api/v1/heartbeat/${orgId}`, { token });
+export type ClientFacets = {
+  tags: string[];
+  groups: string[];
+};
+
+export function getConnectedClients(
+  orgId: string,
+  token: string,
+  filters?: { tag?: string; group?: string; status?: "online" | "offline" },
+) {
+  const params = new URLSearchParams();
+  if (filters?.tag) params.set("tag", filters.tag);
+  if (filters?.group) params.set("group", filters.group);
+  if (filters?.status) params.set("status", filters.status);
+  const qs = params.toString();
+
+  return apiFetch<{ clients: ConnectedClient[]; summary: ClientsSummary; facets: ClientFacets }>(
+    `/api/v1/heartbeat/${orgId}${qs ? `?${qs}` : ""}`,
+    { token },
+  );
+}
+
+export function updateClientMetadata(
+  orgId: string,
+  userId: string,
+  token: string,
+  body: { groupName?: string | null; tags?: string[] },
+) {
+  return apiFetch<{ instance: { userId: string; groupName?: string | null; tags: string[] } }>(
+    `/api/v1/heartbeat/${orgId}/${userId}/metadata`,
+    {
+      method: "PUT",
+      token,
+      body,
+    },
+  );
 }
 
 // --- Roles (#61) ---
