@@ -24,3 +24,11 @@
 - Prompt-injection indicators are attached to supported audit events.
 - Admins can filter by flagged/unflagged events.
 - New tests cover detection path and UI filtering behavior.
+
+## Implementation notes (2026-04-25)
+
+- Added deterministic prompt-injection detection during audit ingestion with confidence and signal extraction.
+- Persisted detection fields on `audit_events` and added an indexed filter path for `promptInjectionDetected`.
+- Exposed flagged/unflagged filtering via `/api/v1/audit/:orgId/query` and `/api/v1/audit/:orgId/export`.
+- Updated admin audit page with detection filter, badge indicator, and expanded details.
+- Added regression tests for detector logic, server ingestion/query filtering, and admin filter parameter wiring.
