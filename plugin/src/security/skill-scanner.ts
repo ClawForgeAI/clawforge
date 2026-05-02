@@ -101,7 +101,20 @@ const LINE_RULES: LineRule[] = [
     severity: "critical",
     message: "Shell command execution detected (child process)",
     // shell command patterns (e.g. ex-ec, sp-awn, etc.)
-    pattern: rx(["\\b(ex", "ec|ex", "ecSy", "nc|sp", "awn|sp", "awnSy", "nc|ex", "ecFi", "le|ex", "ecFi", "leSy", "nc)\\s*\\("]),
+    pattern: rx([
+      "\\b(ex",
+      "ec|ex",
+      "ecSy",
+      "nc|sp",
+      "awn|sp",
+      "awnSy",
+      "nc|ex",
+      "ecFi",
+      "le|ex",
+      "ecFi",
+      "leSy",
+      "nc)\\s*\\(",
+    ]),
     // requires ch-ild_pr-ocess context
     requiresContext: rx(["child", "_pro", "cess"]),
   },

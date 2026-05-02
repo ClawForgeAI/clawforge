@@ -9,7 +9,7 @@ import { Badge } from "@/components/badge";
 import { CardSkeleton } from "@/components/skeleton";
 import { useToast } from "@/components/toast";
 import { getAuth } from "@/lib/auth";
-import { queryAudit, deleteAuditRetention } from "@/lib/api";
+import { queryAudit, deleteAuditRetention, exportAudit } from "@/lib/api";
 import type { AuditEvent } from "@/lib/api";
 
 export default function AuditPage() {
@@ -31,6 +31,7 @@ export default function AuditPage() {
   const [filterType, setFilterType] = useState("");
   const [filterTool, setFilterTool] = useState("");
   const [filterOutcome, setFilterOutcome] = useState("");
+  const [filterPromptInjection, setFilterPromptInjection] = useState("");
   const [filterFrom, setFilterFrom] = useState("");
   const [filterTo, setFilterTo] = useState("");
 
@@ -40,10 +41,11 @@ export default function AuditPage() {
     if (filterType) params.eventType = filterType;
     if (filterTool) params.toolName = filterTool;
     if (filterOutcome) params.outcome = filterOutcome;
+    if (filterPromptInjection) params.promptInjectionDetected = filterPromptInjection;
     if (filterFrom) params.from = filterFrom;
     if (filterTo) params.to = filterTo;
     return params;
-  }, [filterUser, filterType, filterTool, filterOutcome, filterFrom, filterTo]);
+  }, [filterUser, filterType, filterTool, filterOutcome, filterPromptInjection, filterFrom, filterTo]);
 
   const loadEvents = useCallback(async () => {
     const auth = getAuth();
@@ -99,8 +101,7 @@ export default function AuditPage() {
     if (filterType === "admin_action") {
       loadEvents();
     }
-    // eslint-disable-next-line
-  }, [filterType]);
+  }, [filterType, loadEvents]);
 
   async function handlePurge() {
     const auth = getAuth();
@@ -119,18 +120,22 @@ export default function AuditPage() {
     setPurging(false);
   }
 
-  function exportCSV() {
-    const header = "ID,Timestamp,User,EventType,Tool,Outcome,Session\n";
-    const rows = events.map((e) =>
-      [e.id, e.timestamp, e.userId, e.eventType, e.toolName ?? "", e.outcome, e.sessionKey ?? ""].join(","),
-    );
-    const blob = new Blob([header + rows.join("\n")], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `audit-${total}-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  async function downloadExport(format: "csv" | "json") {
+    const auth = getAuth();
+    if (!auth) return;
+
+    try {
+      const { blob, filename } = await exportAudit(auth.orgId, auth.accessToken, format, buildParams());
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Export ready: ${filename}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Export failed");
+    }
   }
 
   return (
@@ -142,28 +147,46 @@ export default function AuditPage() {
             <h2 className="text-2xl font-bold">Audit Logs</h2>
             <p className="text-sm text-base-content/50 mt-1">Track and investigate all governance events</p>
           </div>
-          <button onClick={exportCSV} className="btn btn-ghost btn-sm gap-2">
-            <svg
-              className="w-4 h-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            Export CSV
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => downloadExport("json")} className="btn btn-ghost btn-sm gap-2">
+              <svg
+                className="w-4 h-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Export JSON
+            </button>
+            <button onClick={() => downloadExport("csv")} className="btn btn-ghost btn-sm gap-2">
+              <svg
+                className="w-4 h-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Export CSV
+            </button>
+          </div>
         </div>
 
         {/* Filters */}
         <Card className="mb-6">
           <CardTitle>Filters</CardTitle>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
             <input
               value={filterUser}
               onChange={(e) => setFilterUser(e.target.value)}
@@ -188,8 +211,20 @@ export default function AuditPage() {
               className="select select-bordered select-sm w-full"
             >
               <option value="">All outcomes</option>
+              <option value="success">Success</option>
               <option value="allowed">Allowed</option>
               <option value="blocked">Blocked</option>
+              <option value="error">Error</option>
+            </select>
+            <select
+              data-testid="prompt-injection-filter"
+              value={filterPromptInjection}
+              onChange={(e) => setFilterPromptInjection(e.target.value)}
+              className="select select-bordered select-sm w-full"
+            >
+              <option value="">Injection risk (all)</option>
+              <option value="true">Flagged</option>
+              <option value="false">Not flagged</option>
             </select>
             <input
               type="date"
@@ -247,6 +282,7 @@ export default function AuditPage() {
                     <th>Event</th>
                     <th>Tool</th>
                     <th>Outcome</th>
+                    <th>Injection Risk</th>
                     <th>Session</th>
                   </tr>
                 </thead>
@@ -266,14 +302,19 @@ export default function AuditPage() {
                         <td>
                           <Badge
                             variant={
-                              event.outcome === "allowed"
+                              event.outcome === "allowed" || event.outcome === "success"
                                 ? "success"
-                                : event.eventType === "admin_action"
-                                  ? "default"
-                                  : "danger"
+                                : event.outcome === "blocked" || event.outcome === "error"
+                                  ? "danger"
+                                  : "default"
                             }
                           >
                             {event.outcome}
+                          </Badge>
+                        </td>
+                        <td>
+                          <Badge variant={event.promptInjectionDetected ? "danger" : "default"}>
+                            {event.promptInjectionDetected ? `Flagged (${event.promptInjectionConfidence}%)` : "Clear"}
                           </Badge>
                         </td>
                         <td className="font-mono text-xs text-base-content/40">
@@ -287,7 +328,7 @@ export default function AuditPage() {
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
                         >
-                          <td colSpan={6} className="py-3 px-4 bg-base-200/50">
+                          <td colSpan={7} className="py-3 px-4 bg-base-200/50">
                             <div className="space-y-2 text-xs">
                               <div>
                                 <span className="font-semibold">ID:</span> <span className="font-mono">{event.id}</span>
@@ -306,6 +347,17 @@ export default function AuditPage() {
                                 <div>
                                   <span className="font-semibold">Session Key:</span>{" "}
                                   <span className="font-mono">{event.sessionKey}</span>
+                                </div>
+                              )}
+                              <div>
+                                <span className="font-semibold">Prompt injection detection:</span>{" "}
+                                {event.promptInjectionDetected ? "Flagged" : "Not flagged"} (
+                                {event.promptInjectionConfidence}% confidence)
+                              </div>
+                              {event.promptInjectionSignals && event.promptInjectionSignals.length > 0 && (
+                                <div>
+                                  <span className="font-semibold">Detection signals:</span>{" "}
+                                  <span className="font-mono">{event.promptInjectionSignals.join(", ")}</span>
                                 </div>
                               )}
                               {event.metadata && (
