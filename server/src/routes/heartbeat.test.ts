@@ -268,6 +268,8 @@ describe("Heartbeat Routes", () => {
           role: "user",
           lastHeartbeatAt: recentTime,
           clientVersion: "1.0.0",
+          groupName: "Engineering",
+          tags: ["prod", "team-core"],
         },
       ];
 
@@ -283,8 +285,11 @@ describe("Heartbeat Routes", () => {
       const body = res.json();
       expect(body).toHaveProperty("clients");
       expect(body).toHaveProperty("summary");
+      expect(body).toHaveProperty("facets");
       expect(body.summary).toHaveProperty("total", 1);
       expect(body.clients[0]).toHaveProperty("status");
+      expect(body.facets.tags).toContain("prod");
+      expect(body.facets.groups).toContain("Engineering");
     });
 
     it("returns empty client list", async () => {
@@ -306,6 +311,71 @@ describe("Heartbeat Routes", () => {
       const body = res.json();
       expect(body.clients).toEqual([]);
       expect(body.summary).toEqual({ total: 0, online: 0, offline: 0 });
+      expect(body.facets).toEqual({ tags: [], groups: [] });
+    });
+
+    it("updates instance metadata for admin", async () => {
+      const token = generateTestToken(app, {
+        userId: TEST_ADMIN_ID,
+        orgId: TEST_ORG_ID,
+        role: "admin",
+      });
+
+      const updatedRow = { userId: TEST_USER_ID, groupName: "Platform", tags: ["prod", "critical"] };
+      mockDb.update = vi.fn(() => mockDbChain([updatedRow]) as ReturnType<MockDb["update"]>);
+
+      const res = await app.inject({
+        method: "PUT",
+        url: `/api/v1/heartbeat/${TEST_ORG_ID}/${TEST_USER_ID}/metadata`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: { groupName: " Platform ", tags: ["prod", "critical", "prod"] },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual({ instance: updatedRow });
+    });
+
+    it("filters clients by status using query params", async () => {
+      const token = generateTestToken(app, {
+        userId: TEST_ADMIN_ID,
+        orgId: TEST_ORG_ID,
+        role: "admin",
+      });
+
+      const clients = [
+        {
+          userId: TEST_USER_ID,
+          email: "user@test.com",
+          name: "Test User",
+          role: "user",
+          lastHeartbeatAt: new Date().toISOString(),
+          clientVersion: "1.0.0",
+          groupName: "Ops",
+          tags: ["prod"],
+        },
+        {
+          userId: "00000000-0000-4000-8000-000000000099",
+          email: "offline@test.com",
+          name: "Offline User",
+          role: "user",
+          lastHeartbeatAt: new Date(Date.now() - 20 * 60 * 1000).toISOString(),
+          clientVersion: "1.0.1",
+          groupName: "Ops",
+          tags: ["staging"],
+        },
+      ];
+
+      mockDb.select = vi.fn(() => mockDbChain(clients) as ReturnType<MockDb["select"]>);
+
+      const res = await app.inject({
+        method: "GET",
+        url: `/api/v1/heartbeat/${TEST_ORG_ID}?status=online`,
+        headers: { authorization: `Bearer ${token}` },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json().clients).toHaveLength(1);
+      expect(res.json().summary).toEqual({ total: 1, online: 1, offline: 0 });
     });
   });
 });
