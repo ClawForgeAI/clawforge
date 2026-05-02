@@ -307,9 +307,7 @@ export default function AlertsPage() {
                                 alert={alert}
                                 index={i}
                                 expanded={expandedAlertId === alert.id}
-                                onToggle={() =>
-                                  setExpandedAlertId(expandedAlertId === alert.id ? null : alert.id)
-                                }
+                                onToggle={() => setExpandedAlertId(expandedAlertId === alert.id ? null : alert.id)}
                                 onAcknowledge={() => handleAcknowledge(alert.id)}
                                 onResolve={() => handleResolve(alert.id)}
                               />
@@ -331,10 +329,7 @@ export default function AlertsPage() {
             {tab === "rules" && (
               <>
                 <div className="flex justify-end mb-4">
-                  <button
-                    className="btn btn-sm btn-primary gap-2"
-                    onClick={() => setShowCreateRule(!showCreateRule)}
-                  >
+                  <button className="btn btn-sm btn-primary gap-2" onClick={() => setShowCreateRule(!showCreateRule)}>
                     {showCreateRule ? (
                       "Cancel"
                     ) : (
@@ -397,9 +392,7 @@ export default function AlertsPage() {
                                 </option>
                               ))}
                             </select>
-                            <p className="text-xs text-base-content/40 mt-1">
-                              {RULE_TYPE_DESCRIPTIONS[newRuleType]}
-                            </p>
+                            <p className="text-xs text-base-content/40 mt-1">{RULE_TYPE_DESCRIPTIONS[newRuleType]}</p>
                           </div>
                           <div>
                             <label className="text-xs font-medium text-base-content/50 uppercase tracking-wider">
@@ -564,18 +557,14 @@ function AlertRow({
         </td>
         <td>
           <Badge
-            variant={
-              alert.status === "open" ? "danger" : alert.status === "acknowledged" ? "warning" : "success"
-            }
+            variant={alert.status === "open" ? "danger" : alert.status === "acknowledged" ? "warning" : "success"}
             size="xs"
           >
             {alert.status}
           </Badge>
         </td>
         <td className="text-sm">{alert.title}</td>
-        <td className="text-base-content/50 whitespace-nowrap text-xs">
-          {new Date(alert.createdAt).toLocaleString()}
-        </td>
+        <td className="text-base-content/50 whitespace-nowrap text-xs">{new Date(alert.createdAt).toLocaleString()}</td>
         <td>
           <div className="flex gap-2">
             {alert.status === "open" && (
@@ -609,8 +598,7 @@ function AlertRow({
             <div className="space-y-2 text-xs">
               {alert.userId && (
                 <div>
-                  <span className="font-semibold">User ID:</span>{" "}
-                  <span className="font-mono">{alert.userId}</span>
+                  <span className="font-semibold">User ID:</span> <span className="font-mono">{alert.userId}</span>
                 </div>
               )}
               {alert.details && (

@@ -34,7 +34,17 @@ describe("WebhookService", () => {
       // Override insert to return a chain that resolves to [webhook]
       (mockDb.insert as ReturnType<typeof vi.fn>).mockImplementation(() => {
         const chain: Record<string, ReturnType<typeof vi.fn>> = {};
-        const methods = ["from", "where", "limit", "offset", "orderBy", "values", "set", "returning", "onConflictDoUpdate"];
+        const methods = [
+          "from",
+          "where",
+          "limit",
+          "offset",
+          "orderBy",
+          "values",
+          "set",
+          "returning",
+          "onConflictDoUpdate",
+        ];
         for (const method of methods) {
           chain[method] = vi.fn().mockReturnThis();
         }
@@ -82,7 +92,17 @@ describe("WebhookService", () => {
       // Mock insert for delivery logging
       (mockDb.insert as ReturnType<typeof vi.fn>).mockImplementation(() => {
         const chain: Record<string, ReturnType<typeof vi.fn>> = {};
-        const methods = ["from", "where", "limit", "offset", "orderBy", "values", "set", "returning", "onConflictDoUpdate"];
+        const methods = [
+          "from",
+          "where",
+          "limit",
+          "offset",
+          "orderBy",
+          "values",
+          "set",
+          "returning",
+          "onConflictDoUpdate",
+        ];
         for (const method of methods) {
           chain[method] = vi.fn().mockReturnThis();
         }
