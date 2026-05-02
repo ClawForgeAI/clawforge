@@ -75,58 +75,59 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
       requireOrg(request, reply, orgId);
       if (reply.sent) return;
 
-    const parseResult = IngestBodySchema.safeParse(request.body);
-    if (!parseResult.success) {
-      return reply.code(400).send({
-        error: "Invalid request body",
-        details: parseResult.error.issues,
-      });
-    }
-
-    const authUser = request.authUser!;
-    const events = parseResult.data.events;
-
-    const invalidOrg = events.find((e) => e.orgId !== orgId);
-    if (invalidOrg) {
-      return reply.code(400).send({
-        error: "Event orgId mismatch: all events must belong to the route orgId",
-      });
-    }
-
-    if (authUser.role !== "admin" && authUser.role !== "super_admin") {
-      const invalidUser = events.find((e) => e.userId !== authUser.userId);
-      if (invalidUser) {
-        return reply.code(403).send({
-          error: "Non-admin users can only submit audit events for their own userId",
+      const parseResult = IngestBodySchema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.code(400).send({
+          error: "Invalid request body",
+          details: parseResult.error.issues,
         });
       }
-    }
 
-    await auditService.ingestEvents(events);
+      const authUser = request.authUser!;
+      const events = parseResult.data.events;
 
-    // Track audit ingestion metric (#76)
-    app.metrics.auditEventsCounter.inc(events.length);
-
-    // Deliver webhook events for policy violations and DLP alerts (#43)
-    for (const event of events) {
-      const webhookEvent = AUDIT_TO_WEBHOOK[event.eventType];
-      if (webhookEvent && (event.outcome === "blocked" || event.eventType === "dlp_violation")) {
-        webhookService
-          .deliverEvent(orgId, webhookEvent, {
-            orgId,
-            userId: event.userId,
-            eventType: event.eventType,
-            toolName: event.toolName,
-            outcome: event.outcome,
-            metadata: event.metadata,
-            timestamp: new Date(event.timestamp).toISOString(),
-          })
-          .catch(() => {});
+      const invalidOrg = events.find((e) => e.orgId !== orgId);
+      if (invalidOrg) {
+        return reply.code(400).send({
+          error: "Event orgId mismatch: all events must belong to the route orgId",
+        });
       }
-    }
 
-    return reply.code(201).send({ ingested: events.length });
-  });
+      if (authUser.role !== "admin" && authUser.role !== "super_admin") {
+        const invalidUser = events.find((e) => e.userId !== authUser.userId);
+        if (invalidUser) {
+          return reply.code(403).send({
+            error: "Non-admin users can only submit audit events for their own userId",
+          });
+        }
+      }
+
+      await auditService.ingestEvents(events);
+
+      // Track audit ingestion metric (#76)
+      app.metrics.auditEventsCounter.inc(events.length);
+
+      // Deliver webhook events for policy violations and DLP alerts (#43)
+      for (const event of events) {
+        const webhookEvent = AUDIT_TO_WEBHOOK[event.eventType];
+        if (webhookEvent && (event.outcome === "blocked" || event.eventType === "dlp_violation")) {
+          webhookService
+            .deliverEvent(orgId, webhookEvent, {
+              orgId,
+              userId: event.userId,
+              eventType: event.eventType,
+              toolName: event.toolName,
+              outcome: event.outcome,
+              metadata: event.metadata,
+              timestamp: new Date(event.timestamp).toISOString(),
+            })
+            .catch(() => {});
+        }
+      }
+
+      return reply.code(201).send({ ingested: events.length });
+    },
+  );
 
   // GET /api/v1/audit/:orgId/query - Query with pagination (#38: viewers can query)
   app.get<{

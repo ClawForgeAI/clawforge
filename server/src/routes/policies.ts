@@ -267,24 +267,25 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
       requireOrg(request, reply, orgId);
       if (reply.sent) return;
 
-    const parseResult = CreatePolicySchema.safeParse(request.body);
-    if (!parseResult.success) {
-      return reply.code(400).send({ error: "Invalid request body", details: parseResult.error.issues });
-    }
+      const parseResult = CreatePolicySchema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.code(400).send({ error: "Invalid request body", details: parseResult.error.issues });
+      }
 
-    const created = await policyService.createPolicy(orgId, parseResult.data);
+      const created = await policyService.createPolicy(orgId, parseResult.data);
 
-    logAdminAction(app.db, {
-      orgId,
-      userId: request.authUser!.userId,
-      action: "policy_created",
-      resourceType: "policy",
-      resourceId: created.id,
-      details: { name: parseResult.data.name },
-    }).catch(() => {});
+      logAdminAction(app.db, {
+        orgId,
+        userId: request.authUser!.userId,
+        action: "policy_created",
+        resourceType: "policy",
+        resourceId: created.id,
+        details: { name: parseResult.data.name },
+      }).catch(() => {});
 
-    return reply.code(201).send(created);
-  });
+      return reply.code(201).send(created);
+    },
+  );
 
   // ---------------------------------------------------------------------------
   // Update org policy (backward compatible)
@@ -455,47 +456,48 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
       requireOrg(request, reply, orgId);
       if (reply.sent) return;
 
-    const parseResult = KillSwitchBodySchema.safeParse(request.body);
-    if (!parseResult.success) {
-      return reply.code(400).send({
-        error: "Invalid request body",
-        details: parseResult.error.issues,
-      });
-    }
+      const parseResult = KillSwitchBodySchema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.code(400).send({
+          error: "Invalid request body",
+          details: parseResult.error.issues,
+        });
+      }
 
-    const updated = await policyService.setKillSwitch(orgId, parseResult.data.active, parseResult.data.message);
+      const updated = await policyService.setKillSwitch(orgId, parseResult.data.active, parseResult.data.message);
 
-    // Track kill switch metric (#76)
-    app.metrics.killSwitchGauge.set(parseResult.data.active ? 1 : 0);
+      // Track kill switch metric (#76)
+      app.metrics.killSwitchGauge.set(parseResult.data.active ? 1 : 0);
 
-    // Broadcast kill switch change to all connected SSE clients in the org.
-    eventBus.broadcast(orgId, "kill_switch", {
-      active: parseResult.data.active,
-      message: parseResult.data.message,
-    });
-
-    logAdminAction(app.db, {
-      orgId,
-      userId: request.authUser!.userId,
-      action: parseResult.data.active ? "kill_switch_activated" : "kill_switch_deactivated",
-      resourceType: "policy",
-      resourceId: orgId,
-      details: { message: parseResult.data.message },
-    }).catch(() => {});
-
-    // Deliver webhook event (#43)
-    webhookService
-      .deliverEvent(orgId, parseResult.data.active ? "killswitch.activated" : "killswitch.deactivated", {
-        orgId,
+      // Broadcast kill switch change to all connected SSE clients in the org.
+      eventBus.broadcast(orgId, "kill_switch", {
         active: parseResult.data.active,
         message: parseResult.data.message,
-        triggeredBy: request.authUser!.userId,
-        timestamp: new Date().toISOString(),
-      })
-      .catch(() => {});
+      });
 
-    return reply.send(updated);
-  });
+      logAdminAction(app.db, {
+        orgId,
+        userId: request.authUser!.userId,
+        action: parseResult.data.active ? "kill_switch_activated" : "kill_switch_deactivated",
+        resourceType: "policy",
+        resourceId: orgId,
+        details: { message: parseResult.data.message },
+      }).catch(() => {});
+
+      // Deliver webhook event (#43)
+      webhookService
+        .deliverEvent(orgId, parseResult.data.active ? "killswitch.activated" : "killswitch.deactivated", {
+          orgId,
+          active: parseResult.data.active,
+          message: parseResult.data.message,
+          triggeredBy: request.authUser!.userId,
+          timestamp: new Date().toISOString(),
+        })
+        .catch(() => {});
+
+      return reply.send(updated);
+    },
+  );
 
   // ---------------------------------------------------------------------------
   // Built-in DLP rules library (#66)
@@ -505,16 +507,13 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
    * GET /api/v1/policies/dlp/builtin-rules
    * Get the built-in DLP rule templates.
    */
-  app.get(
-    "/api/v1/policies/dlp/builtin-rules",
-    async (request, reply) => {
-      requireAdminOrViewer(request, reply);
-      if (reply.sent) return;
+  app.get("/api/v1/policies/dlp/builtin-rules", async (request, reply) => {
+    requireAdminOrViewer(request, reply);
+    if (reply.sent) return;
 
-      return reply.send({
-        rules: BUILTIN_DLP_RULES,
-        categories: BUILTIN_DLP_CATEGORIES,
-      });
-    },
-  );
+    return reply.send({
+      rules: BUILTIN_DLP_RULES,
+      categories: BUILTIN_DLP_CATEGORIES,
+    });
+  });
 }
