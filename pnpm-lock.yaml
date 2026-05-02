@@ -55,8 +55,8 @@ importers:
         specifier: ^14.5.2
         version: 14.6.1(@testing-library/dom@10.4.1)
       '@types/node':
-        specifier: ^22.12.0
-        version: 22.19.11
+        specifier: ^25.4.0
+        version: 25.6.0
       '@types/react':
         specifier: ^19.0.0
         version: 19.2.14
@@ -65,7 +65,7 @@ importers:
         version: 19.2.3(@types/react@19.2.14)
       '@vitejs/plugin-react':
         specifier: ^6.0.0
-        version: 6.0.1(vite@5.4.21(@types/node@22.19.11))
+        version: 6.0.1(vite@5.4.21(@types/node@25.6.0))
       autoprefixer:
         specifier: ^10.4.27
         version: 10.5.0(postcss@8.5.13)
@@ -74,7 +74,7 @@ importers:
         version: 28.1.0
       msw:
         specifier: ^2.7.0
-        version: 2.12.10(@types/node@22.19.11)(typescript@5.9.3)
+        version: 2.12.10(@types/node@25.6.0)(typescript@5.9.3)
       playwright:
         specifier: ^1.58.2
         version: 1.58.2
@@ -89,7 +89,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.8
-        version: 2.1.9(@types/node@22.19.11)(jsdom@28.1.0)(msw@2.12.10(@types/node@22.19.11)(typescript@5.9.3))
+        version: 2.1.9(@types/node@25.6.0)(jsdom@28.1.0)(msw@2.12.10(@types/node@25.6.0)(typescript@5.9.3))
 
   plugin:
     devDependencies:
@@ -7672,6 +7672,7 @@ snapshots:
       '@inquirer/type': 3.0.10(@types/node@22.19.11)
     optionalDependencies:
       '@types/node': 22.19.11
+    optional: true
 
   '@inquirer/confirm@5.1.21(@types/node@25.6.0)':
     dependencies:
@@ -7679,7 +7680,6 @@ snapshots:
       '@inquirer/type': 3.0.10(@types/node@25.6.0)
     optionalDependencies:
       '@types/node': 25.6.0
-    optional: true
 
   '@inquirer/core@10.3.2(@types/node@22.19.11)':
     dependencies:
@@ -7693,6 +7693,7 @@ snapshots:
       yoctocolors-cjs: 2.1.3
     optionalDependencies:
       '@types/node': 22.19.11
+    optional: true
 
   '@inquirer/core@10.3.2(@types/node@25.6.0)':
     dependencies:
@@ -7706,7 +7707,6 @@ snapshots:
       yoctocolors-cjs: 2.1.3
     optionalDependencies:
       '@types/node': 25.6.0
-    optional: true
 
   '@inquirer/external-editor@1.0.3(@types/node@25.6.0)':
     dependencies:
@@ -7720,11 +7720,11 @@ snapshots:
   '@inquirer/type@3.0.10(@types/node@22.19.11)':
     optionalDependencies:
       '@types/node': 22.19.11
+    optional: true
 
   '@inquirer/type@3.0.10(@types/node@25.6.0)':
     optionalDependencies:
       '@types/node': 25.6.0
-    optional: true
 
   '@isaacs/cliui@8.0.2':
     dependencies:
@@ -9025,10 +9025,10 @@ snapshots:
       '@typescript-eslint/types': 8.57.0
       eslint-visitor-keys: 5.0.1
 
-  '@vitejs/plugin-react@6.0.1(vite@5.4.21(@types/node@22.19.11))':
+  '@vitejs/plugin-react@6.0.1(vite@5.4.21(@types/node@25.6.0))':
     dependencies:
       '@rolldown/pluginutils': 1.0.0-rc.7
-      vite: 5.4.21(@types/node@22.19.11)
+      vite: 5.4.21(@types/node@25.6.0)
 
   '@vitest/coverage-v8@4.0.18(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.6.0)(jiti@2.6.1)(jsdom@28.1.0)(msw@2.12.10(@types/node@25.6.0)(typescript@5.9.3))(tsx@4.21.0)(yaml@2.8.2))':
     dependencies:
@@ -9083,14 +9083,14 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.0
 
-  '@vitest/mocker@2.1.9(msw@2.12.10(@types/node@22.19.11)(typescript@5.9.3))(vite@5.4.21(@types/node@22.19.11))':
+  '@vitest/mocker@2.1.9(msw@2.12.10(@types/node@25.6.0)(typescript@5.9.3))(vite@5.4.21(@types/node@25.6.0))':
     dependencies:
       '@vitest/spy': 2.1.9
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      msw: 2.12.10(@types/node@22.19.11)(typescript@5.9.3)
-      vite: 5.4.21(@types/node@22.19.11)
+      msw: 2.12.10(@types/node@25.6.0)(typescript@5.9.3)
+      vite: 5.4.21(@types/node@25.6.0)
 
   '@vitest/mocker@4.0.18(msw@2.12.10(@types/node@25.6.0)(typescript@5.9.3))(vite@7.3.1(@types/node@25.6.0)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))':
     dependencies:
@@ -11049,6 +11049,7 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - '@types/node'
+    optional: true
 
   msw@2.12.10(@types/node@25.6.0)(typescript@5.9.3):
     dependencies:
@@ -11074,7 +11075,6 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - '@types/node'
-    optional: true
 
   music-metadata@11.12.1:
     dependencies:
@@ -12465,13 +12465,13 @@ snapshots:
 
   vary@1.1.2: {}
 
-  vite-node@2.1.9(@types/node@22.19.11):
+  vite-node@2.1.9(@types/node@25.6.0):
     dependencies:
       cac: 6.7.14
       debug: 4.4.3
       es-module-lexer: 1.7.0
       pathe: 1.1.2
-      vite: 5.4.21(@types/node@22.19.11)
+      vite: 5.4.21(@types/node@25.6.0)
     transitivePeerDependencies:
       - '@types/node'
       - less
@@ -12483,13 +12483,13 @@ snapshots:
       - supports-color
       - terser
 
-  vite@5.4.21(@types/node@22.19.11):
+  vite@5.4.21(@types/node@25.6.0):
     dependencies:
       esbuild: 0.21.5
       postcss: 8.5.13
       rollup: 4.59.0
     optionalDependencies:
-      '@types/node': 22.19.11
+      '@types/node': 25.6.0
       fsevents: 2.3.3
 
   vite@7.3.1(@types/node@22.19.11)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2):
@@ -12522,10 +12522,10 @@ snapshots:
       tsx: 4.21.0
       yaml: 2.8.2
 
-  vitest@2.1.9(@types/node@22.19.11)(jsdom@28.1.0)(msw@2.12.10(@types/node@22.19.11)(typescript@5.9.3)):
+  vitest@2.1.9(@types/node@25.6.0)(jsdom@28.1.0)(msw@2.12.10(@types/node@25.6.0)(typescript@5.9.3)):
     dependencies:
       '@vitest/expect': 2.1.9
-      '@vitest/mocker': 2.1.9(msw@2.12.10(@types/node@22.19.11)(typescript@5.9.3))(vite@5.4.21(@types/node@22.19.11))
+      '@vitest/mocker': 2.1.9(msw@2.12.10(@types/node@25.6.0)(typescript@5.9.3))(vite@5.4.21(@types/node@25.6.0))
       '@vitest/pretty-format': 2.1.9
       '@vitest/runner': 2.1.9
       '@vitest/snapshot': 2.1.9
@@ -12541,11 +12541,11 @@ snapshots:
       tinyexec: 0.3.2
       tinypool: 1.1.1
       tinyrainbow: 1.2.0
-      vite: 5.4.21(@types/node@22.19.11)
-      vite-node: 2.1.9(@types/node@22.19.11)
+      vite: 5.4.21(@types/node@25.6.0)
+      vite-node: 2.1.9(@types/node@25.6.0)
       why-is-node-running: 2.3.0
     optionalDependencies:
-      '@types/node': 22.19.11
+      '@types/node': 25.6.0
       jsdom: 28.1.0
     transitivePeerDependencies:
       - less
