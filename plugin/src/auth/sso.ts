@@ -206,9 +206,7 @@ export async function performSsoLogin(config: ClawForgePluginConfig): Promise<Se
       openBrowser(authUrl).then((opened) => {
         if (!opened) {
           // If browser open fails, expose the URL so the caller can display it
-          console.error(
-            `Could not open browser automatically. Please visit:\n${authUrl}`,
-          );
+          console.error(`Could not open browser automatically. Please visit:\n${authUrl}`);
         }
       });
       // Also expose the URL for programmatic access (testing, fallback display)

@@ -84,13 +84,11 @@ export function loadMigrationSql(tag: string, migrationsDir: string = MIGRATIONS
  * Query the __drizzle_migrations table to find applied migrations.
  * Returns an array of migration hashes/tags that have been applied.
  */
-export async function getAppliedMigrations(
-  sql: { unsafe: (query: string) => Promise<Array<Record<string, unknown>>> },
-): Promise<string[]> {
+export async function getAppliedMigrations(sql: {
+  unsafe: (query: string) => Promise<Array<Record<string, unknown>>>;
+}): Promise<string[]> {
   try {
-    const rows = await sql.unsafe(
-      `SELECT hash FROM __drizzle_migrations ORDER BY created_at ASC`,
-    );
+    const rows = await sql.unsafe(`SELECT hash FROM __drizzle_migrations ORDER BY created_at ASC`);
     return rows.map((r) => String(r.hash));
   } catch {
     // Table doesn't exist yet — no migrations applied
@@ -157,10 +155,7 @@ export async function dryRun(
  * Drizzle ORM does not natively support rollbacks. This function generates
  * reverse SQL for common DDL operations as a best-effort guide.
  */
-export function generateRollbackPlan(
-  tag: string,
-  migrationsDir: string = MIGRATIONS_DIR,
-): RollbackPlan {
+export function generateRollbackPlan(tag: string, migrationsDir: string = MIGRATIONS_DIR): RollbackPlan {
   const sql = loadMigrationSql(tag, migrationsDir);
   const warnings: string[] = [];
   const rollbackStatements: string[] = [];
@@ -180,9 +175,7 @@ export function generateRollbackPlan(
     }
 
     // ALTER TABLE ADD COLUMN
-    const addColumnMatch = stmt.match(
-      /ALTER TABLE\s+"([^"]+)"\s+ADD COLUMN\s+(?:IF NOT EXISTS\s+)?"([^"]+)"/i,
-    );
+    const addColumnMatch = stmt.match(/ALTER TABLE\s+"([^"]+)"\s+ADD COLUMN\s+(?:IF NOT EXISTS\s+)?"([^"]+)"/i);
     if (addColumnMatch) {
       rollbackStatements.push(`ALTER TABLE "${addColumnMatch[1]}" DROP COLUMN IF EXISTS "${addColumnMatch[2]}";`);
       continue;
@@ -196,9 +189,7 @@ export function generateRollbackPlan(
     }
 
     // ALTER TABLE ADD CONSTRAINT (FK)
-    const addConstraintMatch = stmt.match(
-      /ALTER TABLE\s+"([^"]+)"\s+ADD CONSTRAINT\s+"([^"]+)"/i,
-    );
+    const addConstraintMatch = stmt.match(/ALTER TABLE\s+"([^"]+)"\s+ADD CONSTRAINT\s+"([^"]+)"/i);
     if (addConstraintMatch) {
       rollbackStatements.push(
         `ALTER TABLE "${addConstraintMatch[1]}" DROP CONSTRAINT IF EXISTS "${addConstraintMatch[2]}";`,
@@ -224,9 +215,7 @@ export function generateRollbackPlan(
   }
 
   if (warnings.length > 0) {
-    warnings.unshift(
-      "WARNING: Some statements could not be automatically reversed. Manual review required.",
-    );
+    warnings.unshift("WARNING: Some statements could not be automatically reversed. Manual review required.");
   }
 
   return {
