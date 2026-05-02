@@ -4,7 +4,7 @@
 
 import type { FastifyInstance } from "fastify";
 import { eq, desc } from "drizzle-orm";
-import { requireAdmin, requireAdminOrViewer, requireOrg } from "../middleware/auth.js";
+import { requireAdminOrViewer, requireOrg } from "../middleware/auth.js";
 import { clientHeartbeats, policies, users } from "../db/schema.js";
 
 export async function heartbeatRoutes(app: FastifyInstance): Promise<void> {
@@ -14,6 +14,7 @@ export async function heartbeatRoutes(app: FastifyInstance): Promise<void> {
    */
   app.get<{ Params: { orgId: string } }>(
     "/api/v1/heartbeat/:orgId",
+    { config: { rateLimit: { max: 100, timeWindow: "1 minute" } } },
     async (request, reply) => {
       requireAdminOrViewer(request, reply);
       if (reply.sent) return;
@@ -43,7 +44,7 @@ export async function heartbeatRoutes(app: FastifyInstance): Promise<void> {
 
       const enriched = clients.map((c) => ({
         ...c,
-        status: (now - new Date(c.lastHeartbeatAt).getTime()) < ONLINE_THRESHOLD_MS ? "online" : "offline",
+        status: now - new Date(c.lastHeartbeatAt).getTime() < ONLINE_THRESHOLD_MS ? "online" : "offline",
       }));
 
       return reply.send({
@@ -67,6 +68,7 @@ export async function heartbeatRoutes(app: FastifyInstance): Promise<void> {
     Querystring: { policyVersion?: string; clientVersion?: string };
   }>(
     "/api/v1/heartbeat/:orgId/:userId",
+    { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } },
     async (request, reply) => {
       const { orgId, userId } = request.params;
       requireOrg(request, reply, orgId);
@@ -74,6 +76,15 @@ export async function heartbeatRoutes(app: FastifyInstance): Promise<void> {
 
       const db = app.db;
       const clientVersionParam = request.query.clientVersion;
+
+      // Track heartbeat metric (#76)
+      app.metrics.heartbeatCounter.inc();
+
+      // Verify user exists before upserting heartbeat (prevents FK violation).
+      const [user] = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1);
+      if (!user) {
+        return reply.code(401).send({ error: "Unknown user; please re-authenticate" });
+      }
 
       // Upsert heartbeat record.
       await db
@@ -88,7 +99,7 @@ export async function heartbeatRoutes(app: FastifyInstance): Promise<void> {
           target: [clientHeartbeats.orgId, clientHeartbeats.userId],
           set: {
             lastHeartbeatAt: new Date(),
-            clientVersion: clientVersionParam ?? undefined,
+            clientVersion: clientVersionParam ?? null,
           },
         });
 
@@ -104,13 +115,10 @@ export async function heartbeatRoutes(app: FastifyInstance): Promise<void> {
         .limit(1);
 
       const serverVersion = policy?.version ?? 0;
-      const clientVersion = request.query.policyVersion
-        ? parseInt(request.query.policyVersion, 10)
-        : null;
+      const clientVersion = request.query.policyVersion ? parseInt(request.query.policyVersion, 10) : null;
 
       // If client sent its version and it differs from server, tell it to refresh.
-      const refreshPolicyNow =
-        clientVersion !== null && !isNaN(clientVersion) && clientVersion !== serverVersion;
+      const refreshPolicyNow = clientVersion !== null && !isNaN(clientVersion) && clientVersion !== serverVersion;
 
       return reply.send({
         policyVersion: serverVersion,

@@ -14,9 +14,13 @@ import type {
   PluginHookBeforeToolCallResult,
   PluginHookToolContext,
 } from "openclaw/plugin-sdk";
-import type { OrgPolicy } from "../types.js";
+import type { OrgPolicy, DlpScanResult } from "../types.js";
 import type { AuditLogger } from "../audit/audit-logger.js";
 import type { ConnectionStateManager } from "../connection/connection-state.js";
+import { scanToolArguments } from "../dlp/dlp-scanner.js";
+
+// Re-export for type usage in enforceDlp below
+type _DlpScanResultRef = DlpScanResult;
 
 /**
  * Normalize a tool name for comparison (lowercase, trim, resolve aliases).
@@ -78,10 +82,32 @@ function expandGroups(list: string[]): Set<string> {
  * to prevent bypassing filesystem restrictions via shell.
  */
 const FS_READ_COMMANDS = new Set([
-  "ls", "cat", "head", "tail", "less", "more", "find", "locate",
-  "tree", "stat", "file", "du", "wc", "od", "xxd", "hexdump",
-  "strings", "readlink", "realpath", "basename", "dirname",
-  "diff", "cmp", "md5sum", "sha256sum", "shasum",
+  "ls",
+  "cat",
+  "head",
+  "tail",
+  "less",
+  "more",
+  "find",
+  "locate",
+  "tree",
+  "stat",
+  "file",
+  "du",
+  "wc",
+  "od",
+  "xxd",
+  "hexdump",
+  "strings",
+  "readlink",
+  "realpath",
+  "basename",
+  "dirname",
+  "diff",
+  "cmp",
+  "md5sum",
+  "sha256sum",
+  "shasum",
 ]);
 
 /**
@@ -89,9 +115,26 @@ const FS_READ_COMMANDS = new Set([
  * When group:fs is denied, exec calls using these commands are also blocked.
  */
 const FS_WRITE_COMMANDS = new Set([
-  "cp", "mv", "rm", "mkdir", "rmdir", "touch", "chmod", "chown",
-  "chgrp", "ln", "install", "mktemp", "truncate", "shred",
-  "tar", "zip", "unzip", "gzip", "gunzip", "bzip2",
+  "cp",
+  "mv",
+  "rm",
+  "mkdir",
+  "rmdir",
+  "touch",
+  "chmod",
+  "chown",
+  "chgrp",
+  "ln",
+  "install",
+  "mktemp",
+  "truncate",
+  "shred",
+  "tar",
+  "zip",
+  "unzip",
+  "gzip",
+  "gunzip",
+  "bzip2",
 ]);
 
 /** All filesystem-related shell commands. */
@@ -104,7 +147,10 @@ const FS_ALL_COMMANDS = new Set([...FS_READ_COMMANDS, ...FS_WRITE_COMMANDS]);
 function extractCommandNames(command: string): string[] {
   const names: string[] = [];
   // Split on pipes, &&, ||, and ; to get individual commands
-  const segments = command.split(/[|;&]/).map((s) => s.trim()).filter(Boolean);
+  const segments = command
+    .split(/[|;&]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
   for (const segment of segments) {
     // Strip leading env vars (FOO=bar), sudo, env, etc.
     const tokens = segment.split(/\s+/);
@@ -127,10 +173,7 @@ function extractCommandNames(command: string): string[] {
  * Check if an exec call should be blocked because it uses filesystem commands
  * while group:fs is denied in the policy.
  */
-function isExecBlockedByFsDeny(
-  denySet: Set<string>,
-  params: Record<string, unknown>,
-): boolean {
+function isExecBlockedByFsDeny(denySet: Set<string>, params: Record<string, unknown>): boolean {
   // Only apply if filesystem tools are denied (group:fs was expanded into these)
   const fsToolsDenied = denySet.has("read") || denySet.has("write") || denySet.has("edit");
   if (!fsToolsDenied) return false;
@@ -153,6 +196,8 @@ export type ToolEnforcerState = {
    * - undefined — normal enforcement
    */
   offlineOverride?: "allow" | "cached";
+  /** True while initializeClawForge() is still running. Tools are blocked by default until init completes. */
+  pendingInit?: boolean;
 };
 
 /**
@@ -160,19 +205,46 @@ export type ToolEnforcerState = {
  */
 export function createToolEnforcerHook(
   state: ToolEnforcerState,
-  auditLogger: AuditLogger,
+  auditLogger: Pick<AuditLogger, "enqueue">,
   connectionStateManager?: ConnectionStateManager,
-): (
-  event: PluginHookBeforeToolCallEvent,
-  ctx: PluginHookToolContext,
-) => PluginHookBeforeToolCallResult | undefined {
+): (event: PluginHookBeforeToolCallEvent, ctx: PluginHookToolContext) => PluginHookBeforeToolCallResult | undefined {
   return (
     event: PluginHookBeforeToolCallEvent,
     ctx: PluginHookToolContext,
   ): PluginHookBeforeToolCallResult | undefined => {
     const toolName = normalizeToolName(event.toolName);
 
-    // Check offline override before kill switch.
+    // 0. Pending initialization — block by default (safe mode).
+    if (state.pendingInit && !state.policy) {
+      auditLogger.enqueue({
+        eventType: "tool_call_attempt",
+        toolName,
+        outcome: "blocked",
+        agentId: ctx.agentId,
+        sessionKey: ctx.sessionKey,
+        metadata: { reason: "pending_init" },
+      });
+      return {
+        block: true,
+        blockReason: "ClawForge: Plugin is still initializing. Please try again shortly.",
+      };
+    }
+
+    // 1. Kill switch check — always takes precedence, even over offline overrides.
+    if (state.killSwitchActive) {
+      const reason = state.killSwitchMessage ?? "ClawForge: All tool calls blocked by organization kill switch";
+      auditLogger.enqueue({
+        eventType: "tool_call_attempt",
+        toolName,
+        outcome: "blocked",
+        agentId: ctx.agentId,
+        sessionKey: ctx.sessionKey,
+        metadata: { reason: "kill_switch" },
+      });
+      return { block: true, blockReason: reason };
+    }
+
+    // 2. Offline override modes.
     if (state.offlineOverride === "allow") {
       auditLogger.enqueue({
         eventType: "tool_call_attempt",
@@ -186,24 +258,7 @@ export function createToolEnforcerHook(
     }
 
     if (state.offlineOverride === "cached") {
-      // Use cached policy for enforcement; skip the kill switch check
-      // since we are intentionally operating with stale data.
       return enforcePolicy(state.policy, toolName, event, ctx, auditLogger, "offline_cached_mode");
-    }
-
-    // 1. Kill switch check
-    if (state.killSwitchActive) {
-      const reason =
-        state.killSwitchMessage ?? "ClawForge: All tool calls blocked by organization kill switch";
-      auditLogger.enqueue({
-        eventType: "tool_call_attempt",
-        toolName,
-        outcome: "blocked",
-        agentId: ctx.agentId,
-        sessionKey: ctx.sessionKey,
-        metadata: { reason: "kill_switch" },
-      });
-      return { block: true, blockReason: reason };
     }
 
     return enforcePolicy(state.policy, toolName, event, ctx, auditLogger);
@@ -218,7 +273,7 @@ function enforcePolicy(
   toolName: string,
   event: PluginHookBeforeToolCallEvent,
   ctx: PluginHookToolContext,
-  auditLogger: AuditLogger,
+  auditLogger: Pick<AuditLogger, "enqueue">,
   modeReason?: string,
 ): PluginHookBeforeToolCallResult | undefined {
   if (!policy) {
@@ -287,6 +342,43 @@ function enforcePolicy(
         block: true,
         blockReason: `ClawForge: Tool "${event.toolName}" is not in the organization's allowed tools list`,
       };
+    }
+  }
+
+  // DLP scan — check tool arguments for sensitive data patterns (#66)
+  if (policy.dlpRules && policy.dlpRules.length > 0) {
+    const dlpResult: _DlpScanResultRef = scanToolArguments(policy.dlpRules, event.params);
+
+    if (dlpResult.violations.length > 0) {
+      const violationSummary = dlpResult.violations.map((v) => ({
+        rule: v.ruleName,
+        action: v.action,
+        severity: v.severity,
+        category: v.category,
+        redactedContext: v.redactedContext,
+      }));
+
+      auditLogger.enqueue({
+        eventType: "dlp_violation",
+        toolName,
+        outcome: dlpResult.effectiveAction === "block" ? "blocked" : "allowed",
+        agentId: ctx.agentId,
+        sessionKey: ctx.sessionKey,
+        metadata: {
+          violations: violationSummary,
+          scannedFields: dlpResult.scannedFields,
+          effectiveAction: dlpResult.effectiveAction,
+        },
+      });
+
+      if (dlpResult.effectiveAction === "block") {
+        const blockingRules = dlpResult.violations.filter((v) => v.action === "block");
+        const ruleNames = blockingRules.map((v) => v.ruleName).join(", ");
+        return {
+          block: true,
+          blockReason: `ClawForge DLP: Tool call blocked — sensitive data detected (rules: ${ruleNames})`,
+        };
+      }
     }
   }
 
