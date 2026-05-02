@@ -114,14 +114,14 @@ describe("Heartbeat Routes", () => {
         role: "user",
       });
 
-      // select is called twice: first for user lookup, then for policy
+      // select is called for user lookup, previous heartbeat, org settings, then policy.
       let selectCall = 0;
       mockDb.insert = vi.fn(() => mockDbChain([]) as ReturnType<MockDb["insert"]>);
       mockDb.select = vi.fn(() => {
         selectCall++;
-        // First call: user exists check — return a user row
         if (selectCall === 1) return mockDbChain([{ id: TEST_USER_ID }]) as ReturnType<MockDb["select"]>;
-        // Second call: policy lookup — no policy
+        if (selectCall === 2) return mockDbChain([]) as ReturnType<MockDb["select"]>;
+        if (selectCall === 3) return mockDbChain([]) as ReturnType<MockDb["select"]>;
         return mockDbChain([]) as ReturnType<MockDb["select"]>;
       });
 
@@ -151,12 +151,14 @@ describe("Heartbeat Routes", () => {
         killSwitchMessage: "All systems halt",
       };
 
-      // select is called twice: user lookup then policy
+      // select is called for user lookup, previous heartbeat, org settings, then policy.
       let selectCall = 0;
       mockDb.insert = vi.fn(() => mockDbChain([]) as ReturnType<MockDb["insert"]>);
       mockDb.select = vi.fn(() => {
         selectCall++;
         if (selectCall === 1) return mockDbChain([{ id: TEST_USER_ID }]) as ReturnType<MockDb["select"]>;
+        if (selectCall === 2) return mockDbChain([]) as ReturnType<MockDb["select"]>;
+        if (selectCall === 3) return mockDbChain([]) as ReturnType<MockDb["select"]>;
         return mockDbChain([policyWithKillSwitch]) as ReturnType<MockDb["select"]>;
       });
 
@@ -187,6 +189,8 @@ describe("Heartbeat Routes", () => {
       mockDb.select = vi.fn(() => {
         selectCall++;
         if (selectCall === 1) return mockDbChain([{ id: TEST_USER_ID }]) as ReturnType<MockDb["select"]>;
+        if (selectCall === 2) return mockDbChain([]) as ReturnType<MockDb["select"]>;
+        if (selectCall === 3) return mockDbChain([]) as ReturnType<MockDb["select"]>;
         return mockDbChain([policyRow]) as ReturnType<MockDb["select"]>;
       });
 
@@ -216,6 +220,8 @@ describe("Heartbeat Routes", () => {
       mockDb.select = vi.fn(() => {
         selectCall++;
         if (selectCall === 1) return mockDbChain([{ id: TEST_USER_ID }]) as ReturnType<MockDb["select"]>;
+        if (selectCall === 2) return mockDbChain([]) as ReturnType<MockDb["select"]>;
+        if (selectCall === 3) return mockDbChain([]) as ReturnType<MockDb["select"]>;
         return mockDbChain([policyRow]) as ReturnType<MockDb["select"]>;
       });
 
@@ -228,6 +234,42 @@ describe("Heartbeat Routes", () => {
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body).toHaveProperty("refreshPolicyNow", false);
+    });
+
+    it("records crash and restart events when heartbeat gap and startup marker change are detected", async () => {
+      const token = generateTestToken(app, {
+        userId: TEST_USER_ID,
+        orgId: TEST_ORG_ID,
+        role: "user",
+      });
+
+      const previousHeartbeat = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      let selectCall = 0;
+      mockDb.insert = vi.fn(() => mockDbChain([]) as ReturnType<MockDb["insert"]>);
+      mockDb.select = vi.fn(() => {
+        selectCall++;
+        if (selectCall === 1) return mockDbChain([{ id: TEST_USER_ID }]) as ReturnType<MockDb["select"]>;
+        if (selectCall === 2) {
+          return mockDbChain([{ lastHeartbeatAt: previousHeartbeat, startupId: "startup-old" }]) as ReturnType<
+            MockDb["select"]
+          >;
+        }
+        if (selectCall === 3) {
+          return mockDbChain([{ settings: { heartbeatOfflineThresholdMs: 60_000 } }]) as ReturnType<MockDb["select"]>;
+        }
+        return mockDbChain([{ version: 5, killSwitch: false, killSwitchMessage: null }]) as ReturnType<
+          MockDb["select"]
+        >;
+      });
+
+      const res = await app.inject({
+        method: "GET",
+        url: `/api/v1/heartbeat/${TEST_ORG_ID}/${TEST_USER_ID}?startupId=startup-new`,
+        headers: { authorization: `Bearer ${token}` },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(mockDb.insert).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -376,6 +418,48 @@ describe("Heartbeat Routes", () => {
       expect(res.statusCode).toBe(200);
       expect(res.json().clients).toHaveLength(1);
       expect(res.json().summary).toEqual({ total: 1, online: 1, offline: 0 });
+    });
+  });
+
+  describe("GET /api/v1/heartbeat/:orgId/:userId/events", () => {
+    it("returns crash/restart history for admins", async () => {
+      const token = generateTestToken(app, {
+        userId: TEST_ADMIN_ID,
+        orgId: TEST_ORG_ID,
+        role: "admin",
+      });
+
+      let selectCall = 0;
+      mockDb.select = vi.fn(() => {
+        selectCall++;
+        if (selectCall === 1) {
+          return mockDbChain([
+            { id: "1", eventType: "agent_crash", outcome: "error", metadata: {}, timestamp: new Date().toISOString() },
+          ]) as ReturnType<MockDb["select"]>;
+        }
+        return mockDbChain([
+          {
+            id: "2",
+            eventType: "agent_restart",
+            outcome: "success",
+            metadata: {},
+            timestamp: new Date().toISOString(),
+          },
+        ]) as ReturnType<MockDb["select"]>;
+      });
+
+      const res = await app.inject({
+        method: "GET",
+        url: `/api/v1/heartbeat/${TEST_ORG_ID}/${TEST_USER_ID}/events`,
+        headers: { authorization: `Bearer ${token}` },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body).toHaveProperty("events");
+      expect(body).toHaveProperty("summary");
+      expect(body.summary).toHaveProperty("crashes", 1);
+      expect(body.summary).toHaveProperty("restarts", 1);
     });
   });
 });
