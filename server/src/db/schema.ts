@@ -207,11 +207,15 @@ export const auditEvents = pgTable(
     agentId: text("agent_id"),
     sessionKey: text("session_key"),
     metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    promptInjectionDetected: boolean("prompt_injection_detected").notNull().default(false),
+    promptInjectionConfidence: integer("prompt_injection_confidence"),
+    promptInjectionSignals: jsonb("prompt_injection_signals").$type<string[]>(),
     timestamp: timestamp("timestamp", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index("audit_events_org_ts_idx").on(table.orgId, table.timestamp),
     index("audit_events_org_user_idx").on(table.orgId, table.userId),
+    index("audit_events_org_prompt_injection_idx").on(table.orgId, table.promptInjectionDetected, table.timestamp),
   ],
 );
 

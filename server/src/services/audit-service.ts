@@ -6,6 +6,7 @@ import { eq, and, gte, lte, desc, lt, sql, count } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { auditEvents } from "../db/schema.js";
 import type * as schema from "../db/schema.js";
+import { assessPromptInjection } from "./prompt-injection-detector.js";
 
 export type AuditEventInput = {
   userId: string;
@@ -27,6 +28,7 @@ export type AuditQueryParams = {
   outcome?: string;
   from?: Date;
   to?: Date;
+  promptInjectionDetected?: boolean;
   limit?: number;
   offset?: number;
   cursor?: string;
@@ -43,17 +45,23 @@ export class AuditService {
     if (events.length === 0) return;
 
     await this.db.insert(auditEvents).values(
-      events.map((e) => ({
-        orgId: e.orgId,
-        userId: e.userId,
-        eventType: e.eventType,
-        toolName: e.toolName,
-        outcome: e.outcome,
-        agentId: e.agentId,
-        sessionKey: e.sessionKey,
-        metadata: e.metadata,
-        timestamp: new Date(e.timestamp),
-      })),
+      events.map((e) => {
+        const assessment = assessPromptInjection(e);
+        return {
+          orgId: e.orgId,
+          userId: e.userId,
+          eventType: e.eventType,
+          toolName: e.toolName,
+          outcome: e.outcome,
+          agentId: e.agentId,
+          sessionKey: e.sessionKey,
+          metadata: e.metadata,
+          promptInjectionDetected: assessment.detected,
+          promptInjectionConfidence: assessment.confidence,
+          promptInjectionSignals: assessment.signals,
+          timestamp: new Date(e.timestamp),
+        };
+      }),
     );
   }
 
@@ -63,6 +71,9 @@ export class AuditService {
     if (params.eventType) conditions.push(eq(auditEvents.eventType, params.eventType));
     if (params.toolName) conditions.push(eq(auditEvents.toolName, params.toolName));
     if (params.outcome) conditions.push(eq(auditEvents.outcome, params.outcome));
+    if (typeof params.promptInjectionDetected === "boolean") {
+      conditions.push(eq(auditEvents.promptInjectionDetected, params.promptInjectionDetected));
+    }
     if (params.from) conditions.push(gte(auditEvents.timestamp, params.from));
     if (params.to) conditions.push(lte(auditEvents.timestamp, params.to));
     return conditions;
