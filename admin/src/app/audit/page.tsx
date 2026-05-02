@@ -351,8 +351,8 @@ export default function AuditPage() {
                               )}
                               <div>
                                 <span className="font-semibold">Prompt injection detection:</span>{" "}
-                                {event.promptInjectionDetected ? "Flagged" : "Not flagged"} ({event.promptInjectionConfidence}
-                                % confidence)
+                                {event.promptInjectionDetected ? "Flagged" : "Not flagged"} (
+                                {event.promptInjectionConfidence}% confidence)
                               </div>
                               {event.promptInjectionSignals && event.promptInjectionSignals.length > 0 && (
                                 <div>

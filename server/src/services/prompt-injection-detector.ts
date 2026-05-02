@@ -74,7 +74,9 @@ function isSupportedEventType(eventType: string): boolean {
   return SUPPORTED_EVENT_TYPES.has(eventType) || eventType.includes("tool") || eventType.includes("prompt");
 }
 
-export function assessPromptInjection(event: Pick<AuditEventInput, "eventType" | "metadata">): PromptInjectionAssessment {
+export function assessPromptInjection(
+  event: Pick<AuditEventInput, "eventType" | "metadata">,
+): PromptInjectionAssessment {
   if (!isSupportedEventType(event.eventType)) {
     return { detected: false, confidence: 0, signals: [] };
   }
