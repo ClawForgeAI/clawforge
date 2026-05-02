@@ -16,6 +16,7 @@ export type AuditQueryFilters = {
   eventType?: string;
   toolName?: string;
   outcome?: string;
+  promptInjectionDetected?: "true" | "false";
   from?: string;
   to?: string;
   limit?: string;
@@ -308,6 +309,9 @@ export type AuditEvent = {
   agentId?: string;
   sessionKey?: string;
   metadata?: Record<string, unknown>;
+  promptInjectionDetected: boolean;
+  promptInjectionConfidence: number;
+  promptInjectionSignals?: string[];
   timestamp: string;
 };
 
