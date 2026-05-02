@@ -233,7 +233,14 @@ offset=0" \
 | ------ | ------------------------------------------- | ------------ | -------------------------------------------------------------------- |
 | `GET`  | `/api/v1/heartbeat/:orgId`                  | Admin/Viewer | List connected instances (supports `status`, `tag`, `group` filters) |
 | `GET`  | `/api/v1/heartbeat/:orgId/:userId`          | User         | Client heartbeat — returns kill switch state + policy version        |
+| `GET`  | `/api/v1/heartbeat/:orgId/:userId/events`   | Admin/Viewer | Crash/restart lifecycle history for a client                         |
 | `PUT`  | `/api/v1/heartbeat/:orgId/:userId/metadata` | Admin/Viewer | Update instance grouping metadata (`groupName`, `tags`)              |
+
+### Query parameters (`/api/v1/heartbeat/:orgId/:userId`)
+
+- `policyVersion` (optional, number): Client-side policy version for refresh detection.
+- `clientVersion` (optional, string): Plugin version string.
+- `startupId` (optional, string): Per-process startup marker used to detect restarts.
 
 ### Response
 
@@ -243,6 +250,29 @@ offset=0" \
   "killSwitch": false,
   "killSwitchMessage": null,
   "refreshPolicyNow": false
+}
+```
+
+### Response (`/api/v1/heartbeat/:orgId/:userId/events`)
+
+```json
+{
+  "events": [
+    {
+      "id": "uuid",
+      "eventType": "agent_restart",
+      "outcome": "success",
+      "metadata": {
+        "reason": "startup_marker_changed"
+      },
+      "timestamp": "2026-04-25T10:00:00.000Z"
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "crashes": 0,
+    "restarts": 1
+  }
 }
 ```
 
