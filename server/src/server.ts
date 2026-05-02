@@ -23,6 +23,8 @@ import { organizationRoutes } from "./routes/organizations.js";
 import { eventRoutes } from "./routes/events.js";
 import { apiKeyRoutes } from "./routes/api-keys.js";
 import { roleRoutes } from "./routes/roles.js";
+import { alertRoutes } from "./routes/alerts.js";
+import { webhookRoutes } from "./routes/webhooks.js";
 import { startAuditRetentionJob, stopAuditRetentionJob } from "./services/audit-retention.js";
 
 // ---------------------------------------------------------------------------
@@ -94,7 +96,11 @@ function getUptimeSeconds(): number {
   return Math.floor(process.uptime());
 }
 
-export async function buildReadinessResponse({ sql, version, fetchImpl = fetch }: ReadinessDependencies): Promise<ReadinessResponse> {
+export async function buildReadinessResponse({
+  sql,
+  version,
+  fetchImpl = fetch,
+}: ReadinessDependencies): Promise<ReadinessResponse> {
   const checks: ReadinessResponse["checks"] = {
     database: { status: "ok", latencyMs: 0 },
     migrations: { status: "ok", latencyMs: 0 },
@@ -296,7 +302,7 @@ export async function createServer(config: ServerConfig) {
       max: 120,
       timeWindow: "1 minute",
       keyGenerator: (request) => {
-        return request.authUser?.userId ?? request.ip;
+        return `${request.authUser?.orgId ?? "anon"}:${request.authUser?.userId ?? request.ip}`;
       },
       addHeadersOnExceeding: { "x-ratelimit-limit": true, "x-ratelimit-remaining": true, "x-ratelimit-reset": true },
       addHeaders: {
@@ -354,6 +360,8 @@ export async function createServer(config: ServerConfig) {
   await app.register(eventRoutes);
   await app.register(apiKeyRoutes);
   await app.register(roleRoutes);
+  await app.register(alertRoutes);
+  await app.register(webhookRoutes);
 
   // Start audit retention cleanup job (#39)
   if (config.auditRetentionDays && config.auditRetentionDays > 0) {

@@ -101,15 +101,12 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-3">
             {lastUpdated && (
-              <span className="text-xs text-base-content/40">
-                Updated {lastUpdated.toLocaleTimeString()}
-              </span>
+              <span className="text-xs text-base-content/40">Updated {lastUpdated.toLocaleTimeString()}</span>
             )}
-            <button
-              onClick={toggleLive}
-              className={`btn btn-sm gap-2 ${isLive ? "btn-success" : "btn-ghost"}`}
-            >
-              <span className={`w-2 h-2 rounded-full ${isLive ? "bg-success-content animate-pulse" : "bg-base-content/30"}`} />
+            <button onClick={toggleLive} className={`btn btn-sm gap-2 ${isLive ? "btn-success" : "btn-ghost"}`}>
+              <span
+                className={`w-2 h-2 rounded-full ${isLive ? "bg-success-content animate-pulse" : "bg-base-content/30"}`}
+              />
               {isLive ? "Live" : "Paused"}
             </button>
           </div>

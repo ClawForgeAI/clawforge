@@ -11,10 +11,11 @@
     "start": "node --env-file=.env dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:generate": "node --env-file=.env ./node_modules/.bin/drizzle-kit generate",
-    "db:migrate": "node --env-file=.env ./node_modules/.bin/drizzle-kit migrate",
+    "db:generate": "tsx --env-file=.env ./node_modules/drizzle-kit/bin.cjs generate",
+    "db:migrate": "tsx --env-file=.env src/db/migrate.ts",
+    "db:migrate:drizzle": "tsx --env-file=.env ./node_modules/drizzle-kit/bin.cjs migrate",
     "db:seed": "tsx --env-file=.env src/db/seed.ts",
-    "db:studio": "node --env-file=.env ./node_modules/.bin/drizzle-kit studio"
+    "db:studio": "tsx --env-file=.env ./node_modules/drizzle-kit/bin.cjs studio"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.0",

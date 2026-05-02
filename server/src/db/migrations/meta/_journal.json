@@ -43,6 +43,41 @@
       "when": 1771797865352,
       "tag": "0004_v1_features",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1775405449000,
+      "tag": "0005_alert_and_rbac_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1775405450008,
+      "tag": "0006_flashy_wendell_rand",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1777060800000,
+      "tag": "0007_instance_grouping_tags",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1777060900000,
+      "tag": "0008_policy_change_approvals",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1777109405147,
+      "tag": "0009_prompt_injection_audit",
+      "breakpoints": true
     }
   ]
 }
