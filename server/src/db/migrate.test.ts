@@ -50,27 +50,20 @@ describe("loadMigrationSql", () => {
   });
 
   it("throws for unknown migration tag", () => {
-    expect(() => loadMigrationSql("nonexistent_migration_tag", MIGRATIONS_DIR)).toThrow(
-      /Migration file not found/,
-    );
+    expect(() => loadMigrationSql("nonexistent_migration_tag", MIGRATIONS_DIR)).toThrow(/Migration file not found/);
   });
 });
 
 describe("getAppliedMigrations", () => {
   it("returns applied migration hashes from the database", async () => {
     const mockSql = {
-      unsafe: vi.fn().mockResolvedValue([
-        { hash: "0000_dry_magus" },
-        { hash: "0001_slimy_lizard" },
-      ]),
+      unsafe: vi.fn().mockResolvedValue([{ hash: "0000_dry_magus" }, { hash: "0001_slimy_lizard" }]),
     };
 
     const applied = await getAppliedMigrations(mockSql);
 
     expect(applied).toEqual(["0000_dry_magus", "0001_slimy_lizard"]);
-    expect(mockSql.unsafe).toHaveBeenCalledWith(
-      "SELECT hash FROM __drizzle_migrations ORDER BY created_at ASC",
-    );
+    expect(mockSql.unsafe).toHaveBeenCalledWith("SELECT hash FROM __drizzle_migrations ORDER BY created_at ASC");
   });
 
   it("returns empty array if migrations table does not exist", async () => {
@@ -168,8 +161,6 @@ describe("generateRollbackPlan", () => {
   });
 
   it("throws for nonexistent migration tag", () => {
-    expect(() => generateRollbackPlan("nonexistent_tag", MIGRATIONS_DIR)).toThrow(
-      /Migration file not found/,
-    );
+    expect(() => generateRollbackPlan("nonexistent_tag", MIGRATIONS_DIR)).toThrow(/Migration file not found/);
   });
 });
