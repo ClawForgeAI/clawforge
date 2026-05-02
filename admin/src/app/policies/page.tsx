@@ -9,7 +9,16 @@ import { Badge } from "@/components/badge";
 import { CardSkeleton } from "@/components/skeleton";
 import { useToast } from "@/components/toast";
 import { getAuth } from "@/lib/auth";
-import { getPolicy, updatePolicy, listPolicies, createPolicy as createPolicyApi } from "@/lib/api";
+import {
+  getPolicy,
+  updatePolicy,
+  listPolicies,
+  createPolicy as createPolicyApi,
+  listPolicyApprovals,
+  approvePolicyChange,
+  rejectPolicyChange,
+  type PolicyChangeRequest,
+} from "@/lib/api";
 import type { PolicySummary } from "@/lib/api";
 
 // --- Business-friendly capability definitions ---
@@ -329,6 +338,8 @@ export default function PoliciesPage() {
   const [selectedPolicyId, setSelectedPolicyId] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newPolicyName, setNewPolicyName] = useState("");
+  const [pendingApprovals, setPendingApprovals] = useState<PolicyChangeRequest[]>([]);
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
 
   useEffect(() => {
     const auth = getAuth();
@@ -365,6 +376,10 @@ export default function PoliciesPage() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+
+    listPolicyApprovals(auth.orgId, auth.accessToken)
+      .then((data) => setPendingApprovals(data.requests))
+      .catch(() => {});
   }, [router]);
 
   function detectPreset(m: PolicyMode, caps: Set<string>) {
@@ -443,7 +458,7 @@ export default function PoliciesPage() {
 
     try {
       const { allow, deny } = capabilitiesToPolicy(mode, enabledCaps, overrides);
-      await updatePolicy(auth.orgId, auth.accessToken, {
+      const result = await updatePolicy(auth.orgId, auth.accessToken, {
         toolsConfig: {
           deny: deny.length > 0 ? deny : undefined,
           allow: allow.length > 0 ? allow : undefined,
@@ -451,9 +466,15 @@ export default function PoliciesPage() {
         },
         auditLevel,
       });
-      setVersion((v) => v + 1);
       setHasChanges(false);
-      toast.success("Policy saved and will be applied to all connected agents.");
+      if (result.status === "pending_approval") {
+        toast.success("Policy change submitted for second-admin approval.");
+        const approvals = await listPolicyApprovals(auth.orgId, auth.accessToken);
+        setPendingApprovals(approvals.requests);
+      } else {
+        setVersion((v) => v + 1);
+        toast.success("Policy saved and will be applied to all connected agents.");
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Save failed");
     } finally {
@@ -462,6 +483,27 @@ export default function PoliciesPage() {
   }
 
   const counts = useMemo(() => getEffectiveCounts(mode, enabledCaps, overrides), [mode, enabledCaps, overrides]);
+
+  async function handleApprovalDecision(requestId: string, decision: "approve" | "reject") {
+    const auth = getAuth();
+    if (!auth) return;
+    setReviewingId(requestId);
+    try {
+      if (decision === "approve") {
+        await approvePolicyChange(auth.orgId, requestId, auth.accessToken);
+        toast.success("Policy change approved.");
+      } else {
+        await rejectPolicyChange(auth.orgId, requestId, auth.accessToken);
+        toast.success("Policy change rejected.");
+      }
+      const approvals = await listPolicyApprovals(auth.orgId, auth.accessToken);
+      setPendingApprovals(approvals.requests);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Unable to update approval");
+    } finally {
+      setReviewingId(null);
+    }
+  }
 
   return (
     <div className="flex min-h-screen bg-base-200">
@@ -625,6 +667,46 @@ export default function PoliciesPage() {
                 ))}
               </div>
             </Card>
+
+            {pendingApprovals.length > 0 && (
+              <Card>
+                <CardTitle>Pending Policy Approvals</CardTitle>
+                <p className="text-sm text-base-content/50 -mt-2 mb-4">
+                  Protected policy changes require review by a different admin before activation.
+                </p>
+                <div className="space-y-3">
+                  {pendingApprovals.map((request) => (
+                    <div
+                      key={request.id}
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 border rounded-xl border-base-300/60"
+                    >
+                      <div>
+                        <p className="text-sm font-medium">
+                          Request {request.id.slice(0, 8)} • {new Date(request.createdAt).toLocaleString()}
+                        </p>
+                        <p className="text-xs text-base-content/50">Requested by {request.requestedBy}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          className="btn btn-success btn-xs"
+                          disabled={reviewingId === request.id}
+                          onClick={() => handleApprovalDecision(request.id, "approve")}
+                        >
+                          Approve
+                        </button>
+                        <button
+                          className="btn btn-ghost btn-xs"
+                          disabled={reviewingId === request.id}
+                          onClick={() => handleApprovalDecision(request.id, "reject")}
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
 
             {/* Capabilities */}
             <div>
