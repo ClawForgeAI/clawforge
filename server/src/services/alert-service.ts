@@ -105,7 +105,8 @@ export class AlertService {
   ) {
     const conditions = [eq(alerts.orgId, orgId)];
     if (params.status) conditions.push(eq(alerts.status, params.status));
-    if (params.severity) conditions.push(eq(alerts.severity, params.severity as "critical" | "high" | "medium" | "low"));
+    if (params.severity)
+      conditions.push(eq(alerts.severity, params.severity as "critical" | "high" | "medium" | "low"));
 
     const rows = await this.db
       .select()

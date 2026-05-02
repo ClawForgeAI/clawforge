@@ -135,7 +135,8 @@ export async function skillRoutes(app: FastifyInstance): Promise<void> {
     }).catch(() => {});
 
     // Deliver webhook event (#43)
-    const webhookEvent = parseResult.data.status === "rejected" ? "skill.rejected" as const : "skill.approved" as const;
+    const webhookEvent =
+      parseResult.data.status === "rejected" ? ("skill.rejected" as const) : ("skill.approved" as const);
     webhookService
       .deliverEvent(orgId, webhookEvent, {
         orgId,
