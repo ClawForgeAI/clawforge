@@ -17,16 +17,7 @@ function createAuditMockDb() {
 
   function chain(resultRef: () => unknown[]) {
     const obj: Record<string, unknown> = {};
-    const methods = [
-      "from",
-      "where",
-      "limit",
-      "offset",
-      "orderBy",
-      "values",
-      "set",
-      "returning",
-    ];
+    const methods = ["from", "where", "limit", "offset", "orderBy", "values", "set", "returning"];
     for (const m of methods) {
       obj[m] = vi.fn().mockReturnValue(obj);
     }

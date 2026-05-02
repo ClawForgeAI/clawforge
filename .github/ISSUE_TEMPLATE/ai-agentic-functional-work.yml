@@ -1,0 +1,114 @@
+name: AI Agentic Functional Work
+description: Create a bounded engineering task for an AI agent with write context, exit plan, and testing.
+title: "[Agentic]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for functionality work that will be implemented by an AI agent.
+        The goal is to make the task executable, bounded, and verifiable before coding starts.
+
+  - type: dropdown
+    id: work_type
+    attributes:
+      label: Work Type
+      options:
+        - New functionality
+        - Bug fix
+        - Frontend fix
+        - Integration change
+        - Regression follow-up
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What is the work item?
+      placeholder: Add a kill switch banner to the dashboard and keep it in sync with live refresh.
+    validations:
+      required: true
+
+  - type: textarea
+    id: desired_outcome
+    attributes:
+      label: Desired Outcome
+      description: What should be true for the user or operator when this is done?
+      placeholder: Admins can immediately see when the kill switch is active and the state updates correctly after refresh.
+    validations:
+      required: true
+
+  - type: textarea
+    id: write_context
+    attributes:
+      label: Write Context
+      description: Bound the expected write surface before implementation starts.
+      placeholder: |
+        Package(s): admin/, server/
+        Likely files or directories:
+        - admin/src/app/dashboard/page.tsx
+        - admin/src/lib/api.ts
+        - server/src/routes/policies.ts
+        Related routes, pages, contracts, or schema:
+        - GET /api/v1/policies/:orgId
+        Out of scope:
+        - Policy editor redesign
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance Criteria
+      description: Use objective, testable statements.
+      placeholder: |
+        - [ ] Dashboard shows the active kill switch banner when the API says active
+        - [ ] Dashboard removes the banner when the API says inactive
+        - [ ] Existing dashboard stats still render correctly
+    validations:
+      required: true
+
+  - type: textarea
+    id: exit_plan
+    attributes:
+      label: Exit Plan
+      description: Define how the work will be proven complete.
+      placeholder: |
+        Tests to add or update:
+        - Dashboard page test
+        - Server route test if contract changes
+
+        Commands to run:
+        - pnpm --filter @ClawForgeAI/clawforge-admin test
+        - pnpm --filter @ClawForgeAI/clawforge-admin build
+        - pnpm --filter @ClawForgeAI/clawforge-server test
+
+        Manual verification:
+        - Login
+        - Open dashboard
+        - Toggle live refresh
+        - Verify banner state
+
+        Docs to update:
+        - None
+    validations:
+      required: true
+
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks / Dependencies
+      description: Call out contract drift, migrations, auth, env vars, or external blockers.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I bounded the write context instead of leaving the scope open-ended.
+          required: true
+        - label: I included acceptance criteria that can be verified objectively.
+          required: true
+        - label: I included an exit plan with tests and verification commands.
+          required: true

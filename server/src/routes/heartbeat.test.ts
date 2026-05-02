@@ -24,9 +24,17 @@ import {
 function mockDbChain(result: unknown[]) {
   const obj: Record<string, unknown> = {};
   const methods = [
-    "from", "where", "limit", "offset", "orderBy",
-    "values", "set", "returning", "onConflictDoUpdate",
-    "innerJoin", "leftJoin",
+    "from",
+    "where",
+    "limit",
+    "offset",
+    "orderBy",
+    "values",
+    "set",
+    "returning",
+    "onConflictDoUpdate",
+    "innerJoin",
+    "leftJoin",
   ];
   for (const m of methods) {
     obj[m] = vi.fn().mockReturnValue(obj);
@@ -79,6 +87,26 @@ describe("Heartbeat Routes", () => {
       expect(res.statusCode).toBe(403);
     });
 
+    it("returns 401 when user does not exist in database", async () => {
+      const token = generateTestToken(app, {
+        userId: TEST_USER_ID,
+        orgId: TEST_ORG_ID,
+        role: "user",
+      });
+
+      // User lookup returns empty — user not in DB
+      mockDb.select = vi.fn(() => mockDbChain([]) as ReturnType<MockDb["select"]>);
+
+      const res = await app.inject({
+        method: "GET",
+        url: `/api/v1/heartbeat/${TEST_ORG_ID}/${TEST_USER_ID}`,
+        headers: { authorization: `Bearer ${token}` },
+      });
+
+      expect(res.statusCode).toBe(401);
+      expect(res.json()).toHaveProperty("error", "Unknown user; please re-authenticate");
+    });
+
     it("returns heartbeat response with default values when no policy exists", async () => {
       const token = generateTestToken(app, {
         userId: TEST_USER_ID,
@@ -86,9 +114,16 @@ describe("Heartbeat Routes", () => {
         role: "user",
       });
 
-      // insert (upsert heartbeat) then select (policy)
+      // select is called twice: first for user lookup, then for policy
+      let selectCall = 0;
       mockDb.insert = vi.fn(() => mockDbChain([]) as ReturnType<MockDb["insert"]>);
-      mockDb.select = vi.fn(() => mockDbChain([]) as ReturnType<MockDb["select"]>);
+      mockDb.select = vi.fn(() => {
+        selectCall++;
+        // First call: user exists check — return a user row
+        if (selectCall === 1) return mockDbChain([{ id: TEST_USER_ID }]) as ReturnType<MockDb["select"]>;
+        // Second call: policy lookup — no policy
+        return mockDbChain([]) as ReturnType<MockDb["select"]>;
+      });
 
       const res = await app.inject({
         method: "GET",
@@ -116,10 +151,14 @@ describe("Heartbeat Routes", () => {
         killSwitchMessage: "All systems halt",
       };
 
-      // insert for heartbeat upsert, select for policy
-      let callCount = 0;
+      // select is called twice: user lookup then policy
+      let selectCall = 0;
       mockDb.insert = vi.fn(() => mockDbChain([]) as ReturnType<MockDb["insert"]>);
-      mockDb.select = vi.fn(() => mockDbChain([policyWithKillSwitch]) as ReturnType<MockDb["select"]>);
+      mockDb.select = vi.fn(() => {
+        selectCall++;
+        if (selectCall === 1) return mockDbChain([{ id: TEST_USER_ID }]) as ReturnType<MockDb["select"]>;
+        return mockDbChain([policyWithKillSwitch]) as ReturnType<MockDb["select"]>;
+      });
 
       const res = await app.inject({
         method: "GET",
@@ -143,8 +182,13 @@ describe("Heartbeat Routes", () => {
 
       const policyRow = { version: 5, killSwitch: false, killSwitchMessage: null };
 
+      let selectCall = 0;
       mockDb.insert = vi.fn(() => mockDbChain([]) as ReturnType<MockDb["insert"]>);
-      mockDb.select = vi.fn(() => mockDbChain([policyRow]) as ReturnType<MockDb["select"]>);
+      mockDb.select = vi.fn(() => {
+        selectCall++;
+        if (selectCall === 1) return mockDbChain([{ id: TEST_USER_ID }]) as ReturnType<MockDb["select"]>;
+        return mockDbChain([policyRow]) as ReturnType<MockDb["select"]>;
+      });
 
       const res = await app.inject({
         method: "GET",
@@ -167,8 +211,13 @@ describe("Heartbeat Routes", () => {
 
       const policyRow = { version: 5, killSwitch: false, killSwitchMessage: null };
 
+      let selectCall = 0;
       mockDb.insert = vi.fn(() => mockDbChain([]) as ReturnType<MockDb["insert"]>);
-      mockDb.select = vi.fn(() => mockDbChain([policyRow]) as ReturnType<MockDb["select"]>);
+      mockDb.select = vi.fn(() => {
+        selectCall++;
+        if (selectCall === 1) return mockDbChain([{ id: TEST_USER_ID }]) as ReturnType<MockDb["select"]>;
+        return mockDbChain([policyRow]) as ReturnType<MockDb["select"]>;
+      });
 
       const res = await app.inject({
         method: "GET",

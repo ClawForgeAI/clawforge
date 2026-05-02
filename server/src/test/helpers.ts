@@ -63,6 +63,8 @@ export const testAdmin = {
 export const testPolicy = {
   id: "00000000-0000-4000-8000-000000000100",
   orgId: TEST_ORG_ID,
+  name: "Default Policy",
+  isDefault: true,
   version: 1,
   toolsConfig: { allow: ["Read", "Write"], deny: ["Bash"] },
   skillsConfig: { requireApproval: true, approved: [] },
@@ -171,9 +173,39 @@ export async function createTestApp(mockDb?: MockDb): Promise<FastifyInstance> {
   const db = mockDb ?? createMockDb();
   app.decorate("db", db as unknown as FastifyInstance["db"]);
 
+  // Decorate with no-op metrics for tests (#76)
+  const noopCounter = { inc: () => {} };
+  const noopGauge = { set: () => {}, inc: () => {}, dec: () => {} };
+  app.decorate("metrics", {
+    heartbeatCounter: noopCounter,
+    auditEventsCounter: noopCounter,
+    activeInstancesGauge: noopGauge,
+    policyFetchCounter: noopCounter,
+    killSwitchGauge: noopGauge,
+  } as unknown as FastifyInstance["metrics"]);
+
   // Health check
-  app.get("/health", async () => ({ status: "ok" }));
-  app.get("/health/ready", async () => ({ status: "healthy" }));
+  app.get("/health", async () => ({ status: "ok", uptime: 1, version: "0.1.0" }));
+  app.get("/ready", async () => ({
+    status: "ready",
+    version: "0.1.0",
+    timestamp: new Date().toISOString(),
+    checks: {
+      database: { status: "ok", latencyMs: 1 },
+      migrations: { status: "ok", latencyMs: 1, version: "test" },
+      sso: { status: "skipped", latencyMs: 0, configured: false },
+    },
+  }));
+  app.get("/health/ready", async () => ({
+    status: "ready",
+    version: "0.1.0",
+    timestamp: new Date().toISOString(),
+    checks: {
+      database: { status: "ok", latencyMs: 1 },
+      migrations: { status: "ok", latencyMs: 1, version: "test" },
+      sso: { status: "skipped", latencyMs: 0, configured: false },
+    },
+  }));
 
   // Auth middleware
   await registerAuthMiddleware(app);
@@ -230,14 +262,12 @@ export function generateExpiredToken(
   } = {},
 ): string {
   const nowSec = Math.floor(Date.now() / 1000);
-  return app.jwt.sign(
-    {
-      userId: payload.userId ?? TEST_USER_ID,
-      orgId: payload.orgId ?? TEST_ORG_ID,
-      email: payload.email ?? "user@test.com",
-      role: payload.role ?? "user",
-      iat: nowSec - 7200, // 2 hours ago
-      exp: nowSec - 3600, // expired 1 hour ago
-    },
-  );
+  return app.jwt.sign({
+    userId: payload.userId ?? TEST_USER_ID,
+    orgId: payload.orgId ?? TEST_ORG_ID,
+    email: payload.email ?? "user@test.com",
+    role: payload.role ?? "user",
+    iat: nowSec - 7200, // 2 hours ago
+    exp: nowSec - 3600, // expired 1 hour ago
+  });
 }

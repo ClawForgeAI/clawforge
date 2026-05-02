@@ -160,7 +160,7 @@ export class SSEClient {
 
   private parseAndDispatch(raw: string): void {
     let eventName = "";
-    let dataLines: string[] = [];
+    const dataLines: string[] = [];
 
     for (const line of raw.split("\n")) {
       if (line.startsWith("event: ")) {
@@ -191,9 +191,7 @@ export class SSEClient {
         const payload = data as { active: boolean; message?: string };
         if (payload.active) {
           if (!this.enforcerState.killSwitchActive) {
-            this.logger?.warn(
-              `Kill switch activated via SSE: ${payload.message ?? "No message"}`,
-            );
+            this.logger?.warn(`Kill switch activated via SSE: ${payload.message ?? "No message"}`);
           }
           this.enforcerState.killSwitchActive = true;
           this.enforcerState.killSwitchMessage = payload.message;
@@ -226,9 +224,7 @@ export class SSEClient {
   private scheduleReconnect(): void {
     if (this.stopped) return;
 
-    this.logger?.info(
-      `SSE client: reconnecting in ${this.reconnectMs}ms`,
-    );
+    this.logger?.info(`SSE client: reconnecting in ${this.reconnectMs}ms`);
 
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
