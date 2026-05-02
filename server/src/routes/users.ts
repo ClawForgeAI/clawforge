@@ -3,23 +3,23 @@
  */
 
 import type { FastifyInstance } from "fastify";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { requireAdmin, requireAdminOrViewer, requireOrg } from "../middleware/auth.js";
-import { users } from "../db/schema.js";
+import { users, skillSubmissions, approvedSkills, clientHeartbeats, enrollmentTokens, apiKeys } from "../db/schema.js";
 import { logAdminAction } from "../services/admin-audit.js";
 
 const CreateUserSchema = z.object({
   email: z.string().email(),
   name: z.string().optional(),
-  role: z.enum(["admin", "viewer", "user"]).optional().default("user"),
+  role: z.enum(["super_admin", "admin", "policy_admin", "security_admin", "viewer", "user"]).optional().default("user"),
   password: z.string().min(6).optional(),
 });
 
 const UpdateUserSchema = z.object({
   name: z.string().optional(),
-  role: z.enum(["admin", "viewer", "user"]).optional(),
+  role: z.enum(["super_admin", "admin", "policy_admin", "security_admin", "viewer", "user"]).optional(),
 });
 
 export async function userRoutes(app: FastifyInstance): Promise<void> {
@@ -54,192 +54,224 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
    * POST /api/v1/users/:orgId
    * Create/invite a user (admin only).
    */
-  app.post<{ Params: { orgId: string } }>("/api/v1/users/:orgId", async (request, reply) => {
-    requireAdmin(request, reply);
-    if (reply.sent) return;
-    const { orgId } = request.params;
-    requireOrg(request, reply, orgId);
-    if (reply.sent) return;
+  app.post<{ Params: { orgId: string } }>(
+    "/api/v1/users/:orgId",
+    { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } },
+    async (request, reply) => {
+      requireAdmin(request, reply);
+      if (reply.sent) return;
+      const { orgId } = request.params;
+      requireOrg(request, reply, orgId);
+      if (reply.sent) return;
 
-    const parseResult = CreateUserSchema.safeParse(request.body);
-    if (!parseResult.success) {
-      return reply.code(400).send({
-        error: "Invalid request body",
-        details: parseResult.error.issues,
-      });
-    }
+      const parseResult = CreateUserSchema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.code(400).send({
+          error: "Invalid request body",
+          details: parseResult.error.issues,
+        });
+      }
 
-    const { email, name, role, password } = parseResult.data;
+      const { email, name, role, password } = parseResult.data;
 
-    // Check for existing user with same email in this org.
-    const [existing] = await app.db
-      .select({ id: users.id })
-      .from(users)
-      .where(and(eq(users.orgId, orgId), eq(users.email, email)))
-      .limit(1);
+      // Check for existing user with same email in this org.
+      const [existing] = await app.db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.orgId, orgId), eq(users.email, email)))
+        .limit(1);
 
-    if (existing) {
-      return reply.code(409).send({ error: "A user with this email already exists in the organization" });
-    }
+      if (existing) {
+        return reply.code(409).send({ error: "A user with this email already exists in the organization" });
+      }
 
-    const passwordHash = password ? await bcrypt.hash(password, 12) : null;
+      const passwordHash = password ? await bcrypt.hash(password, 12) : null;
 
-    const [created] = await app.db
-      .insert(users)
-      .values({
+      const [created] = await app.db
+        .insert(users)
+        .values({
+          orgId,
+          email,
+          name: name ?? null,
+          role: role ?? "user",
+          passwordHash,
+        })
+        .returning({
+          id: users.id,
+          email: users.email,
+          name: users.name,
+          role: users.role,
+          createdAt: users.createdAt,
+        });
+
+      logAdminAction(app.db, {
         orgId,
-        email,
-        name: name ?? null,
-        role: role ?? "user",
-        passwordHash,
-      })
-      .returning({
-        id: users.id,
-        email: users.email,
-        name: users.name,
-        role: users.role,
-        createdAt: users.createdAt,
-      });
+        userId: request.authUser!.userId,
+        action: "user_created",
+        resourceType: "user",
+        resourceId: created.id,
+        details: { email, role },
+      }).catch(() => {});
 
-    logAdminAction(app.db, {
-      orgId,
-      userId: request.authUser!.userId,
-      action: "user_created",
-      resourceType: "user",
-      resourceId: created.id,
-      details: { email, role },
-    }).catch(() => {});
-
-    return reply.code(201).send({ user: created });
-  });
+      return reply.code(201).send({ user: created });
+    },
+  );
 
   /**
    * PUT /api/v1/users/:orgId/:userId
    * Update a user (admin only).
    */
-  app.put<{ Params: { orgId: string; userId: string } }>("/api/v1/users/:orgId/:userId", async (request, reply) => {
-    requireAdmin(request, reply);
-    if (reply.sent) return;
-    const { orgId, userId } = request.params;
-    requireOrg(request, reply, orgId);
-    if (reply.sent) return;
+  app.put<{ Params: { orgId: string; userId: string } }>(
+    "/api/v1/users/:orgId/:userId",
+    { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } },
+    async (request, reply) => {
+      requireAdmin(request, reply);
+      if (reply.sent) return;
+      const { orgId, userId } = request.params;
+      requireOrg(request, reply, orgId);
+      if (reply.sent) return;
 
-    const parseResult = UpdateUserSchema.safeParse(request.body);
-    if (!parseResult.success) {
-      return reply.code(400).send({
-        error: "Invalid request body",
-        details: parseResult.error.issues,
-      });
-    }
-
-    const { name, role } = parseResult.data;
-
-    // Fetch the target user.
-    const [target] = await app.db
-      .select()
-      .from(users)
-      .where(and(eq(users.id, userId), eq(users.orgId, orgId)))
-      .limit(1);
-
-    if (!target) {
-      return reply.code(404).send({ error: "User not found" });
-    }
-
-    // Prevent demoting the last admin.
-    if (role === "user" && target.role === "admin") {
-      const admins = await app.db
-        .select({ id: users.id })
-        .from(users)
-        .where(and(eq(users.orgId, orgId), eq(users.role, "admin")));
-      if (admins.length <= 1) {
-        return reply.code(400).send({ error: "Cannot demote the last admin in the organization" });
+      const parseResult = UpdateUserSchema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.code(400).send({
+          error: "Invalid request body",
+          details: parseResult.error.issues,
+        });
       }
-    }
 
-    const updates: Record<string, unknown> = {};
-    if (name !== undefined) updates.name = name;
-    if (role !== undefined) updates.role = role;
+      const { name, role } = parseResult.data;
 
-    if (Object.keys(updates).length === 0) {
-      return reply.code(400).send({ error: "No fields to update" });
-    }
+      // Fetch the target user.
+      const [target] = await app.db
+        .select()
+        .from(users)
+        .where(and(eq(users.id, userId), eq(users.orgId, orgId)))
+        .limit(1);
 
-    const [updated] = await app.db
-      .update(users)
-      .set(updates)
-      .where(and(eq(users.id, userId), eq(users.orgId, orgId)))
-      .returning({
-        id: users.id,
-        email: users.email,
-        name: users.name,
-        role: users.role,
-        lastSeenAt: users.lastSeenAt,
-        createdAt: users.createdAt,
-      });
+      if (!target) {
+        return reply.code(404).send({ error: "User not found" });
+      }
 
-    logAdminAction(app.db, {
-      orgId,
-      userId: request.authUser!.userId,
-      action: "user_updated",
-      resourceType: "user",
-      resourceId: userId,
-      details: { userId, changes: Object.keys(updates) },
-    }).catch(() => {});
+      // Prevent demoting the last admin.
+      if ((role === "user" || role === "viewer") && (target.role === "admin" || target.role === "super_admin")) {
+        const admins = await app.db
+          .select({ id: users.id })
+          .from(users)
+          .where(and(eq(users.orgId, orgId), or(eq(users.role, "admin"), eq(users.role, "super_admin"))));
+        if (admins.length <= 1) {
+          return reply.code(400).send({ error: "Cannot demote the last admin in the organization" });
+        }
+      }
 
-    return reply.send({ user: updated });
-  });
+      const updates: Record<string, unknown> = {};
+      if (name !== undefined) updates.name = name;
+      if (role !== undefined) updates.role = role;
+
+      if (Object.keys(updates).length === 0) {
+        return reply.code(400).send({ error: "No fields to update" });
+      }
+
+      const [updated] = await app.db
+        .update(users)
+        .set(updates)
+        .where(and(eq(users.id, userId), eq(users.orgId, orgId)))
+        .returning({
+          id: users.id,
+          email: users.email,
+          name: users.name,
+          role: users.role,
+          lastSeenAt: users.lastSeenAt,
+          createdAt: users.createdAt,
+        });
+
+      logAdminAction(app.db, {
+        orgId,
+        userId: request.authUser!.userId,
+        action: "user_updated",
+        resourceType: "user",
+        resourceId: userId,
+        details: { userId, changes: Object.keys(updates) },
+      }).catch(() => {});
+
+      return reply.send({ user: updated });
+    },
+  );
 
   /**
    * DELETE /api/v1/users/:orgId/:userId
    * Remove a user (admin only).
    */
-  app.delete<{ Params: { orgId: string; userId: string } }>("/api/v1/users/:orgId/:userId", async (request, reply) => {
-    requireAdmin(request, reply);
-    if (reply.sent) return;
-    const { orgId, userId } = request.params;
-    requireOrg(request, reply, orgId);
-    if (reply.sent) return;
+  app.delete<{ Params: { orgId: string; userId: string } }>(
+    "/api/v1/users/:orgId/:userId",
+    { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } },
+    async (request, reply) => {
+      requireAdmin(request, reply);
+      if (reply.sent) return;
+      const { orgId, userId } = request.params;
+      requireOrg(request, reply, orgId);
+      if (reply.sent) return;
 
-    // Prevent self-deletion.
-    if (request.authUser!.userId === userId) {
-      return reply.code(400).send({ error: "Cannot delete your own account" });
-    }
-
-    // Fetch the target user.
-    const [target] = await app.db
-      .select()
-      .from(users)
-      .where(and(eq(users.id, userId), eq(users.orgId, orgId)))
-      .limit(1);
-
-    if (!target) {
-      return reply.code(404).send({ error: "User not found" });
-    }
-
-    // Prevent deleting the last admin.
-    if (target.role === "admin") {
-      const admins = await app.db
-        .select({ id: users.id })
-        .from(users)
-        .where(and(eq(users.orgId, orgId), eq(users.role, "admin")));
-      if (admins.length <= 1) {
-        return reply.code(400).send({ error: "Cannot delete the last admin in the organization" });
+      // Prevent self-deletion.
+      if (request.authUser!.userId === userId) {
+        return reply.code(400).send({ error: "Cannot delete your own account" });
       }
-    }
 
-    await app.db.delete(users).where(and(eq(users.id, userId), eq(users.orgId, orgId)));
+      // Fetch the target user.
+      const [target] = await app.db
+        .select()
+        .from(users)
+        .where(and(eq(users.id, userId), eq(users.orgId, orgId)))
+        .limit(1);
 
-    logAdminAction(app.db, {
-      orgId,
-      userId: request.authUser!.userId,
-      action: "user_deleted",
-      resourceType: "user",
-      resourceId: userId,
-      details: { email: target.email },
-    }).catch(() => {});
+      if (!target) {
+        return reply.code(404).send({ error: "User not found" });
+      }
 
-    return reply.send({ success: true });
-  });
+      // Prevent deleting the last admin.
+      if (target.role === "admin" || target.role === "super_admin") {
+        const admins = await app.db
+          .select({ id: users.id })
+          .from(users)
+          .where(and(eq(users.orgId, orgId), or(eq(users.role, "admin"), eq(users.role, "super_admin"))));
+        if (admins.length <= 1) {
+          return reply.code(400).send({ error: "Cannot delete the last admin in the organization" });
+        }
+      }
+
+      await app.db.transaction(async (tx) => {
+        // Remove ephemeral data.
+        await tx.delete(clientHeartbeats).where(eq(clientHeartbeats.userId, userId));
+
+        // Nullify user references in audit-relevant tables.
+        await tx.update(skillSubmissions).set({ reviewedBy: null }).where(eq(skillSubmissions.reviewedBy, userId));
+        await tx
+          .update(approvedSkills)
+          .set({ approvedForUser: null })
+          .where(eq(approvedSkills.approvedForUser, userId));
+        await tx.update(approvedSkills).set({ revokedBy: null }).where(eq(approvedSkills.revokedBy, userId));
+
+        // Reassign non-nullable references to the requesting admin.
+        const adminId = request.authUser!.userId;
+        await tx.update(skillSubmissions).set({ submittedBy: adminId }).where(eq(skillSubmissions.submittedBy, userId));
+        await tx.update(enrollmentTokens).set({ createdBy: adminId }).where(eq(enrollmentTokens.createdBy, userId));
+        await tx.update(apiKeys).set({ createdBy: adminId }).where(eq(apiKeys.createdBy, userId));
+
+        // Delete the user.
+        await tx.delete(users).where(and(eq(users.id, userId), eq(users.orgId, orgId)));
+      });
+
+      logAdminAction(app.db, {
+        orgId,
+        userId: request.authUser!.userId,
+        action: "user_deleted",
+        resourceType: "user",
+        resourceId: userId,
+        details: { email: target.email },
+      }).catch(() => {});
+
+      return reply.send({ success: true });
+    },
+  );
 
   /**
    * PUT /api/v1/users/:orgId/:userId/password
@@ -247,6 +279,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
    */
   app.put<{ Params: { orgId: string; userId: string } }>(
     "/api/v1/users/:orgId/:userId/password",
+    { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } },
     async (request, reply) => {
       requireAdmin(request, reply);
       if (reply.sent) return;

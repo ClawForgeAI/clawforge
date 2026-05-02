@@ -1,6 +1,6 @@
 {
   "name": "@clawforgeai/clawforge",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Enterprise governance plugin for OpenClaw – SSO, policy enforcement, audit, kill switch",
   "type": "module",
   "main": "./dist/index.js",
@@ -8,6 +8,10 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./sdk": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     }

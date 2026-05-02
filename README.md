@@ -56,6 +56,7 @@
 ```bash
 git clone https://github.com/ClawForgeAI/clawforge.git
 cd clawforge
+cp .env.example .env
 docker compose up --build
 ```
 
@@ -64,19 +65,22 @@ Once running:
 - **Admin Console** — [localhost:4200](http://localhost:4200)
 - **API** — [localhost:4100](http://localhost:4100)
 - **Login** — `admin@clawforge.local` / `clawforge`
+- **One-off seed** — `docker compose run --rm seed`
 
 > For manual setup, SSO configuration, and connecting an OpenClaw gateway, see the [Setup Guide](docs/setup.md).
 
 ## Documentation
 
-| Guide                                               | Description                                                   |
-| --------------------------------------------------- | ------------------------------------------------------------- |
-| [Setup Guide](docs/setup.md)                        | Docker, manual setup, SSO, connecting OpenClaw                |
-| [Architecture & How It Works](docs/architecture.md) | Package structure, core concepts, data flows, database schema |
-| [API Reference](docs/api-reference.md)              | Every endpoint with request/response examples                 |
-| [E2E Onboarding Guide](docs/e2e-guide.md)           | Full walkthrough from zero to managed fleet                   |
-| [Configuration](docs/configuration.md)              | Plugin config, server env vars, admin console env vars        |
-| [Roadmap](docs/roadmap.md)                          | What's next for ClawForge                                     |
+| Guide                                                          | Description                                                                             |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| [Setup Guide](docs/setup.md)                                   | Docker, manual setup, SSO, connecting OpenClaw                                          |
+| [Architecture & How It Works](docs/architecture.md)            | Package structure, core concepts, data flows, database schema                           |
+| [Platform Technical Strategy](docs/technical-strategy.md)      | Multi-agent architecture direction, package extraction plan, and implementation phases  |
+| [API Reference](docs/api-reference.md)                         | Every endpoint with request/response examples                                           |
+| [E2E Onboarding Guide](docs/e2e-guide.md)                      | Full walkthrough from zero to managed fleet                                             |
+| [Configuration](docs/configuration.md)                         | Plugin config, server env vars, admin console env vars                                  |
+| [AI Agentic Development Guide](docs/ai-agentic-development.md) | Issue format, write context, exit plans, and testing standards for AI-delivered changes |
+| [Roadmap](docs/roadmap.md)                                     | What's next for ClawForge                                                               |
 
 ## Contributing
 
