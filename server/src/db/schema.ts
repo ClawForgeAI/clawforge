@@ -2,17 +2,7 @@
  * Drizzle ORM schema for ClawForge control plane.
  */
 
-import {
-  pgTable,
-  uuid,
-  text,
-  timestamp,
-  integer,
-  jsonb,
-  boolean,
-  index,
-  uniqueIndex,
-} from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, integer, jsonb, boolean, index, uniqueIndex } from "drizzle-orm/pg-core";
 
 // ---------------------------------------------------------------------------
 // Organizations
@@ -25,6 +15,13 @@ export const organizations = pgTable("organizations", {
     issuerUrl: string;
     clientId: string;
     audience?: string;
+  }>(),
+  settings: jsonb("settings").$type<{
+    auditRetentionDays?: number;
+    heartbeatOnlineThresholdMs?: number;
+    heartbeatOfflineThresholdMs?: number;
+    defaultNewUserRole?: "admin" | "viewer" | "user";
+    killSwitchDefaultMessage?: string;
   }>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -43,16 +40,14 @@ export const users = pgTable(
       .references(() => organizations.id, { onDelete: "cascade" }),
     email: text("email").notNull(),
     name: text("name"),
-    role: text("role", { enum: ["admin", "viewer", "user"] })
+    role: text("role", { enum: ["super_admin", "admin", "policy_admin", "security_admin", "viewer", "user"] })
       .notNull()
       .default("user"),
     passwordHash: text("password_hash"),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    uniqueIndex("users_org_email_idx").on(table.orgId, table.email),
-  ],
+  (table) => [uniqueIndex("users_org_email_idx").on(table.orgId, table.email)],
 );
 
 // ---------------------------------------------------------------------------
@@ -66,6 +61,8 @@ export const policies = pgTable(
     orgId: uuid("org_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull().default("Default Policy"),
+    isDefault: boolean("is_default").notNull().default(false),
     version: integer("version").notNull().default(1),
     toolsConfig: jsonb("tools_config").$type<{
       allow?: string[];
@@ -81,10 +78,44 @@ export const policies = pgTable(
     auditLevel: text("audit_level", { enum: ["full", "metadata", "off"] })
       .notNull()
       .default("metadata"),
+    dlpConfig: jsonb("dlp_config").$type<{
+      rules: Array<{
+        name: string;
+        pattern: string;
+        action: "block" | "warn" | "log";
+        severity: "critical" | "high" | "medium" | "info";
+        category?: string;
+        enabled?: boolean;
+        message?: string;
+      }>;
+    }>(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
+  (table) => [index("policies_org_id_idx").on(table.orgId)],
+);
+
+// ---------------------------------------------------------------------------
+// Policy Assignments (#23)
+// ---------------------------------------------------------------------------
+
+export const policyAssignments = pgTable(
+  "policy_assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    policyId: uuid("policy_id")
+      .notNull()
+      .references(() => policies.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+    role: text("role"),
+    priority: integer("priority").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
   (table) => [
-    uniqueIndex("policies_org_id_idx").on(table.orgId),
+    index("policy_assignments_org_idx").on(table.orgId),
+    index("policy_assignments_user_idx").on(table.userId),
   ],
 );
 
@@ -130,9 +161,7 @@ export const skillSubmissions = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index("skill_submissions_org_status_idx").on(table.orgId, table.status),
-  ],
+  (table) => [index("skill_submissions_org_status_idx").on(table.orgId, table.status)],
 );
 
 // ---------------------------------------------------------------------------
@@ -157,9 +186,7 @@ export const approvedSkills = pgTable(
     revokedBy: uuid("revoked_by").references(() => users.id),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index("approved_skills_org_idx").on(table.orgId),
-  ],
+  (table) => [index("approved_skills_org_idx").on(table.orgId)],
 );
 
 // ---------------------------------------------------------------------------
@@ -205,9 +232,7 @@ export const clientHeartbeats = pgTable(
     lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true }).notNull().defaultNow(),
     clientVersion: text("client_version"),
   },
-  (table) => [
-    uniqueIndex("client_heartbeats_org_user_idx").on(table.orgId, table.userId),
-  ],
+  (table) => [uniqueIndex("client_heartbeats_org_user_idx").on(table.orgId, table.userId)],
 );
 
 // ---------------------------------------------------------------------------
@@ -252,7 +277,7 @@ export const apiKeys = pgTable(
     name: text("name").notNull(),
     keyHash: text("key_hash").notNull(),
     keyPrefix: text("key_prefix").notNull(),
-    role: text("role", { enum: ["admin", "viewer"] })
+    role: text("role", { enum: ["super_admin", "admin", "policy_admin", "security_admin", "viewer"] })
       .notNull()
       .default("viewer"),
     expiresAt: timestamp("expires_at", { withTimezone: true }),
@@ -264,8 +289,171 @@ export const apiKeys = pgTable(
       .references(() => users.id),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
+  (table) => [index("api_keys_org_idx").on(table.orgId), uniqueIndex("api_keys_prefix_idx").on(table.keyPrefix)],
+);
+
+// ---------------------------------------------------------------------------
+// Permissions (#61)
+// ---------------------------------------------------------------------------
+
+export const permissions = pgTable(
+  "permissions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    description: text("description"),
+    resource: text("resource").notNull(),
+    action: text("action").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("permissions_name_idx").on(table.name)],
+);
+
+// ---------------------------------------------------------------------------
+// Roles (#61)
+// ---------------------------------------------------------------------------
+
+export const roles = pgTable(
+  "roles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id").references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    isBuiltIn: boolean("is_built_in").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("roles_org_name_idx").on(table.orgId, table.name)],
+);
+
+export const rolePermissions = pgTable(
+  "role_permissions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    roleId: uuid("role_id")
+      .notNull()
+      .references(() => roles.id, { onDelete: "cascade" }),
+    permissionId: uuid("permission_id")
+      .notNull()
+      .references(() => permissions.id, { onDelete: "cascade" }),
+  },
+  (table) => [uniqueIndex("role_permissions_role_perm_idx").on(table.roleId, table.permissionId)],
+);
+
+// ---------------------------------------------------------------------------
+// Webhooks (#43)
+// ---------------------------------------------------------------------------
+
+export const webhooks = pgTable(
+  "webhooks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    url: text("url").notNull(),
+    secret: text("secret").notNull(),
+    events: jsonb("events").$type<string[]>().notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("webhooks_org_idx").on(table.orgId)],
+);
+
+export const webhookDeliveries = pgTable(
+  "webhook_deliveries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    webhookId: uuid("webhook_id")
+      .notNull()
+      .references(() => webhooks.id, { onDelete: "cascade" }),
+    eventType: text("event_type").notNull(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    status: text("status", { enum: ["pending", "success", "failed"] })
+      .notNull()
+      .default("pending"),
+    responseCode: integer("response_code"),
+    responseBody: text("response_body"),
+    latencyMs: integer("latency_ms"),
+    attempt: integer("attempt").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
   (table) => [
-    index("api_keys_org_idx").on(table.orgId),
-    uniqueIndex("api_keys_prefix_idx").on(table.keyPrefix),
+    index("webhook_deliveries_webhook_idx").on(table.webhookId),
+    index("webhook_deliveries_status_idx").on(table.status),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Alert Rules (#51)
+// ---------------------------------------------------------------------------
+
+export const alertRules = pgTable(
+  "alert_rules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    ruleType: text("rule_type", {
+      enum: [
+        "denied_tool_burst",
+        "dlp_violation_burst",
+        "off_hours_activity",
+        "sensitive_tool_access",
+        "session_anomaly",
+        "blocked_tool_persistence",
+      ],
+    }).notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    config: jsonb("config").$type<Record<string, unknown>>().notNull(),
+    severity: text("severity", { enum: ["critical", "high", "medium", "low"] })
+      .notNull()
+      .default("medium"),
+    webhookUrl: text("webhook_url"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("alert_rules_org_idx").on(table.orgId)],
+);
+
+// ---------------------------------------------------------------------------
+// Alerts (#51)
+// ---------------------------------------------------------------------------
+
+export const alerts = pgTable(
+  "alerts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    ruleId: uuid("rule_id")
+      .notNull()
+      .references(() => alertRules.id, { onDelete: "cascade" }),
+    userId: uuid("user_id"),
+    severity: text("severity", { enum: ["critical", "high", "medium", "low"] })
+      .notNull()
+      .default("medium"),
+    status: text("status", { enum: ["open", "acknowledged", "resolved"] })
+      .notNull()
+      .default("open"),
+    title: text("title").notNull(),
+    details: jsonb("details").$type<Record<string, unknown>>(),
+    relatedEventIds: jsonb("related_event_ids").$type<string[]>(),
+    acknowledgedBy: uuid("acknowledged_by").references(() => users.id),
+    acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
+    resolvedBy: uuid("resolved_by").references(() => users.id),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("alerts_org_status_idx").on(table.orgId, table.status),
+    index("alerts_org_ts_idx").on(table.orgId, table.createdAt),
   ],
 );

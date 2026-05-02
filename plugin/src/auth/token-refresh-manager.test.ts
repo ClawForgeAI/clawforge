@@ -157,9 +157,7 @@ describe("TokenRefreshManager", () => {
 
     expect(mockedRefreshSessionToken).toHaveBeenCalledTimes(3);
     expect(onTokenRefreshed).not.toHaveBeenCalled();
-    expect(logger.error).toHaveBeenCalledWith(
-      expect.stringContaining("all 3 refresh attempts failed"),
-    );
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("all 3 refresh attempts failed"));
   });
 
   it("does nothing without controlPlaneUrl", async () => {
@@ -177,9 +175,7 @@ describe("TokenRefreshManager", () => {
     mgr.stop();
 
     expect(mockedRefreshSessionToken).not.toHaveBeenCalled();
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining("skipping"),
-    );
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("skipping"));
   });
 
   it("does nothing without refreshToken", async () => {
@@ -197,9 +193,7 @@ describe("TokenRefreshManager", () => {
     mgr.stop();
 
     expect(mockedRefreshSessionToken).not.toHaveBeenCalled();
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining("skipping"),
-    );
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("skipping"));
   });
 
   it("does nothing when expiresAt is not set", async () => {

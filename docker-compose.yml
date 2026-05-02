@@ -1,7 +1,11 @@
 # ClawForge full-stack: Postgres + Server + Admin Console
 #
 # Usage:
+#   cp .env.example .env
 #   docker compose up --build
+#
+# One-off seed:
+#   docker compose run --rm seed
 #
 # Default credentials (seed):
 #   Email:    admin@clawforge.local
@@ -15,7 +19,7 @@ services:
   postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_DB: clawforge
+      POSTGRES_DB: ${POSTGRES_DB:-clawforge}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
@@ -23,7 +27,7 @@ services:
     volumes:
       - clawforge-pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "clawforge"]
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-postgres}", "-d", "${POSTGRES_DB:-clawforge}"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -37,22 +41,23 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/clawforge"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-clawforge}"
       JWT_SECRET: "${JWT_SECRET:-clawforge-dev-secret-change-in-production}"
       CORS_ORIGIN: "${CORS_ORIGIN:-http://localhost:4200}"
-      PORT: "4100"
+      PORT: "${SERVER_PORT:-4100}"
       HOST: "0.0.0.0"
       RATE_LIMIT_ENABLED: "${RATE_LIMIT_ENABLED:-true}"
       AUDIT_RETENTION_DAYS: "${AUDIT_RETENTION_DAYS:-90}"
       AUDIT_CLEANUP_INTERVAL_HOURS: "${AUDIT_CLEANUP_INTERVAL_HOURS:-24}"
       AUDIT_CLEANUP_BATCH_SIZE: "${AUDIT_CLEANUP_BATCH_SIZE:-10000}"
+      SUPERADMIN_EMAIL: "${SUPERADMIN_EMAIL:-admin@clawforge.local}"
+      SUPERADMIN_PASSWORD: "${SUPERADMIN_PASSWORD:-clawforge}"
+      SUPERADMIN_ORG_NAME: "${SUPERADMIN_ORG_NAME:-Default}"
     ports:
-      - "4100:4100"
-    # Run migrations, seed, then start the server
+      - "${SERVER_PORT:-4100}:4100"
     command: >
       sh -c "
-        npx drizzle-kit migrate &&
-        npx tsx src/db/seed.ts &&
+        ./node_modules/.bin/drizzle-kit migrate &&
         node dist/index.js
       "
     healthcheck:
@@ -63,6 +68,22 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  seed:
+    build:
+      context: server
+      dockerfile: Dockerfile
+    profiles: ["tools"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-clawforge}"
+      SUPERADMIN_EMAIL: "${SUPERADMIN_EMAIL:-admin@clawforge.local}"
+      SUPERADMIN_PASSWORD: "${SUPERADMIN_PASSWORD:-clawforge}"
+      SUPERADMIN_ORG_NAME: "${SUPERADMIN_ORG_NAME:-Default}"
+    command: ["node", "./node_modules/tsx/dist/cli.mjs", "src/db/seed.ts"]
+    restart: "no"
+
   admin:
     build:
       context: admin
@@ -72,8 +93,17 @@ services:
     depends_on:
       server:
         condition: service_healthy
+    environment:
+      NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-http://server:4100}"
+      PORT: "4200"
     ports:
-      - "4200:4200"
+      - "${ADMIN_PORT:-4200}:4200"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4200/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     restart: unless-stopped
 
 volumes:

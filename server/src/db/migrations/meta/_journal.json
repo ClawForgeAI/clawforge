@@ -15,6 +15,48 @@
       "when": 1771797865348,
       "tag": "0001_slimy_lizard",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771797865349,
+      "tag": "0001_audit_partitioning",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1771797865350,
+      "tag": "0002_enrollment_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1771797865351,
+      "tag": "0003_skill_version",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1771797865352,
+      "tag": "0004_v1_features",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1775405449000,
+      "tag": "0005_alert_and_rbac_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1775405450008,
+      "tag": "0006_flashy_wendell_rand",
+      "breakpoints": true
     }
   ]
 }
