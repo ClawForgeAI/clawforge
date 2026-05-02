@@ -24,3 +24,11 @@
 - Crash and restart transitions are captured as audit events.
 - Event history can be queried by instance.
 - Regression tests cover false-positive suppression and restart recovery.
+
+## Implementation notes (2026-04-25)
+
+- Heartbeat endpoint now accepts `startupId` and stores it on `client_heartbeats` for restart correlation.
+- Server emits `agent_crash` when heartbeat gaps exceed the org offline threshold (or default threshold).
+- Server emits `agent_restart` when startup marker changes between heartbeats.
+- Added `GET /api/v1/heartbeat/:orgId/:userId/events` for crash/restart history and summary.
+- Added regression tests for lifecycle event emission and history querying.
