@@ -19,6 +19,8 @@ export type AuditQueryFilters = {
   from?: string;
   to?: string;
   limit?: string;
+  tag?: string;
+  group?: string;
 };
 
 async function apiFetch<T>(path: string, opts: FetchOptions = {}): Promise<T> {
@@ -513,6 +515,8 @@ export type ConnectedClient = {
   role: string;
   lastHeartbeatAt: string;
   clientVersion?: string;
+  groupName?: string | null;
+  tags: string[];
   status: "online" | "offline";
 };
 
@@ -522,8 +526,42 @@ export type ClientsSummary = {
   offline: number;
 };
 
-export function getConnectedClients(orgId: string, token: string) {
-  return apiFetch<{ clients: ConnectedClient[]; summary: ClientsSummary }>(`/api/v1/heartbeat/${orgId}`, { token });
+export type ClientFacets = {
+  tags: string[];
+  groups: string[];
+};
+
+export function getConnectedClients(
+  orgId: string,
+  token: string,
+  filters?: { tag?: string; group?: string; status?: "online" | "offline" },
+) {
+  const params = new URLSearchParams();
+  if (filters?.tag) params.set("tag", filters.tag);
+  if (filters?.group) params.set("group", filters.group);
+  if (filters?.status) params.set("status", filters.status);
+  const qs = params.toString();
+
+  return apiFetch<{ clients: ConnectedClient[]; summary: ClientsSummary; facets: ClientFacets }>(
+    `/api/v1/heartbeat/${orgId}${qs ? `?${qs}` : ""}`,
+    { token },
+  );
+}
+
+export function updateClientMetadata(
+  orgId: string,
+  userId: string,
+  token: string,
+  body: { groupName?: string | null; tags?: string[] },
+) {
+  return apiFetch<{ instance: { userId: string; groupName?: string | null; tags: string[] } }>(
+    `/api/v1/heartbeat/${orgId}/${userId}/metadata`,
+    {
+      method: "PUT",
+      token,
+      body,
+    },
+  );
 }
 
 // --- Roles (#61) ---
