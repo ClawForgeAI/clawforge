@@ -227,10 +227,10 @@ offset=0" \
 
 ## Heartbeat
 
-| Method | Path                               | Auth | Description                                                   |
-| ------ | ---------------------------------- | ---- | ------------------------------------------------------------- |
-| `GET`  | `/api/v1/heartbeat/:orgId/:userId` | User | Client heartbeat — returns kill switch state + policy version |
-| `GET`  | `/api/v1/heartbeat/:orgId/:userId/events` | Admin/Viewer | Crash/restart lifecycle history for a client |
+| Method | Path                                      | Auth         | Description                                                   |
+| ------ | ----------------------------------------- | ------------ | ------------------------------------------------------------- |
+| `GET`  | `/api/v1/heartbeat/:orgId/:userId`        | User         | Client heartbeat — returns kill switch state + policy version |
+| `GET`  | `/api/v1/heartbeat/:orgId/:userId/events` | Admin/Viewer | Crash/restart lifecycle history for a client                  |
 
 ### Query parameters (`/api/v1/heartbeat/:orgId/:userId`)
 
