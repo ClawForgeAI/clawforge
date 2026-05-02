@@ -57,6 +57,13 @@
       "when": 1775405450008,
       "tag": "0006_flashy_wendell_rand",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1777109405147,
+      "tag": "0007_prompt_injection_audit",
+      "breakpoints": true
     }
   ]
 }

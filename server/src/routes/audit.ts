@@ -44,6 +44,7 @@ const ExportQuerySchema = z.object({
   outcome: z.string().optional(),
   from: z.string().optional(),
   to: z.string().optional(),
+  promptInjectionDetected: z.enum(["true", "false"]).optional(),
   limit: z.coerce.number().int().min(1).max(100000).default(10000),
 });
 
@@ -75,13 +76,13 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
       requireOrg(request, reply, orgId);
       if (reply.sent) return;
 
-    const parseResult = IngestBodySchema.safeParse(request.body);
-    if (!parseResult.success) {
-      return reply.code(400).send({
-        error: "Invalid request body",
-        details: parseResult.error.issues,
-      });
-    }
+      const parseResult = IngestBodySchema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.code(400).send({
+          error: "Invalid request body",
+          details: parseResult.error.issues,
+        });
+      }
 
     const authUser = request.authUser!;
     const events = parseResult.data.events;
@@ -141,6 +142,7 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
       limit?: string;
       offset?: string;
       cursor?: string;
+      promptInjectionDetected?: "true" | "false";
     };
   }>("/api/v1/audit/:orgId/query", async (request, reply) => {
     requireAdminOrViewer(request, reply);
@@ -158,6 +160,8 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
       outcome: query.outcome,
       from: query.from ? new Date(query.from) : undefined,
       to: query.to ? new Date(query.to) : undefined,
+      promptInjectionDetected:
+        query.promptInjectionDetected === undefined ? undefined : query.promptInjectionDetected === "true",
       limit: query.limit ? parseInt(query.limit, 10) : undefined,
       offset: query.offset ? parseInt(query.offset, 10) : undefined,
       cursor: query.cursor,
@@ -218,6 +222,7 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
       outcome?: string;
       from?: string;
       to?: string;
+      promptInjectionDetected?: "true" | "false";
       limit?: string;
     };
   }>("/api/v1/audit/:orgId/export", async (request, reply) => {
@@ -244,6 +249,8 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
       outcome: query.outcome,
       from: query.from ? new Date(query.from) : undefined,
       to: query.to ? new Date(query.to) : undefined,
+      promptInjectionDetected:
+        query.promptInjectionDetected === undefined ? undefined : query.promptInjectionDetected === "true",
       limit: query.limit,
     };
 
@@ -255,7 +262,7 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
 
       const stream = Readable.from(
         (async function* () {
-          yield "id,timestamp,orgId,userId,eventType,toolName,outcome,agentId,sessionKey,metadata\n";
+          yield "id,timestamp,orgId,userId,eventType,toolName,outcome,agentId,sessionKey,promptInjectionDetected,promptInjectionConfidence,promptInjectionSignals,metadata\n";
 
           for await (const events of auditService.streamEventsForExport(params)) {
             for (const event of events) {
@@ -269,6 +276,9 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
                 event.outcome,
                 event.agentId,
                 event.sessionKey,
+                event.promptInjectionDetected,
+                event.promptInjectionConfidence,
+                event.promptInjectionSignals,
                 event.metadata,
               ]
                 .map(escapeCsvValue)

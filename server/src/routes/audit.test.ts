@@ -193,6 +193,24 @@ describe("audit routes", () => {
       await app.close();
     });
 
+    it("passes promptInjectionDetected filter to the service", async () => {
+      const app = await buildApp();
+      mockQueryEvents.mockResolvedValueOnce([]);
+      mockCountEvents.mockResolvedValueOnce(0);
+
+      const res = await app.inject({
+        method: "GET",
+        url: `/api/v1/audit/${TEST_ORG_ID}/query?promptInjectionDetected=true`,
+        headers: { authorization: `Bearer ${adminToken(app)}` },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(mockQueryEvents).toHaveBeenCalledWith(expect.objectContaining({ promptInjectionDetected: true }));
+      expect(mockCountEvents).toHaveBeenCalledWith(expect.objectContaining({ promptInjectionDetected: true }));
+
+      await app.close();
+    });
+
     it("rejects non-admin", async () => {
       const app = await buildApp();
 
@@ -268,6 +286,9 @@ describe("audit routes", () => {
             outcome: "allowed",
             agentId: null,
             sessionKey: "session-1",
+            promptInjectionDetected: true,
+            promptInjectionConfidence: 81,
+            promptInjectionSignals: ["instruction_override"],
             metadata: { source: "test" },
           },
         ];
@@ -281,7 +302,9 @@ describe("audit routes", () => {
 
       expect(res.statusCode).toBe(200);
       expect(res.headers["content-type"]).toContain("text/csv");
-      expect(res.body).toContain("id,timestamp,orgId,userId,eventType,toolName,outcome,agentId,sessionKey,metadata");
+      expect(res.body).toContain(
+        "id,timestamp,orgId,userId,eventType,toolName,outcome,agentId,sessionKey,promptInjectionDetected,promptInjectionConfidence,promptInjectionSignals,metadata",
+      );
       expect(res.body).toContain("e1,2026-03-17T00:00:00.000Z");
       expect(mockStreamEventsForExport).toHaveBeenCalledWith(expect.objectContaining({ orgId: TEST_ORG_ID, limit: 1 }));
 
@@ -302,6 +325,9 @@ describe("audit routes", () => {
             outcome: "allowed",
             agentId: null,
             sessionKey: null,
+            promptInjectionDetected: false,
+            promptInjectionConfidence: 8,
+            promptInjectionSignals: [],
             metadata: { action: "purge" },
           },
         ];
@@ -326,6 +352,9 @@ describe("audit routes", () => {
           outcome: "allowed",
           agentId: null,
           sessionKey: null,
+          promptInjectionDetected: false,
+          promptInjectionConfidence: 8,
+          promptInjectionSignals: [],
           metadata: { action: "purge" },
         }),
       );
