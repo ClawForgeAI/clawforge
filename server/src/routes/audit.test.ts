@@ -10,6 +10,7 @@ const mockQueryEvents = vi.fn().mockResolvedValue([]);
 const mockCountEvents = vi.fn().mockResolvedValue(0);
 const mockGetEvent = vi.fn().mockResolvedValue(null);
 const mockDeleteOldEvents = vi.fn().mockResolvedValue(5);
+const mockStreamEventsForExport = vi.fn();
 
 vi.mock("../services/audit-service.js", () => ({
   AuditService: class {
@@ -18,6 +19,7 @@ vi.mock("../services/audit-service.js", () => ({
     countEvents = mockCountEvents;
     getEvent = mockGetEvent;
     deleteOldEvents = mockDeleteOldEvents;
+    streamEventsForExport = mockStreamEventsForExport;
   },
 }));
 
@@ -25,6 +27,15 @@ async function buildApp() {
   const app = Fastify({ logger: false });
   await app.register(jwtPlugin, { secret: JWT_SECRET });
   app.decorate("db", {} as never);
+  const noopCounter = { inc: () => {} };
+  const noopGauge = { set: () => {}, inc: () => {}, dec: () => {} };
+  app.decorate("metrics", {
+    heartbeatCounter: noopCounter,
+    auditEventsCounter: noopCounter,
+    activeInstancesGauge: noopGauge,
+    policyFetchCounter: noopCounter,
+    killSwitchGauge: noopGauge,
+  } as never);
   await registerAuthMiddleware(app);
   await app.register(auditRoutes);
   await app.ready();
@@ -237,6 +248,101 @@ describe("audit routes", () => {
         headers: { authorization: `Bearer ${adminToken(app)}` },
       });
       expect(res.statusCode).toBe(404);
+
+      await app.close();
+    });
+  });
+
+  describe("GET /api/v1/audit/:orgId/export", () => {
+    it("streams CSV exports for admins", async () => {
+      const app = await buildApp();
+      mockStreamEventsForExport.mockImplementationOnce(async function* () {
+        yield [
+          {
+            id: "e1",
+            timestamp: new Date("2026-03-17T00:00:00.000Z"),
+            orgId: TEST_ORG_ID,
+            userId: TEST_USER_ID,
+            eventType: "tool_use",
+            toolName: "browser",
+            outcome: "allowed",
+            agentId: null,
+            sessionKey: "session-1",
+            metadata: { source: "test" },
+          },
+        ];
+      });
+
+      const res = await app.inject({
+        method: "GET",
+        url: `/api/v1/audit/${TEST_ORG_ID}/export?format=csv&limit=1`,
+        headers: { authorization: `Bearer ${adminToken(app)}` },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.headers["content-type"]).toContain("text/csv");
+      expect(res.body).toContain("id,timestamp,orgId,userId,eventType,toolName,outcome,agentId,sessionKey,metadata");
+      expect(res.body).toContain("e1,2026-03-17T00:00:00.000Z");
+      expect(mockStreamEventsForExport).toHaveBeenCalledWith(expect.objectContaining({ orgId: TEST_ORG_ID, limit: 1 }));
+
+      await app.close();
+    });
+
+    it("streams NDJSON exports for admins", async () => {
+      const app = await buildApp();
+      mockStreamEventsForExport.mockImplementationOnce(async function* () {
+        yield [
+          {
+            id: "e2",
+            timestamp: new Date("2026-03-17T01:00:00.000Z"),
+            orgId: TEST_ORG_ID,
+            userId: TEST_USER_ID,
+            eventType: "admin_action",
+            toolName: null,
+            outcome: "allowed",
+            agentId: null,
+            sessionKey: null,
+            metadata: { action: "purge" },
+          },
+        ];
+      });
+
+      const res = await app.inject({
+        method: "GET",
+        url: `/api/v1/audit/${TEST_ORG_ID}/export?format=json&limit=1`,
+        headers: { authorization: `Bearer ${adminToken(app)}` },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.headers["content-type"]).toContain("application/x-ndjson");
+      expect(res.body.trim()).toBe(
+        JSON.stringify({
+          id: "e2",
+          timestamp: "2026-03-17T01:00:00.000Z",
+          orgId: TEST_ORG_ID,
+          userId: TEST_USER_ID,
+          eventType: "admin_action",
+          toolName: null,
+          outcome: "allowed",
+          agentId: null,
+          sessionKey: null,
+          metadata: { action: "purge" },
+        }),
+      );
+
+      await app.close();
+    });
+
+    it("rejects non-admin export requests", async () => {
+      const app = await buildApp();
+
+      const res = await app.inject({
+        method: "GET",
+        url: `/api/v1/audit/${TEST_ORG_ID}/export`,
+        headers: { authorization: `Bearer ${userToken(app)}` },
+      });
+
+      expect(res.statusCode).toBe(403);
 
       await app.close();
     });
