@@ -231,8 +231,13 @@ export const clientHeartbeats = pgTable(
       .references(() => users.id),
     lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true }).notNull().defaultNow(),
     clientVersion: text("client_version"),
+    groupName: text("group_name"),
+    tags: jsonb("tags").$type<string[]>().notNull().default([]),
   },
-  (table) => [uniqueIndex("client_heartbeats_org_user_idx").on(table.orgId, table.userId)],
+  (table) => [
+    uniqueIndex("client_heartbeats_org_user_idx").on(table.orgId, table.userId),
+    index("client_heartbeats_org_group_idx").on(table.orgId, table.groupName),
+  ],
 );
 
 // ---------------------------------------------------------------------------
