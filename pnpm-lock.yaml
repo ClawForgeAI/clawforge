@@ -91,6 +91,169 @@ importers:
         specifier: ^4.1.5
         version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1)(msw@2.14.2(@types/node@25.6.0)(typescript@6.0.3))(vite@7.3.1(@types/node@25.6.0)(jiti@1.21.7)(tsx@4.21.0)(yaml@2.8.2))
 
+  packages/agent-sdk:
+    dependencies:
+      '@clawforgeai/audit-events':
+        specifier: workspace:*
+        version: link:../audit-events
+      '@clawforgeai/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      '@vitest/coverage-v8':
+        specifier: ^4.1.5
+        version: 4.1.5(vitest@4.1.5)
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.13)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.2)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.5
+        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1)(msw@2.14.2(@types/node@25.6.0)(typescript@6.0.3))(vite@7.3.1(@types/node@25.6.0)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+
+  packages/audit-events:
+    dependencies:
+      '@clawforgeai/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      '@vitest/coverage-v8':
+        specifier: ^4.1.5
+        version: 4.1.5(vitest@4.1.5)
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.13)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.2)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.5
+        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1)(msw@2.14.2(@types/node@25.6.0)(typescript@6.0.3))(vite@7.3.1(@types/node@25.6.0)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+
+  packages/auth:
+    dependencies:
+      '@clawforgeai/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      '@vitest/coverage-v8':
+        specifier: ^4.1.5
+        version: 4.1.5(vitest@4.1.5)
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.13)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.2)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.5
+        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1)(msw@2.14.2(@types/node@25.6.0)(typescript@6.0.3))(vite@7.3.1(@types/node@25.6.0)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+
+  packages/claude-code:
+    dependencies:
+      '@clawforgeai/agent-sdk':
+        specifier: workspace:*
+        version: link:../agent-sdk
+      '@clawforgeai/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      '@vitest/coverage-v8':
+        specifier: ^4.1.5
+        version: 4.1.5(vitest@4.1.5)
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.13)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.2)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.5
+        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1)(msw@2.14.2(@types/node@25.6.0)(typescript@6.0.3))(vite@7.3.1(@types/node@25.6.0)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+
+  packages/contracts:
+    dependencies:
+      zod:
+        specifier: ^4.4.1
+        version: 4.4.2
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      '@vitest/coverage-v8':
+        specifier: ^4.1.5
+        version: 4.1.5(vitest@4.1.5)
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.13)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.2)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.5
+        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1)(msw@2.14.2(@types/node@25.6.0)(typescript@6.0.3))(vite@7.3.1(@types/node@25.6.0)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+
+  packages/policy-engine:
+    dependencies:
+      '@clawforgeai/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@clawforgeai/tool-governance':
+        specifier: workspace:*
+        version: link:../tool-governance
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      '@vitest/coverage-v8':
+        specifier: ^4.1.5
+        version: 4.1.5(vitest@4.1.5)
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.13)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.2)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.5
+        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1)(msw@2.14.2(@types/node@25.6.0)(typescript@6.0.3))(vite@7.3.1(@types/node@25.6.0)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+
+  packages/tool-governance:
+    dependencies:
+      '@clawforgeai/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      '@vitest/coverage-v8':
+        specifier: ^4.1.5
+        version: 4.1.5(vitest@4.1.5)
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.13)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.2)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.5
+        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1)(msw@2.14.2(@types/node@25.6.0)(typescript@6.0.3))(vite@7.3.1(@types/node@25.6.0)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+
   plugin:
     devDependencies:
       '@types/node':
@@ -5857,9 +6020,6 @@ packages:
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
-  zod@4.3.6:
-    resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
-
   zod@4.4.2:
     resolution: {integrity: sha512-IynmDyxsEsb9RKzO3J9+4SxXnl2FTFSzNBaKKaMV6tsSk0rw9gYw9gs+JFCq/qk2LCZ78KDwyj+Z289TijSkUw==}
 
@@ -5867,17 +6027,17 @@ snapshots:
 
   '@adobe/css-tools@4.4.4': {}
 
-  '@agentclientprotocol/sdk@0.14.1(zod@4.3.6)':
+  '@agentclientprotocol/sdk@0.14.1(zod@4.4.2)':
     dependencies:
-      zod: 4.3.6
+      zod: 4.4.2
 
   '@alloc/quick-lru@5.2.0': {}
 
-  '@anthropic-ai/sdk@0.73.0(zod@4.3.6)':
+  '@anthropic-ai/sdk@0.73.0(zod@4.4.2)':
     dependencies:
       json-schema-to-ts: 3.1.1
     optionalDependencies:
-      zod: 4.3.6
+      zod: 4.4.2
 
   '@asamuzakjp/css-color@5.1.11':
     dependencies:
@@ -7467,9 +7627,9 @@ snapshots:
       std-env: 3.10.0
       yoctocolors: 2.1.2
 
-  '@mariozechner/pi-agent-core@0.54.1(ws@8.19.0)(zod@4.3.6)':
+  '@mariozechner/pi-agent-core@0.54.1(ws@8.19.0)(zod@4.4.2)':
     dependencies:
-      '@mariozechner/pi-ai': 0.54.1(ws@8.19.0)(zod@4.3.6)
+      '@mariozechner/pi-ai': 0.54.1(ws@8.19.0)(zod@4.4.2)
     transitivePeerDependencies:
       - '@modelcontextprotocol/sdk'
       - aws-crt
@@ -7479,9 +7639,9 @@ snapshots:
       - ws
       - zod
 
-  '@mariozechner/pi-ai@0.54.1(ws@8.19.0)(zod@4.3.6)':
+  '@mariozechner/pi-ai@0.54.1(ws@8.19.0)(zod@4.4.2)':
     dependencies:
-      '@anthropic-ai/sdk': 0.73.0(zod@4.3.6)
+      '@anthropic-ai/sdk': 0.73.0(zod@4.4.2)
       '@aws-sdk/client-bedrock-runtime': 3.995.0
       '@google/genai': 1.42.0
       '@mistralai/mistralai': 1.10.0
@@ -7489,11 +7649,11 @@ snapshots:
       ajv: 8.18.0
       ajv-formats: 3.0.1(ajv@8.18.0)
       chalk: 5.6.2
-      openai: 6.10.0(ws@8.19.0)(zod@4.3.6)
+      openai: 6.10.0(ws@8.19.0)(zod@4.4.2)
       partial-json: 0.1.7
       proxy-agent: 6.5.0
       undici: 7.22.0
-      zod-to-json-schema: 3.25.1(zod@4.3.6)
+      zod-to-json-schema: 3.25.1(zod@4.4.2)
     transitivePeerDependencies:
       - '@modelcontextprotocol/sdk'
       - aws-crt
@@ -7503,11 +7663,11 @@ snapshots:
       - ws
       - zod
 
-  '@mariozechner/pi-coding-agent@0.54.1(ws@8.19.0)(zod@4.3.6)':
+  '@mariozechner/pi-coding-agent@0.54.1(ws@8.19.0)(zod@4.4.2)':
     dependencies:
       '@mariozechner/jiti': 2.6.5
-      '@mariozechner/pi-agent-core': 0.54.1(ws@8.19.0)(zod@4.3.6)
-      '@mariozechner/pi-ai': 0.54.1(ws@8.19.0)(zod@4.3.6)
+      '@mariozechner/pi-agent-core': 0.54.1(ws@8.19.0)(zod@4.4.2)
+      '@mariozechner/pi-ai': 0.54.1(ws@8.19.0)(zod@4.4.2)
       '@mariozechner/pi-tui': 0.54.1
       '@silvia-odwyer/photon-node': 0.3.4
       chalk: 5.6.2
@@ -10727,14 +10887,14 @@ snapshots:
     dependencies:
       mimic-function: 5.0.1
 
-  openai@6.10.0(ws@8.19.0)(zod@4.3.6):
+  openai@6.10.0(ws@8.19.0)(zod@4.4.2):
     optionalDependencies:
       ws: 8.19.0
-      zod: 4.3.6
+      zod: 4.4.2
 
   openclaw@2026.2.23(@napi-rs/canvas@0.1.94)(@types/express@5.0.6)(hono@4.12.2)(node-llama-cpp@3.15.1(typescript@6.0.3)):
     dependencies:
-      '@agentclientprotocol/sdk': 0.14.1(zod@4.3.6)
+      '@agentclientprotocol/sdk': 0.14.1(zod@4.4.2)
       '@aws-sdk/client-bedrock': 3.995.0
       '@buape/carbon': 0.0.0-beta-20260216184201(@discordjs/opus@0.10.0)(hono@4.12.2)(opusscript@0.0.8)
       '@clack/prompts': 1.0.1
@@ -10745,9 +10905,9 @@ snapshots:
       '@larksuiteoapi/node-sdk': 1.59.0
       '@line/bot-sdk': 10.6.0
       '@lydell/node-pty': 1.2.0-beta.3
-      '@mariozechner/pi-agent-core': 0.54.1(ws@8.19.0)(zod@4.3.6)
-      '@mariozechner/pi-ai': 0.54.1(ws@8.19.0)(zod@4.3.6)
-      '@mariozechner/pi-coding-agent': 0.54.1(ws@8.19.0)(zod@4.3.6)
+      '@mariozechner/pi-agent-core': 0.54.1(ws@8.19.0)(zod@4.4.2)
+      '@mariozechner/pi-ai': 0.54.1(ws@8.19.0)(zod@4.4.2)
+      '@mariozechner/pi-coding-agent': 0.54.1(ws@8.19.0)(zod@4.4.2)
       '@mariozechner/pi-tui': 0.54.1
       '@mozilla/readability': 0.6.0
       '@napi-rs/canvas': 0.1.94
@@ -10788,7 +10948,7 @@ snapshots:
       undici: 7.22.0
       ws: 8.19.0
       yaml: 2.8.2
-      zod: 4.3.6
+      zod: 4.4.2
     optionalDependencies:
       '@discordjs/opus': 0.10.0
     transitivePeerDependencies:
@@ -12106,12 +12266,10 @@ snapshots:
     dependencies:
       zod: 3.25.76
 
-  zod-to-json-schema@3.25.1(zod@4.3.6):
+  zod-to-json-schema@3.25.1(zod@4.4.2):
     dependencies:
-      zod: 4.3.6
+      zod: 4.4.2
 
   zod@3.25.76: {}
-
-  zod@4.3.6: {}
 
   zod@4.4.2: {}
