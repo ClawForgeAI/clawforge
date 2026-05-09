@@ -143,6 +143,9 @@ importers:
       '@clawforgeai/contracts':
         specifier: workspace:*
         version: link:../contracts
+      jose:
+        specifier: ^6.2.3
+        version: 6.2.3
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
