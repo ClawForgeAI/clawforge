@@ -10,6 +10,7 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true,
+    "types": ["node"],
     "declaration": true,
     "noEmit": true,
     "ignoreDeprecations": "6.0"
