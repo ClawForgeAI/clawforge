@@ -6,7 +6,10 @@
   "scripts": {
     "dev:server": "pnpm --filter @ClawForgeAI/clawforge-server dev",
     "dev:admin": "pnpm --filter @ClawForgeAI/clawforge-admin dev",
-    "test": "pnpm --filter @ClawForgeAI/clawforge test",
+    "build": "pnpm -r --filter './packages/*' --filter @clawforgeai/clawforge build",
+    "test": "pnpm -r --filter './packages/*' --filter @clawforgeai/clawforge --filter @ClawForgeAI/clawforge-server --filter @ClawForgeAI/clawforge-admin test",
+    "typecheck": "pnpm -r typecheck",
+    "check:deps": "node scripts/check-deps.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
