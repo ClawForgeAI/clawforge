@@ -23,7 +23,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@clawforgeai/contracts": "workspace:*"
+    "@clawforgeai/contracts": "workspace:*",
+    "jose": "^6.2.3"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
