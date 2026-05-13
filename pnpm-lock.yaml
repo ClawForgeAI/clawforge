@@ -258,6 +258,10 @@ importers:
         version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1)(msw@2.14.2(@types/node@25.6.0)(typescript@6.0.3))(vite@7.3.1(@types/node@25.6.0)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
 
   plugin:
+    dependencies:
+      '@clawforgeai/tool-governance':
+        specifier: workspace:*
+        version: link:../packages/tool-governance
     devDependencies:
       '@types/node':
         specifier: ^25.6.0
