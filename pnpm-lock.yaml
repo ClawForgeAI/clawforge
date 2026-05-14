@@ -262,6 +262,15 @@ importers:
 
   plugin:
     dependencies:
+      '@clawforgeai/audit-events':
+        specifier: workspace:*
+        version: link:../packages/audit-events
+      '@clawforgeai/contracts':
+        specifier: workspace:*
+        version: link:../packages/contracts
+      '@clawforgeai/policy-engine':
+        specifier: workspace:*
+        version: link:../packages/policy-engine
       '@clawforgeai/tool-governance':
         specifier: workspace:*
         version: link:../packages/tool-governance
