@@ -111,6 +111,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Build platform packages
+        run: pnpm -r --filter './packages/*' build
+
       - name: Run plugin tests with coverage
         run: pnpm --filter @clawforgeai/clawforge test -- --coverage
 
