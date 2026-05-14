@@ -1,12 +1,14 @@
 /**
  * Tool policy enforcer for ClawForge.
- * Implements the before_tool_call hook that blocks denied tools and enforces
- * org policy allow/deny lists and the kill switch.
  *
- * Supports offline mode overrides:
- * - 'allow' — Allow all tools when offline
- * - 'cached' — Use last cached policy even if stale
- * - undefined — Normal enforcement (or block-all when kill switch is active)
+ * Implements the OpenClaw `before_tool_call` hook. The actual decision logic
+ * lives in `@clawforgeai/policy-engine`; this file is the thin translation
+ * layer between OpenClaw's hook surface and the shared engine — it wires
+ * the engine's `PolicyDecision` to OpenClaw's `PluginHookBeforeToolCallResult`
+ * shape and emits the matching audit event via the existing AuditLogger.
+ *
+ * Behavior parity with the pre-extraction tool-enforcer is enforced by the
+ * existing plugin test suite (`tool-enforcer.test.ts`).
  */
 
 import type {
@@ -14,176 +16,11 @@ import type {
   PluginHookBeforeToolCallResult,
   PluginHookToolContext,
 } from "openclaw/plugin-sdk";
-import type { OrgPolicy, DlpScanResult } from "../types.js";
+import { evaluateToolCall } from "@clawforgeai/policy-engine";
+import type { PolicyDecision, PolicyEvaluationContext } from "@clawforgeai/policy-engine";
+import type { OrgPolicy } from "../types.js";
 import type { AuditLogger } from "../audit/audit-logger.js";
 import type { ConnectionStateManager } from "../connection/connection-state.js";
-import { scanToolArguments } from "../dlp/dlp-scanner.js";
-
-// Re-export for type usage in enforceDlp below
-type _DlpScanResultRef = DlpScanResult;
-
-/**
- * Normalize a tool name for comparison (lowercase, trim, resolve aliases).
- * Mirrors the normalizeToolName logic from src/agents/tool-policy.ts.
- */
-const TOOL_NAME_ALIASES: Record<string, string> = {
-  bash: "exec",
-  "apply-patch": "apply_patch",
-};
-
-function normalizeToolName(name: string): string {
-  const normalized = name.trim().toLowerCase();
-  return TOOL_NAME_ALIASES[normalized] ?? normalized;
-}
-
-/**
- * Well-known tool groups, mirroring src/agents/tool-policy.ts.
- */
-const TOOL_GROUPS: Record<string, string[]> = {
-  "group:memory": ["memory_search", "memory_get"],
-  "group:web": ["web_search", "web_fetch"],
-  "group:fs": ["read", "write", "edit", "apply_patch"],
-  "group:runtime": ["exec", "process"],
-  "group:sessions": [
-    "sessions_list",
-    "sessions_history",
-    "sessions_send",
-    "sessions_spawn",
-    "subagents",
-    "session_status",
-  ],
-  "group:ui": ["browser", "canvas"],
-  "group:media": ["image", "tts"],
-  "group:automation": ["cron", "gateway"],
-  "group:messaging": ["message"],
-  "group:agents": ["agents_list"],
-  "group:nodes": ["nodes"],
-};
-
-function expandGroups(list: string[]): Set<string> {
-  const expanded = new Set<string>();
-  for (const entry of list) {
-    const normalized = normalizeToolName(entry);
-    const group = TOOL_GROUPS[normalized];
-    if (group) {
-      for (const tool of group) {
-        expanded.add(tool);
-      }
-    } else {
-      expanded.add(normalized);
-    }
-  }
-  return expanded;
-}
-
-/**
- * Shell commands that perform filesystem read operations.
- * When group:fs is denied, exec calls using these commands are also blocked
- * to prevent bypassing filesystem restrictions via shell.
- */
-const FS_READ_COMMANDS = new Set([
-  "ls",
-  "cat",
-  "head",
-  "tail",
-  "less",
-  "more",
-  "find",
-  "locate",
-  "tree",
-  "stat",
-  "file",
-  "du",
-  "wc",
-  "od",
-  "xxd",
-  "hexdump",
-  "strings",
-  "readlink",
-  "realpath",
-  "basename",
-  "dirname",
-  "diff",
-  "cmp",
-  "md5sum",
-  "sha256sum",
-  "shasum",
-]);
-
-/**
- * Shell commands that perform filesystem write operations.
- * When group:fs is denied, exec calls using these commands are also blocked.
- */
-const FS_WRITE_COMMANDS = new Set([
-  "cp",
-  "mv",
-  "rm",
-  "mkdir",
-  "rmdir",
-  "touch",
-  "chmod",
-  "chown",
-  "chgrp",
-  "ln",
-  "install",
-  "mktemp",
-  "truncate",
-  "shred",
-  "tar",
-  "zip",
-  "unzip",
-  "gzip",
-  "gunzip",
-  "bzip2",
-]);
-
-/** All filesystem-related shell commands. */
-const FS_ALL_COMMANDS = new Set([...FS_READ_COMMANDS, ...FS_WRITE_COMMANDS]);
-
-/**
- * Extract the leading command name from a shell command string.
- * Handles env vars, sudo prefixes, and piped/chained commands.
- */
-function extractCommandNames(command: string): string[] {
-  const names: string[] = [];
-  // Split on pipes, &&, ||, and ; to get individual commands
-  const segments = command
-    .split(/[|;&]/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  for (const segment of segments) {
-    // Strip leading env vars (FOO=bar), sudo, env, etc.
-    const tokens = segment.split(/\s+/);
-    for (const token of tokens) {
-      if (token.includes("=") || token === "sudo" || token === "env" || token === "nohup") {
-        continue;
-      }
-      // Get just the binary name (strip path)
-      const bin = token.split("/").pop() ?? token;
-      if (bin) {
-        names.push(bin.toLowerCase());
-      }
-      break;
-    }
-  }
-  return names;
-}
-
-/**
- * Check if an exec call should be blocked because it uses filesystem commands
- * while group:fs is denied in the policy.
- */
-function isExecBlockedByFsDeny(denySet: Set<string>, params: Record<string, unknown>): boolean {
-  // Only apply if filesystem tools are denied (group:fs was expanded into these)
-  const fsToolsDenied = denySet.has("read") || denySet.has("write") || denySet.has("edit");
-  if (!fsToolsDenied) return false;
-
-  const command = (params.command ?? params.cmd ?? "") as string;
-  if (!command) return false;
-
-  const commandNames = extractCommandNames(command);
-  return commandNames.some((name) => FS_ALL_COMMANDS.has(name));
-}
 
 export type ToolEnforcerState = {
   policy: OrgPolicy | null;
@@ -206,191 +43,156 @@ export type ToolEnforcerState = {
 export function createToolEnforcerHook(
   state: ToolEnforcerState,
   auditLogger: Pick<AuditLogger, "enqueue">,
-  connectionStateManager?: ConnectionStateManager,
+  // Kept for backward compatibility; reserved for future connection-aware decisions.
+  _connectionStateManager?: ConnectionStateManager,
 ): (event: PluginHookBeforeToolCallEvent, ctx: PluginHookToolContext) => PluginHookBeforeToolCallResult | undefined {
   return (
     event: PluginHookBeforeToolCallEvent,
     ctx: PluginHookToolContext,
   ): PluginHookBeforeToolCallResult | undefined => {
-    const toolName = normalizeToolName(event.toolName);
+    const evalCtx: PolicyEvaluationContext = {
+      policy: state.policy,
+      killSwitchActive: state.killSwitchActive,
+      killSwitchMessage: state.killSwitchMessage,
+      offlineOverride: state.offlineOverride,
+      pendingInit: state.pendingInit,
+    };
 
-    // 0. Pending initialization — block by default (safe mode).
-    if (state.pendingInit && !state.policy) {
-      auditLogger.enqueue({
-        eventType: "tool_call_attempt",
-        toolName,
-        outcome: "blocked",
-        agentId: ctx.agentId,
-        sessionKey: ctx.sessionKey,
-        metadata: { reason: "pending_init" },
-      });
-      return {
-        block: true,
-        blockReason: "ClawForge: Plugin is still initializing. Please try again shortly.",
-      };
-    }
+    const decision = evaluateToolCall(evalCtx, {
+      rawToolName: event.toolName,
+      params: event.params,
+    });
 
-    // 1. Kill switch check — always takes precedence, even over offline overrides.
-    if (state.killSwitchActive) {
-      const reason = state.killSwitchMessage ?? "ClawForge: All tool calls blocked by organization kill switch";
-      auditLogger.enqueue({
-        eventType: "tool_call_attempt",
-        toolName,
-        outcome: "blocked",
-        agentId: ctx.agentId,
-        sessionKey: ctx.sessionKey,
-        metadata: { reason: "kill_switch" },
-      });
-      return { block: true, blockReason: reason };
-    }
-
-    // 2. Offline override modes.
-    if (state.offlineOverride === "allow") {
-      auditLogger.enqueue({
-        eventType: "tool_call_attempt",
-        toolName,
-        outcome: "allowed",
-        agentId: ctx.agentId,
-        sessionKey: ctx.sessionKey,
-        metadata: { reason: "offline_allow_mode" },
-      });
-      return undefined;
-    }
-
-    if (state.offlineOverride === "cached") {
-      return enforcePolicy(state.policy, toolName, event, ctx, auditLogger, "offline_cached_mode");
-    }
-
-    return enforcePolicy(state.policy, toolName, event, ctx, auditLogger);
+    return applyDecision(decision, event, ctx, auditLogger);
   };
 }
 
-/**
- * Enforce policy allow/deny lists on a tool call.
- */
-function enforcePolicy(
-  policy: OrgPolicy | null,
-  toolName: string,
+function applyDecision(
+  decision: PolicyDecision,
   event: PluginHookBeforeToolCallEvent,
   ctx: PluginHookToolContext,
   auditLogger: Pick<AuditLogger, "enqueue">,
-  modeReason?: string,
 ): PluginHookBeforeToolCallResult | undefined {
-  if (!policy) {
-    // No policy loaded - allow by default
+  const normalizedToolName = toAuditToolName(event.toolName, decision);
+  const reasonText = formatAuditReason(decision);
+
+  if (decision.reason === "dlp_block" || decision.reason === "dlp_violation_allowed") {
+    // DLP events get a dedicated event type so consumers can filter on them.
+    const dlp = decision.dlp;
+    if (!dlp) {
+      // Defensive — engine always populates `dlp` on DLP-tagged decisions.
+      return undefined;
+    }
+    const violationSummary = dlp.violations.map((v) => ({
+      rule: v.ruleName,
+      action: v.action,
+      severity: v.severity,
+      category: v.category,
+      redactedContext: v.redactedContext,
+    }));
     auditLogger.enqueue({
-      eventType: "tool_call_attempt",
-      toolName,
-      outcome: "allowed",
+      eventType: "dlp_violation",
+      toolName: normalizedToolName,
+      outcome: decision.outcome === "deny" ? "blocked" : "allowed",
       agentId: ctx.agentId,
       sessionKey: ctx.sessionKey,
-      metadata: { reason: modeReason ?? "no_policy" },
+      metadata: {
+        violations: violationSummary,
+        scannedFields: dlp.scannedFields,
+        effectiveAction: dlp.effectiveAction,
+      },
     });
+    if (decision.outcome === "deny" && decision.blockMessage) {
+      return { block: true, blockReason: decision.blockMessage };
+    }
     return undefined;
   }
 
-  // Deny list check
-  if (policy.tools.deny && policy.tools.deny.length > 0) {
-    const denySet = expandGroups(policy.tools.deny);
-    if (denySet.has(toolName)) {
-      auditLogger.enqueue({
-        eventType: "tool_call_attempt",
-        toolName,
-        outcome: "blocked",
-        agentId: ctx.agentId,
-        sessionKey: ctx.sessionKey,
-        metadata: { reason: modeReason ? `deny_list (${modeReason})` : "deny_list" },
-      });
-      return {
-        block: true,
-        blockReason: `ClawForge: Tool "${event.toolName}" is blocked by organization policy`,
-      };
-    }
+  const metadata = buildToolCallMetadata(decision, reasonText);
 
-    // When filesystem tools are denied, also block exec calls that run
-    // filesystem commands (ls, cat, find, etc.) to prevent policy bypass.
-    if (toolName === "exec" && isExecBlockedByFsDeny(denySet, event.params)) {
-      const command = (event.params.command ?? event.params.cmd ?? "") as string;
-      auditLogger.enqueue({
-        eventType: "tool_call_attempt",
-        toolName,
-        outcome: "blocked",
-        agentId: ctx.agentId,
-        sessionKey: ctx.sessionKey,
-        metadata: { reason: modeReason ? `fs_deny_exec (${modeReason})` : "fs_deny_exec", command },
-      });
-      return {
-        block: true,
-        blockReason: `ClawForge: Shell command blocked — filesystem access is denied by organization policy`,
-      };
-    }
-  }
-
-  // Allow list check
-  if (policy.tools.allow && policy.tools.allow.length > 0) {
-    const allowSet = expandGroups(policy.tools.allow);
-    if (!allowSet.has(toolName)) {
-      auditLogger.enqueue({
-        eventType: "tool_call_attempt",
-        toolName,
-        outcome: "blocked",
-        agentId: ctx.agentId,
-        sessionKey: ctx.sessionKey,
-        metadata: { reason: modeReason ? `not_in_allowlist (${modeReason})` : "not_in_allowlist" },
-      });
-      return {
-        block: true,
-        blockReason: `ClawForge: Tool "${event.toolName}" is not in the organization's allowed tools list`,
-      };
-    }
-  }
-
-  // DLP scan — check tool arguments for sensitive data patterns (#66)
-  if (policy.dlpRules && policy.dlpRules.length > 0) {
-    const dlpResult: _DlpScanResultRef = scanToolArguments(policy.dlpRules, event.params);
-
-    if (dlpResult.violations.length > 0) {
-      const violationSummary = dlpResult.violations.map((v) => ({
-        rule: v.ruleName,
-        action: v.action,
-        severity: v.severity,
-        category: v.category,
-        redactedContext: v.redactedContext,
-      }));
-
-      auditLogger.enqueue({
-        eventType: "dlp_violation",
-        toolName,
-        outcome: dlpResult.effectiveAction === "block" ? "blocked" : "allowed",
-        agentId: ctx.agentId,
-        sessionKey: ctx.sessionKey,
-        metadata: {
-          violations: violationSummary,
-          scannedFields: dlpResult.scannedFields,
-          effectiveAction: dlpResult.effectiveAction,
-        },
-      });
-
-      if (dlpResult.effectiveAction === "block") {
-        const blockingRules = dlpResult.violations.filter((v) => v.action === "block");
-        const ruleNames = blockingRules.map((v) => v.ruleName).join(", ");
-        return {
-          block: true,
-          blockReason: `ClawForge DLP: Tool call blocked — sensitive data detected (rules: ${ruleNames})`,
-        };
-      }
-    }
-  }
-
-  // Allowed
   auditLogger.enqueue({
     eventType: "tool_call_attempt",
-    toolName,
-    outcome: "allowed",
+    toolName: normalizedToolName,
+    outcome: decision.outcome === "deny" ? "blocked" : "allowed",
     agentId: ctx.agentId,
     sessionKey: ctx.sessionKey,
-    metadata: modeReason ? { reason: modeReason } : undefined,
+    metadata,
   });
 
+  if (decision.outcome === "deny" && decision.blockMessage) {
+    return { block: true, blockReason: decision.blockMessage };
+  }
   return undefined;
+}
+
+/**
+ * Build the `metadata` payload that older audit consumers expect on
+ * `tool_call_attempt` events. Specifically, the legacy enforcer used to
+ * pass `undefined` rather than `{ reason: undefined }` when the decision
+ * was a plain allow with no offline mode active — preserved here so the
+ * existing audit test assertions remain stable.
+ */
+function buildToolCallMetadata(
+  decision: PolicyDecision,
+  reasonText: string | undefined,
+): Record<string, unknown> | undefined {
+  // fs_deny_exec also reported the offending command in the legacy audit metadata.
+  if (decision.reason === "fs_deny_exec") {
+    return {
+      reason: reasonText,
+      command: decision.blockedCommand ?? "",
+    };
+  }
+
+  if (!reasonText) return undefined;
+  return { reason: reasonText };
+}
+
+/**
+ * Translate a PolicyDecision into the audit-reason string the legacy
+ * enforcer emitted. Same wording — same audit consumers keep working.
+ */
+function formatAuditReason(decision: PolicyDecision): string | undefined {
+  const suffix = decision.mode === "offline_cached_mode" ? " (offline_cached_mode)" : "";
+
+  switch (decision.reason) {
+    case "pending_init":
+      return "pending_init";
+    case "kill_switch":
+      return "kill_switch";
+    case "offline_allow_mode":
+      return "offline_allow_mode";
+    case "no_policy":
+      // Legacy quirk: in offline_cached mode + null policy, the reason
+      // emitted is the bare mode tag, not "no_policy (offline_cached_mode)".
+      return decision.mode === "offline_cached_mode" ? "offline_cached_mode" : "no_policy";
+    case "deny_list":
+      return `deny_list${suffix}`;
+    case "fs_deny_exec":
+      return `fs_deny_exec${suffix}`;
+    case "not_in_allowlist":
+      return `not_in_allowlist${suffix}`;
+    case "allowed":
+      return decision.mode === "offline_cached_mode" ? "offline_cached_mode" : undefined;
+    case "dlp_block":
+    case "dlp_violation_allowed":
+      // Handled by the DLP audit branch in applyDecision; never reaches here.
+      return undefined;
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Audit events have historically logged the normalized tool name (e.g.
+ * "exec" instead of "bash"). The policy engine doesn't expose the
+ * normalized name on the decision, but we can recover it from the raw
+ * event name using the same normalization rule.
+ */
+function toAuditToolName(rawToolName: string, _decision: PolicyDecision): string {
+  // Match `normalizeToolName` semantics from @clawforgeai/tool-governance.
+  const normalized = rawToolName.trim().toLowerCase();
+  if (normalized === "bash") return "exec";
+  if (normalized === "apply-patch") return "apply_patch";
+  return normalized;
 }
