@@ -31,7 +31,7 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
-    "@types/node": "^25.6.0",
+    "@types/node": "^25.7.0",
     "@vitest/coverage-v8": "^4.1.5",
     "drizzle-kit": "^0.31.10",
     "esbuild": "^0.28.0",
