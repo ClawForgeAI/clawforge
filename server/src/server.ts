@@ -129,7 +129,7 @@ export async function buildReadinessResponse({
   try {
     const rows = await sql<{ hash: string | null }[]>`
       SELECT hash
-      FROM __drizzle_migrations
+      FROM drizzle.__drizzle_migrations
       ORDER BY created_at DESC
       LIMIT 1
     `;
