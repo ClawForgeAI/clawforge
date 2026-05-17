@@ -10,7 +10,7 @@ describe("buildReadinessResponse", () => {
         return [{ "?column?": 1 }];
       }
 
-      if (query.includes("FROM __drizzle_migrations")) {
+      if (query.includes("FROM drizzle.__drizzle_migrations")) {
         return [{ hash: "0003_skill_version" }];
       }
 
@@ -46,7 +46,7 @@ describe("buildReadinessResponse", () => {
         throw new Error("connect ECONNREFUSED");
       }
 
-      if (query.includes("FROM __drizzle_migrations")) {
+      if (query.includes("FROM drizzle.__drizzle_migrations")) {
         return [{ hash: "0003_skill_version" }];
       }
 
@@ -77,7 +77,7 @@ describe("buildReadinessResponse", () => {
         return [{ "?column?": 1 }];
       }
 
-      if (query.includes("FROM __drizzle_migrations")) {
+      if (query.includes("FROM drizzle.__drizzle_migrations")) {
         return [{ hash: "0003_skill_version" }];
       }
 
