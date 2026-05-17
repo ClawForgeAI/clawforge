@@ -1,1 +1,1 @@
-ALTER TABLE "organizations" ADD COLUMN "settings" jsonb;
+ALTER TABLE "organizations" ADD COLUMN IF NOT EXISTS "settings" jsonb;
