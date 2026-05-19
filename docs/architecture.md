@@ -1,46 +1,67 @@
 # Architecture & How It Works
 
-## Three Packages
+ClawForge is a control plane for AI agents at work. This document covers the four-layer architecture, the three packages that implement it today, the control flows between them, deployment shape, and the database schema.
 
-| Package                         | Path      | Runs On              | Description                                                                                                          |
-| ------------------------------- | --------- | -------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `@ClawForgeAI/clawforge`        | `plugin/` | Employee's machine   | OpenClaw plugin — hooks into the gateway lifecycle, enforces policies, uploads audit events, polls heartbeat         |
-| `@ClawForgeAI/clawforge-server` | `server/` | Org's server / cloud | Fastify control plane API (port 4100) — manages auth, policies, skill reviews, audit storage, heartbeat, kill switch |
-| `@ClawForgeAI/clawforge-admin`  | `admin/`  | Org's server / cloud | Next.js admin UI (port 4200) — dashboard for managing everything                                                     |
+For the product vision behind the architecture, see [BOOT.md](BOOT.md). For the forward-looking platform direction (multi-runtime adapter extraction, package primitives), see [technical-strategy.md](technical-strategy.md).
 
-## How It All Connects
+---
+
+## Four-layer architecture
+
+ClawForge meets each runtime where it lives — local enforcement where the runtime supports it, MCP proxying where it doesn't, and an append-only audit pipeline either way.
+
+| Layer                       | Role                                                                                                                                                                       |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Agents**                  | The assistants themselves: Claude Code, OpenClaw, OpenAI Agents, LangGraph, MCP servers, Microsoft AGT, custom enterprise agents.                                          |
+| **Adapters & interception** | Runtime-specific surfaces that translate ClawForge policy into something the agent's runtime understands — SDK hooks, MCP proxying, AGT integration, native runtime hooks. |
+| **Governance runtime**      | Local enforcement, audit emission, heartbeat behaviour. Sits close to the agent rather than waiting on a round-trip to the cloud.                                          |
+| **Control plane**           | The operator surface: policy authoring, audit federation, approval queues, emergency state.                                                                                |
+
+### Trust boundaries
+
+- **Assistant runtime** — enforces policy, tracks local state, uploads audit data.
+- **Control plane API** — stores org policy, audit records, identity state, and runtime status.
+- **Operator console** — review and response surface used by admins and platform teams.
+- **Customer environment** — self-hosted deployment keeps control-plane services and storage under customer ownership.
+
+### Core control flows
+
+- **Policy enforcement** — versioned centrally, enforced close to the runtime.
+- **Audit emission** — runtimes emit tool and session events upward into the control plane.
+- **Heartbeat & control propagation** — reports liveness, checks policy freshness, carries kill-switch state.
+- **Kill-switch behaviour** — emergency controls publish through the same policy loop, with a local fail-secure posture when the control plane stops responding.
+
+---
+
+## Three Packages (today)
+
+| Package                         | Path      | Role                                                                                                                      | Runs On              |
+| ------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| `@clawforgeai/clawforge`        | `plugin/` | **OpenClaw runtime adapter** — first adapter; more planned (see [technical-strategy.md](technical-strategy.md))           | Agent's machine      |
+| `@ClawForgeAI/clawforge-server` | `server/` | **Control plane API** (Fastify, port 4100) — manages auth, policies, skill reviews, audit storage, heartbeat, kill switch | Org's server / cloud |
+| `@ClawForgeAI/clawforge-admin`  | `admin/`  | **Operator console** (Next.js, port 4200) — dashboard for managing everything                                             | Org's server / cloud |
+
+Today the only shipping adapter is the OpenClaw plugin; the Claude Code path runs through that same adapter surface. Adapters for MCP servers, OpenAI Agents, LangGraph, and Microsoft AGT are on the roadmap (see [roadmap.md](roadmap.md)).
+
+### How it all connects
 
 ```
-Employee Machine A          Employee Machine B          Employee Machine C
-┌──────────────────┐       ┌──────────────────┐       ┌──────────────────┐
-│   OpenClaw + CG   │       │   OpenClaw + CG   │       │   OpenClaw + CG   │
-│     Plugin        │       │     Plugin        │       │     Plugin        │
-└────────┬─────────┘       └────────┬─────────┘       └────────┬─────────┘
-         │                          │                          │
-         │      Heartbeat, Policy Fetch, Audit Upload          │
-         │              (authenticated HTTP)                    │
-         └──────────────────┬───────┴──────────────────────────┘
-                            │
-                   ┌────────▼─────────┐        ┌───────────────────┐
-                   │  ClawForge        │        │  ClawForge Admin   │
-                   │  Control Plane    │◄──────►│  Console (Web UI)  │
-                   │  (API Server)     │        │                   │
-                   └────────┬─────────┘        └───────────────────┘
-                            │                           ▲
-                       PostgreSQL                       │
-                                                   Org Admin
-                                                (browser access)
-```
-
-```
-┌─────────────────────┐       ┌──────────────────────┐       ┌─────────────────────┐
-│   OpenClaw Gateway   │       │   Control Plane API   │       │    Admin Console     │
-│                     │  HTTP  │                      │  HTTP  │                     │
-│  @ClawForgeAI/clawforge│◄─────►│  @ClawForgeAI/clawforge  │◄─────►│  @ClawForgeAI/clawforge │
-│     (extension)     │       │       -server         │       │       -admin         │
-└─────────────────────┘       └──────────┬───────────┘       └─────────────────────┘
-                                         │
-                                    PostgreSQL
+   Claude Code               OpenClaw Gateway         (future adapters:
+   ┌──────────┐              ┌──────────────┐         MCP, OpenAI, LangGraph,
+   │  Adapter │              │   Adapter     │          AGT, custom)
+   └────┬─────┘              └──────┬───────┘
+        │                           │
+        │   Heartbeat, Policy Fetch, Audit Upload
+        │              (authenticated HTTP)
+        └─────────────┬─────────────┘
+                      │
+             ┌────────▼─────────┐        ┌───────────────────┐
+             │  Control Plane    │        │  Operator Console  │
+             │  (API Server)     │◄──────►│  (Admin Web UI)    │
+             └────────┬─────────┘        └───────────────────┘
+                      │                           ▲
+                 PostgreSQL                       │
+                                              Org Admin
 ```
 
 ---
@@ -55,23 +76,23 @@ The top-level tenant. An org groups users, policies, skills, and audit logs. Eve
 
 Each org has one active, versioned policy that defines:
 
-- **Tool allow/deny lists** — Which tools can the AI assistant use?
+- **Tool allow/deny lists** — Which tools can the AI agent use?
 - **Skill approval requirements** — Must skills be reviewed before use?
 - **Audit level** — How much is logged? (`full` / `metadata` / `off`)
 - **Kill switch state** — Is all tool access disabled?
 
-Policies are fetched by each OpenClaw instance and enforced locally. When the admin updates a policy, connected instances detect the new version on their next heartbeat and refresh.
+Policies are fetched by each runtime adapter and enforced locally. When the admin updates a policy, connected runtimes detect the new version on their next heartbeat and refresh.
 
 ### Enrollment
 
-How an employee's OpenClaw instance joins the org. Users authenticate via SSO/OIDC (`/clawforge-login`) or email/password. The control plane links them to the org, and the plugin stores a session locally at `~/.clawforge/session.json`.
+How an agent runtime joins the org. Users authenticate via SSO/OIDC (`/clawforge-login`) or email/password. The control plane links them to the org, and the adapter stores a session locally at `~/.clawforge/session.json`.
 
 ### Heartbeat
 
-Each connected instance periodically polls the control plane. The heartbeat serves two purposes:
+Each connected runtime periodically polls the control plane. The heartbeat serves two purposes:
 
-1. **Liveness** — The admin sees which instances are online.
-2. **State sync** — The instance learns about kill switch changes and policy updates.
+1. **Liveness** — The admin sees which runtimes are online.
+2. **State sync** — The runtime learns about kill switch changes and policy updates.
 
 ### Audit Trail
 
@@ -79,20 +100,20 @@ Every tool call, session event, and (optionally) LLM interaction is batched and 
 
 ### Kill Switch
 
-An emergency mechanism. When activated, **all** tool calls are blocked across every connected instance in the org. Propagates via heartbeat (delay = heartbeat interval).
+An emergency mechanism. Propagates via heartbeat (delay = heartbeat interval). See the kill-switch model in [BOOT.md](BOOT.md) — heartbeat-driven, fail-secure on silence, policy-graded rather than binary.
 
 ---
 
 ## Startup Flow
 
-1. Gateway loads the ClawForge extension
-2. Extension checks for a saved session (`~/.clawforge/session.json`)
+1. Runtime loads the ClawForge adapter
+2. Adapter checks for a saved session (`~/.clawforge/session.json`)
 3. If expired → refresh via control plane; if missing → unauthenticated mode
 4. Fetches org policy (cache → API → stale cache fallback)
-5. Applies skill filter to OpenClaw config
+5. Applies skill filter to runtime config
 6. Registers `before_tool_call` / `after_tool_call` / session / LLM hooks
 7. Starts heartbeat polling for kill switch
-8. On `gateway_stop` → flushes audit buffer, stops heartbeat
+8. On runtime shutdown → flushes audit buffer, stops heartbeat
 
 ## Policy Enforcement Flow
 
@@ -117,7 +138,7 @@ before_tool_call hook fires
     after_tool_call hook → audit "tool_call_result"
 ```
 
-Tool enforcement happens **client-side** in the OpenClaw plugin, not on the control plane. The control plane's role is to serve the policy; the plugin is the enforcer.
+Tool enforcement happens **locally in the adapter**, not on the control plane. The control plane is the source of truth; the adapter is the enforcer.
 
 ## Policy Caching
 
@@ -135,10 +156,104 @@ On heartbeat:
 
 ## What ClawForge is NOT
 
-- **Not an AI model provider** — It doesn't host or run LLMs. OpenClaw handles that.
-- **Not a replacement for OpenClaw** — It adds governance on top of OpenClaw. Without OpenClaw, ClawForge has nothing to govern.
+- **Not an AI model provider** — It doesn't host or run LLMs. The agent runtime handles that.
+- **Not a detection product** — It is not a prompt scanner, output monitor, or risk-flag dashboard. It is the operations surface above those.
 - **Not per-user config** — Policies are org-wide (with some per-user skill scoping). It is not a personal settings manager.
-- **Not real-time streaming** — Communication is poll-based (heartbeat). Kill switch propagation has a delay equal to the heartbeat interval.
+- **Not real-time streaming today** — Communication is poll-based (heartbeat). Kill switch propagation has a delay equal to the heartbeat interval. Real-time SSE is on the roadmap.
+
+---
+
+## Control Plane — Server Notes
+
+The control plane (`@ClawForgeAI/clawforge-server`) is a Fastify 5 + Drizzle ORM + PostgreSQL service. Auth uses `jose` for OIDC verification; request validation uses Zod.
+
+### Authentication
+
+Two methods, both issuing the same ClawForge JWTs (1-hour access, 30-day refresh):
+
+- **Email/password** — built-in, no external dependencies.
+- **SSO / OIDC** — control plane acts as a token broker between your IdP and runtime adapters.
+
+#### Enrollment tokens
+
+Admins generate enrollment tokens to onboard users without SSO. Tokens have optional `label`, `expiresAt`, and `maxUses`. See [api-reference.md](api-reference.md).
+
+#### SSO grant types
+
+| Grant                | Use Case                              | Required Fields                                                  |
+| -------------------- | ------------------------------------- | ---------------------------------------------------------------- |
+| `authorization_code` | Interactive browser login (PKCE)      | `code`, `codeVerifier`, `redirectUri` + `X-ClawForge-Org` header |
+| `id_token`           | Direct token validation (headless/CI) | `idToken`, `orgId`                                               |
+| `refresh_token`      | Renew expired session                 | `refreshToken`                                                   |
+
+Discovery document and JWKS are cached in-memory for 1 hour. **Supported IdPs:** any OIDC-compliant provider — Okta, Auth0, Microsoft Entra ID, Google Workspace, Keycloak.
+
+#### Auto role assignment
+
+- **First user** in an org → `admin` role
+- **Subsequent users** → `user` role
+
+### Migrations
+
+Migrations are managed by Drizzle Kit. Config is in `server/drizzle.config.ts`.
+
+```bash
+cd server
+pnpm db:generate   # Generate migration from schema
+pnpm db:migrate    # Apply pending migrations
+pnpm db:seed       # Seed default org + admin user
+pnpm db:studio     # Visual DB browser
+```
+
+The `0001_audit_partitioning.sql` migration converts `audit_events` to a partitioned table (by month) for production-scale deployments — run during a maintenance window. To create new monthly partitions:
+
+```sql
+CREATE TABLE audit_events_2026_07
+  PARTITION OF audit_events
+  FOR VALUES FROM ('2026-07-01') TO ('2026-08-01');
+```
+
+### Security checklist (production)
+
+- [ ] Set a strong `JWT_SECRET` (≥ 32 random bytes); never use the dev default
+- [ ] Configure `CORS_ORIGIN` to the admin domain(s) only — not `*`
+- [ ] Use PostgreSQL with `?sslmode=require`
+- [ ] Run `pnpm db:migrate` and `pnpm db:seed` (or use Docker)
+- [ ] Run audit partitioning migration (`0001_audit_partitioning.sql`)
+- [ ] Set up partition creation cron (monthly)
+- [ ] Put control plane behind TLS reverse proxy (Caddy / nginx)
+- [ ] Configure authentication (email/password seed, or SSO via org `sso_config`)
+- [ ] Configure adapters with `controlPlaneUrl`
+- [ ] Test login flow end to end (email/password or SSO)
+- [ ] Set appropriate `heartbeatIntervalMs` and `heartbeatFailureThreshold`
+- [ ] Monitor `/health/ready`
+- [ ] Ensure session files (`~/.clawforge/session.json`) have `0600` permissions on multi-user hosts
+
+### Recommended production topology
+
+```
+                    Internet
+                       │
+                    TLS (443)
+                       │
+                ┌──────┴──────┐
+                │  Reverse     │
+                │  Proxy       │
+                │  (Caddy/     │
+                │   nginx)     │
+                └──────┬──────┘
+                       │
+          ┌────────────┼────────────┐
+          │            │            │
+     :4100/api    :4200/admin   (static)
+          │            │
+  ┌───────┴───┐  ┌─────┴─────┐
+  │ clawforge │  │ clawforge │
+  │  -server  │  │  -admin   │
+  └─────┬─────┘  └───────────┘
+        │
+   PostgreSQL
+```
 
 ---
 
