@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-04-06
+
+### Added
+
+- **External alert routing** — webhook delivery for alerts, expanding escalation paths beyond the dashboard.
+- Tighter bridge between in-product detection and downstream response systems.
+
+## [0.2.0] - 2026-04-06
+
+### Changed
+
+- **Skill review hardening** — skill scanner wired directly into the submission path.
+- Auto-block of high-risk findings before approval.
+- Skill governance moved from a passive review queue to a true operator workflow.
+
 ## [0.1.0] - 2026-03-11
 
 ### Added
@@ -23,5 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Server package `@ClawForgeAI/clawforge-server`.
 - Admin dashboard package `@ClawForgeAI/clawforge-admin`.
 
-[Unreleased]: https://github.com/ClawForgeAI/clawforge/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/ClawForgeAI/clawforge/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/ClawForgeAI/clawforge/releases/tag/v0.2.1
+[0.2.0]: https://github.com/ClawForgeAI/clawforge/releases/tag/v0.2.0
 [0.1.0]: https://github.com/ClawForgeAI/clawforge/releases/tag/v0.1.0

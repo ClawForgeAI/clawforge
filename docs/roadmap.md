@@ -2,14 +2,36 @@
 
 ## Why We Built This
 
-When an organization adopts OpenClaw as its AI assistant:
+AI agents are spreading faster than the operator model around them. Teams adopt Claude Code for one workflow, OpenAI Agents for another, MCP servers for shared capabilities, and custom LangGraph workflows in production — each with disconnected policy, audit, and incident response. Without a single operations surface, security cannot reconstruct what an agent did, platform engineering cannot publish policy once across the fleet, and there is no containment path the day something goes wrong.
 
-- Each employee runs their own OpenClaw instance locally on their machine.
-- Each instance can call tools (file read/write, shell exec, web fetch, etc.), install skills (third-party plugins), and interact with LLMs.
-- Without governance, the org has **zero visibility or control** over what these AI assistants are doing — what tools they call, what data they access, what third-party code they run.
-- There is no way to enforce security policies, audit activity, or respond to incidents across the fleet.
+ClawForge is the **control plane and operator console for AI agents at work** — vendor-neutral, open-source, self-hosted. See [BOOT.md](BOOT.md) for the full vision.
 
-ClawForge solves this by providing a single admin panel that connects to every employee's OpenClaw instance and gives the organization centralized control.
+---
+
+## Runtime support
+
+| Runtime       | Status        |
+| ------------- | ------------- |
+| Claude Code   | Available now |
+| OpenClaw      | Available now |
+| MCP servers   | Q3 2026       |
+| OpenAI Agents | Q4 2026       |
+| LangGraph     | Q4 2026       |
+| Microsoft AGT | Q4 2026       |
+
+The runtime list will grow; the operator surface is meant not to.
+
+---
+
+## Release history
+
+| Version    | Date       | Theme                    | Highlights                                                                                                                                                                             |
+| ---------- | ---------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **v0.2.1** | 2026-04-06 | External alert routing   | Webhook delivery for alerts; expanded escalation paths beyond the dashboard; tighter bridge between in-product detection and downstream response systems.                              |
+| **v0.2.0** | 2026-04-06 | Skill review hardening   | Skill scanner wired directly into the submission path; auto-block of high-risk findings before approval; skill governance moved from passive review queue to a true operator workflow. |
+| **v0.1.0** | 2026-03-12 | Control-plane foundation | Centralised policy management, audit trails, remote kill switch; SSO / OIDC alongside enrollment-token and password flows; admin dashboard, API, and OpenClaw adapter foundation.      |
+
+See [CHANGELOG.md](../CHANGELOG.md) for the per-release detail.
 
 ---
 
