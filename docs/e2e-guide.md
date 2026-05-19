@@ -22,7 +22,7 @@ The Docker path is covered here. For manual setup, see the [Setup Guide](setup.m
 ### 1.1 Clone and Start
 
 ```bash
-git clone https://github.com/openclaw/clawforge.git
+git clone https://github.com/ClawForgeAI/clawforge.git
 cd clawforge
 docker compose up --build
 ```
@@ -268,6 +268,8 @@ Walk through each item to confirm the full system is working end-to-end.
 - [ ] **Kill switch works end-to-end** -- In the admin console, go to **Policies** and activate the kill switch. Optionally add a message (e.g., "Tool access suspended for security review"). Wait one heartbeat interval, then have the employee try any tool call. It should be blocked. Deactivate the kill switch and verify tools work again.
 
 - [ ] **Skill governance works** -- Have the employee submit a skill from their OpenClaw instance. In the admin console, navigate to **Skills** and review the pending submission. Approve it and verify the skill becomes available to the employee. Reject a different submission and verify it does not load.
+
+- [ ] **Networked plugin onboarding is reviewed**: On a test employee machine, install a real OpenClaw plugin such as [TweetClaw](https://github.com/Xquik-dev/tweetclaw) with `openclaw plugins install @xquik/tweetclaw`. Keep the Xquik API key or MPP signing key in local OpenClaw plugin config only. In ClawForge, require skill approval before use, start with read-oriented X/Twitter jobs such as scrape tweets, search tweets, search tweet replies, follower export, user lookup, monitor tweets, and webhooks, then require stricter approval for post tweets, post tweet replies, direct messages, media upload, media download, and giveaway draw workflows. Verify audit events show tool names, outcomes, and policy decisions without exposing credentials.
 
 ---
 
