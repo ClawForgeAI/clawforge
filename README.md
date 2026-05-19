@@ -22,9 +22,9 @@
   </a>
 </p>
 
-<p align="center">
+<!-- <p align="center">
   <img src="docs/images/demo.gif" alt="ClawForge Demo" width="700" />
-</p>
+</p> -->
 
 <p align="center">
   <strong>The control plane for AI agents at work.</strong>
