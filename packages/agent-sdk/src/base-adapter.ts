@@ -2,7 +2,8 @@ import { BatchedAuditQueue } from "@clawforgeai/audit-events";
 import type { AuditTransport, AuditPersistence, AuditEventDraft, AuditLevel } from "@clawforgeai/audit-events";
 import type { OrgPolicy } from "@clawforgeai/contracts";
 import type { PolicyDecision, PolicyEvaluationContext, ToolCallEvaluationInput } from "@clawforgeai/policy-engine";
-import { evaluateToolCall } from "@clawforgeai/policy-engine";
+import { ClawforgeEvaluator, evaluateToolCall } from "@clawforgeai/policy-engine";
+import type { Policy, PolicyDecisionResult } from "@clawforgeai/policy-schema";
 
 export interface BaseAdapterOptions {
   identity: { userId: string; orgId: string };
@@ -26,6 +27,7 @@ export interface BaseAdapterOptions {
  */
 export abstract class BaseRuntimeAdapter {
   protected readonly auditQueue: BatchedAuditQueue;
+  protected readonly evaluator: ClawforgeEvaluator;
   protected policy: OrgPolicy | null = null;
   protected killSwitchActive = false;
   protected killSwitchMessage: string | undefined;
@@ -40,11 +42,28 @@ export abstract class BaseRuntimeAdapter {
       logger: options.logger,
       auditLevel: options.auditLevel ?? "metadata",
     });
+    this.evaluator = new ClawforgeEvaluator();
   }
 
-  /** Apply the latest org policy. Future tool calls evaluate against this. */
+  /**
+   * Apply the latest org policy. Future tool calls evaluate against this.
+   *
+   * @deprecated Use `setAgtPolicy(policy: Policy)` — the AGT canonical
+   * shape replaces `OrgPolicy` per addendum §A1.
+   */
   setPolicy(policy: OrgPolicy | null): void {
     this.policy = policy;
+    this.pendingInit = false;
+  }
+
+  /**
+   * Apply an AGT-canonical Policy. Future calls to `evaluateToolWithAgt`
+   * delegate to the embedded ClawforgeEvaluator.
+   */
+  setAgtPolicy(policy: Policy | null): void {
+    if (policy) {
+      this.evaluator.loadPolicy(policy);
+    }
     this.pendingInit = false;
   }
 
@@ -77,6 +96,9 @@ export abstract class BaseRuntimeAdapter {
   /**
    * Evaluate a tool call against the current state. Pure passthrough to
    * the policy-engine — adapters call this from their pre-tool hook.
+   *
+   * @deprecated Use `evaluateToolWithAgt(action, context)` — returns the
+   * richer AGT `PolicyDecisionResult` and uses the AGT-backed engine.
    */
   evaluateTool(input: ToolCallEvaluationInput): PolicyDecision {
     const ctx: PolicyEvaluationContext = {
@@ -87,5 +109,44 @@ export abstract class BaseRuntimeAdapter {
       pendingInit: this.pendingInit,
     };
     return evaluateToolCall(ctx, input);
+  }
+
+  /**
+   * Evaluate a tool action via the AGT-backed evaluator. Lifecycle checks
+   * (pendingInit, killSwitch, offlineOverride) still apply and short-circuit
+   * the AGT evaluation when relevant.
+   */
+  evaluateToolWithAgt(action: string, context: Record<string, unknown> = {}): PolicyDecisionResult {
+    const now = new Date();
+    const baseDecision = {
+      approvers: [] as string[],
+      rateLimited: false,
+      evaluatedAt: now,
+    };
+
+    if (this.pendingInit && !this.evaluator.hasPolicy()) {
+      return {
+        ...baseDecision,
+        allowed: false,
+        action: "deny",
+        reason: "Plugin is still initializing",
+      };
+    }
+    if (this.killSwitchActive) {
+      return {
+        ...baseDecision,
+        allowed: false,
+        action: "deny",
+        reason: this.killSwitchMessage ?? "Kill switch active",
+      };
+    }
+    if (this.offlineOverride === "allow") {
+      return { ...baseDecision, allowed: true, action: "allow", reason: "offline_allow_mode" };
+    }
+    if (!this.evaluator.hasPolicy()) {
+      return { ...baseDecision, allowed: true, action: "allow", reason: "no_policy" };
+    }
+
+    return this.evaluator.evaluate(action, context);
   }
 }
