@@ -1,10 +1,10 @@
-import { AuditLogger, KillSwitch, PolicyEngine, TrustManager } from "@microsoft/agent-governance-sdk";
+import { AuditLogger, KillSwitch, type PolicyEngine, TrustManager } from "@microsoft/agent-governance-sdk";
 import { type AuditEntry, type PolicyDecisionResult, parsePolicyYamlOrThrow } from "@clawforgeai/policy-schema";
+import { ClawforgeEvaluator } from "@clawforgeai/policy-engine";
 import { AuditBatcher } from "./audit-batcher.js";
 import { ClawforgeDenied, ClawforgeNotConnected } from "./errors.js";
 import { HttpClient } from "./http.js";
 import { InMemoryKillSwitchSource, PollingKillSwitchSource } from "./kill-switch-transport.js";
-import { convertPolicyToLegacyRules } from "./policy-loader.js";
 import type {
   AuditDraft,
   ClawforgeConnectOptions,
@@ -38,7 +38,7 @@ function resolveOptions(input?: ClawforgeConnectOptions): ResolvedOptions {
 
 export class Clawforge {
   private readonly http: HttpClient;
-  private readonly policyEngine: PolicyEngine;
+  private readonly evaluator: ClawforgeEvaluator;
   private readonly auditLogger: AuditLogger;
   private readonly killSwitch: KillSwitch;
   private readonly trust: TrustManager;
@@ -50,7 +50,7 @@ export class Clawforge {
 
   private constructor(args: {
     http: HttpClient;
-    policyEngine: PolicyEngine;
+    evaluator: ClawforgeEvaluator;
     auditLogger: AuditLogger;
     killSwitch: KillSwitch;
     trust: TrustManager;
@@ -59,7 +59,7 @@ export class Clawforge {
     agentDid: string;
   }) {
     this.http = args.http;
-    this.policyEngine = args.policyEngine;
+    this.evaluator = args.evaluator;
     this.auditLogger = args.auditLogger;
     this.killSwitch = args.killSwitch;
     this.trust = args.trust;
@@ -73,7 +73,7 @@ export class Clawforge {
     const { url, token, agentDid, options } = resolveOptions(input);
 
     const http = new HttpClient({ baseUrl: url, token, fetchImpl: options.fetch });
-    const policyEngine = new PolicyEngine();
+    const evaluator = new ClawforgeEvaluator();
     const auditLogger = new AuditLogger();
     const killSwitch = new KillSwitch({ enabled: true });
     const trust = new TrustManager();
@@ -89,7 +89,7 @@ export class Clawforge {
 
     const client = new Clawforge({
       http,
-      policyEngine,
+      evaluator,
       auditLogger,
       killSwitch,
       trust,
@@ -108,20 +108,10 @@ export class Clawforge {
     return this.agentDidValue;
   }
 
-  /** Local evaluation via the embedded AGT PolicyEngine. */
+  /** Local evaluation via the embedded AGT PolicyEngine (wrapped by ClawforgeEvaluator). */
   async evaluate(action: string, context: Record<string, unknown> = {}): Promise<PolicyDecisionResult> {
     this.assertConnected();
-    const decision = this.policyEngine.evaluate(action, {
-      tool_name: action,
-      ...context,
-    });
-    return {
-      allowed: decision === "allow",
-      action: decision === "allow" ? "allow" : decision === "review" ? "require_approval" : "deny",
-      approvers: [],
-      rateLimited: false,
-      evaluatedAt: new Date(),
-    };
+    return this.evaluator.evaluate(action, context);
   }
 
   /** Enqueue an audit entry. The hash chain is computed locally via AGT AuditLogger. */
@@ -178,7 +168,7 @@ export class Clawforge {
     trust: TrustManager;
   } {
     return {
-      policyEngine: this.policyEngine,
+      policyEngine: this.evaluator.agt,
       auditLogger: this.auditLogger,
       killSwitch: this.killSwitch,
       trust: this.trust,
@@ -204,11 +194,7 @@ export class Clawforge {
       });
       if (typeof yaml === "string" && yaml.trim().length > 0) {
         const policy = parsePolicyYamlOrThrow(yaml);
-        for (const rule of convertPolicyToLegacyRules(policy)) {
-          // AGT PolicyEngine.addRule expects its PolicyRule shape; the legacy
-          // subset we produce here is structurally compatible.
-          this.policyEngine.addRule(rule as never);
-        }
+        this.evaluator.loadPolicy(policy);
       }
     } catch (err) {
       // First-boot fail-open with empty policy. The server-side fail-closed

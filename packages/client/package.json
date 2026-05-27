@@ -23,6 +23,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@clawforgeai/policy-engine": "workspace:*",
     "@clawforgeai/policy-schema": "workspace:*",
     "@microsoft/agent-governance-sdk": "^3.7.0"
   },

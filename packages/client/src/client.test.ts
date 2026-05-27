@@ -129,13 +129,11 @@ describe("Clawforge.connect — option resolution", () => {
 });
 
 describe("Clawforge.connect — initial policy load", () => {
-  it("fetches /policies/effective and loads rules into AGT PolicyEngine", async () => {
+  it("fetches /policies/effective and loads the policy into AGT PolicyEngine", async () => {
     const { client, calls } = await connect();
     const fetched = calls.find((c) => c.method === "GET" && c.url.startsWith("/api/v1/policies/effective"));
     expect(fetched).toBeDefined();
-    const rules = client.agt.policyEngine.getRules();
-    expect(rules.length).toBeGreaterThan(0);
-    expect(rules.map((r) => r.name)).toContain("block_shell");
+    expect(client.agt.policyEngine.listPolicies()).toContain("test-policy");
     await client.disconnect();
   });
 });
@@ -263,12 +261,14 @@ describe("escape hatch — cf.agt.*", () => {
   it("policyEngine is the SAME instance that cf.evaluate delegates to (no double-load)", async () => {
     const { client } = await connect();
     // Direct call to the embedded engine should match the routed call.
-    const direct = client.agt.policyEngine.evaluate("shell_exec");
+    const direct = client.agt.policyEngine.evaluatePolicy("did:clawforge:local", {
+      tool_name: "shell_exec",
+    });
     const viaClient = await client.evaluate("shell_exec");
-    expect(direct).toBe("deny");
+    expect(direct.allowed).toBe(false);
     expect(viaClient.allowed).toBe(false);
-    // Rules are loaded once — no duplicate engine instance.
-    expect(client.agt.policyEngine.getRules().length).toBeGreaterThan(0);
+    // Policy loaded once — no duplicate engine instance.
+    expect(client.agt.policyEngine.listPolicies()).toContain("test-policy");
     await client.disconnect();
   });
 

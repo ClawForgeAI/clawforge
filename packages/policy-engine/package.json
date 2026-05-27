@@ -24,7 +24,9 @@
   },
   "dependencies": {
     "@clawforgeai/contracts": "workspace:*",
-    "@clawforgeai/tool-governance": "workspace:*"
+    "@clawforgeai/policy-schema": "workspace:*",
+    "@clawforgeai/tool-governance": "workspace:*",
+    "@microsoft/agent-governance-sdk": "^3.7.0"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
