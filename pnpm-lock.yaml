@@ -191,6 +191,31 @@ importers:
         specifier: ^4.1.5
         version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.2(@types/node@25.6.0)(typescript@6.0.3))(vite@7.3.1(@types/node@25.6.0)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
 
+  packages/client:
+    dependencies:
+      '@clawforgeai/policy-schema':
+        specifier: workspace:*
+        version: link:../policy-schema
+      '@microsoft/agent-governance-sdk':
+        specifier: ^3.7.0
+        version: 3.7.0
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.7.0
+      '@vitest/coverage-v8':
+        specifier: ^4.1.5
+        version: 4.1.5(vitest@4.1.5)
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.14)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.2)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.5
+        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@25.7.0)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.2(@types/node@25.7.0)(typescript@6.0.3))(vite@7.3.1(@types/node@25.7.0)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+
   packages/contracts:
     dependencies:
       zod:
@@ -570,10 +595,6 @@ packages:
   '@aws/lambda-invoke-store@0.2.3':
     resolution: {integrity: sha512-oLvsaPMTBejkkmHhjf09xTgk71mOqyr/409NKhRIL08If7AhVfUsJhVsx386uJaqNd42v9kWamQ9lFbkoC2dYw==}
     engines: {node: '>=18.0.0'}
-
-  '@babel/code-frame@7.29.0':
-    resolution: {integrity: sha512-9NhCeYjq9+3uxgdtp20LSiJXJvN0FeCtNGpJxuMFZ1Kv3cWUNb6DOhJwUvcVCzKGR66cw4njwM6hrJLqgOwbcw==}
-    engines: {node: '>=6.9.0'}
 
   '@babel/code-frame@7.29.7':
     resolution: {integrity: sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==}
@@ -7127,12 +7148,6 @@ snapshots:
 
   '@aws/lambda-invoke-store@0.2.3': {}
 
-  '@babel/code-frame@7.29.0':
-    dependencies:
-      '@babel/helper-validator-identifier': 7.28.5
-      js-tokens: 4.0.0
-      picocolors: 1.1.1
-
   '@babel/code-frame@7.29.7':
     dependencies:
       '@babel/helper-validator-identifier': 7.29.7
@@ -9401,7 +9416,7 @@ snapshots:
 
   '@testing-library/dom@10.4.1':
     dependencies:
-      '@babel/code-frame': 7.29.0
+      '@babel/code-frame': 7.29.7
       '@babel/runtime': 7.29.2
       '@types/aria-query': 5.0.4
       aria-query: 5.3.0
@@ -9690,7 +9705,7 @@ snapshots:
       obug: 2.1.1
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.2(@types/node@25.6.0)(typescript@6.0.3))(vite@7.3.1(@types/node@25.6.0)(jiti@1.21.7)(tsx@4.21.0)(yaml@2.8.2))
+      vitest: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.2(@types/node@25.6.0)(typescript@6.0.3))(vite@7.3.1(@types/node@25.6.0)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
 
   '@vitest/expect@4.1.5':
     dependencies:
