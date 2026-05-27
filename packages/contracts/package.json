@@ -23,6 +23,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@clawforgeai/policy-schema": "workspace:*",
     "zod": "^4.4.3"
   },
   "devDependencies": {

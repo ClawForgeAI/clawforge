@@ -1,3 +1,10 @@
+/**
+ * @deprecated Cut 1 step 4: legacy Clawforge audit shape. New code should
+ * import the AGT-canonical `AuditEntry` (hash-chained) from
+ * `@clawforgeai/contracts` or `@clawforgeai/policy-schema`. These types
+ * are removed in Cut 1 step 10 once `audit-events` and the plugin's audit
+ * pipeline migrate to AGT entries.
+ */
 import { z } from "zod";
 import { OrgId, Outcome, UserId } from "./common.js";
 
