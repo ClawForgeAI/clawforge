@@ -25,6 +25,11 @@ import { apiKeyRoutes } from "./routes/api-keys.js";
 import { roleRoutes } from "./routes/roles.js";
 import { alertRoutes } from "./routes/alerts.js";
 import { webhookRoutes } from "./routes/webhooks.js";
+import { agtPolicyRoutes } from "./routes/agt-policies.js";
+import { agtAuditRoutes } from "./routes/agt-audit.js";
+import { agtIdentityRoutes } from "./routes/agt-identities.js";
+import { agtApprovalRoutes } from "./routes/agt-approvals.js";
+import { agtKillSwitchRoutes } from "./routes/agt-kill-switch.js";
 import { startAuditRetentionJob, stopAuditRetentionJob } from "./services/audit-retention.js";
 
 // ---------------------------------------------------------------------------
@@ -362,6 +367,13 @@ export async function createServer(config: ServerConfig) {
   await app.register(roleRoutes);
   await app.register(alertRoutes);
   await app.register(webhookRoutes);
+
+  // AGT-canonical routes (Cut 1 step 7 — addendum §5.3 / §A19).
+  await app.register(agtPolicyRoutes);
+  await app.register(agtAuditRoutes);
+  await app.register(agtIdentityRoutes);
+  await app.register(agtApprovalRoutes);
+  await app.register(agtKillSwitchRoutes);
 
   // Start audit retention cleanup job (#39)
   if (config.auditRetentionDays && config.auditRetentionDays > 0) {

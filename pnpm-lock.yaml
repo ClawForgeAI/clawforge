@@ -364,6 +364,12 @@ importers:
 
   server:
     dependencies:
+      '@clawforgeai/policy-engine':
+        specifier: workspace:*
+        version: link:../packages/policy-engine
+      '@clawforgeai/policy-schema':
+        specifier: workspace:*
+        version: link:../packages/policy-schema
       '@fastify/cors':
         specifier: ^11.0.0
         version: 11.2.0
