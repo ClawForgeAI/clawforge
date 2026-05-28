@@ -2,7 +2,18 @@
  * Drizzle ORM schema for ClawForge control plane.
  */
 
-import { pgTable, uuid, text, timestamp, integer, jsonb, boolean, index, uniqueIndex } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  uuid,
+  text,
+  timestamp,
+  integer,
+  jsonb,
+  boolean,
+  bigserial,
+  index,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 
 // ---------------------------------------------------------------------------
 // Organizations
@@ -89,6 +100,14 @@ export const policies = pgTable(
         message?: string;
       }>;
     }>(),
+    // AGT-canonical fields (Cut 1 step 6 — addendum §A4). Nullable during the
+    // migration window so legacy rows still load. Step 9 routes populate these
+    // on write; step 10 drops the legacy *Config columns.
+    yamlSource: text("yaml_source"),
+    parsedPolicy: jsonb("parsed_policy").$type<Record<string, unknown>>(),
+    schemaVersion: text("schema_version"),
+    createdBy: uuid("created_by").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("policies_org_id_idx").on(table.orgId)],
@@ -501,5 +520,203 @@ export const alerts = pgTable(
   (table) => [
     index("alerts_org_status_idx").on(table.orgId, table.status),
     index("alerts_org_ts_idx").on(table.orgId, table.createdAt),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// AGT-canonical tables (Cut 1 step 6 — addendum §A4).
+// These ship alongside the legacy tables during the migration window. Routes
+// landing in step 9 read/write these. Legacy tables (policyChangeRequests,
+// skillSubmissions, approvedSkills, auditEvents) remain available until
+// step 10 retires them.
+// ---------------------------------------------------------------------------
+
+export const identities = pgTable(
+  "identities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    did: text("did").notNull(),
+    publicKey: text("public_key").notNull(),
+    parentDid: text("parent_did"),
+    capabilities: jsonb("capabilities").$type<string[]>().notNull().default([]),
+    status: text("status", { enum: ["active", "suspended", "revoked"] })
+      .notNull()
+      .default("active"),
+    name: text("name"),
+    description: text("description"),
+    sponsor: text("sponsor"),
+    delegationDepth: integer("delegation_depth").notNull().default(0),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("identities_org_did_idx").on(table.orgId, table.did),
+    index("identities_org_status_idx").on(table.orgId, table.status),
+    index("identities_parent_idx").on(table.parentDid),
+  ],
+);
+
+export const delegations = pgTable(
+  "delegations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    issuerDid: text("issuer_did").notNull(),
+    subjectDid: text("subject_did").notNull(),
+    grantedCapabilities: jsonb("granted_capabilities").$type<string[]>().notNull().default([]),
+    deniedCapabilities: jsonb("denied_capabilities").$type<string[]>().notNull().default([]),
+    signedToken: text("signed_token"),
+    depth: integer("depth").notNull().default(1),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("delegations_org_issuer_idx").on(table.orgId, table.issuerDid),
+    index("delegations_org_subject_idx").on(table.orgId, table.subjectDid),
+  ],
+);
+
+export const trustScores = pgTable(
+  "trust_scores",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    did: text("did").notNull(),
+    overall: integer("overall").notNull().default(50),
+    dimensions: jsonb("dimensions").$type<Record<string, number>>().notNull().default({}),
+    tier: text("tier", { enum: ["Untrusted", "Provisional", "Trusted", "Verified"] })
+      .notNull()
+      .default("Provisional"),
+    lastUpdated: timestamp("last_updated", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("trust_scores_org_did_idx").on(table.orgId, table.did)],
+);
+
+export const auditEntries = pgTable(
+  "audit_entries",
+  {
+    chainSeq: bigserial("chain_seq", { mode: "bigint" }).primaryKey(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    timestamp: timestamp("timestamp", { withTimezone: true }).notNull().defaultNow(),
+    agentDid: text("agent_did").notNull(),
+    action: text("action").notNull(),
+    decision: text("decision", { enum: ["allow", "deny", "review"] }).notNull(),
+    hash: text("hash").notNull(),
+    previousHash: text("previous_hash").notNull(),
+    policyName: text("policy_name"),
+    policyVersion: integer("policy_version"),
+    matchedRule: text("matched_rule"),
+    payload: jsonb("payload").$type<Record<string, unknown>>(),
+  },
+  (table) => [
+    index("audit_entries_org_ts_idx").on(table.orgId, table.timestamp),
+    index("audit_entries_org_agent_idx").on(table.orgId, table.agentDid),
+    uniqueIndex("audit_entries_org_hash_idx").on(table.orgId, table.hash),
+  ],
+);
+
+export const approvals = pgTable(
+  "approvals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    agentDid: text("agent_did"),
+    actionType: text("action_type", {
+      enum: ["skill_load", "policy_change", "tool_call", "delegation"],
+    }).notNull(),
+    target: text("target"),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+    status: text("status", { enum: ["pending", "approved", "denied", "expired"] })
+      .notNull()
+      .default("pending"),
+    requiredApprovers: jsonb("required_approvers").$type<string[]>().notNull().default([]),
+    decisions: jsonb("decisions")
+      .$type<Array<{ decidedBy: string; decision: "approved" | "denied"; comment?: string; decidedAt: string }>>()
+      .notNull()
+      .default([]),
+    obligations: jsonb("obligations").$type<Record<string, unknown>>(),
+    requestedBy: uuid("requested_by").references(() => users.id),
+    requestedAt: timestamp("requested_at", { withTimezone: true }).notNull().defaultNow(),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("approvals_org_status_idx").on(table.orgId, table.status),
+    index("approvals_org_action_idx").on(table.orgId, table.actionType),
+  ],
+);
+
+export const killSwitchScopes = pgTable(
+  "kill_switch_scopes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    scope: jsonb("scope")
+      .$type<{
+        kind: "org" | "agent" | "role" | "tag";
+        agentDid?: string;
+        role?: string;
+        tag?: string;
+      }>()
+      .notNull(),
+    active: boolean("active").notNull().default(false),
+    message: text("message"),
+    activatedBy: uuid("activated_by").references(() => users.id),
+    activatedAt: timestamp("activated_at", { withTimezone: true }),
+    clearedBy: uuid("cleared_by").references(() => users.id),
+    clearedAt: timestamp("cleared_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("kill_switch_scopes_org_active_idx").on(table.orgId, table.active)],
+);
+
+export const metrics = pgTable(
+  "metrics",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    agentDid: text("agent_did"),
+    snapshot: jsonb("snapshot").$type<Record<string, unknown>>().notNull(),
+    recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("metrics_org_ts_idx").on(table.orgId, table.recordedAt)],
+);
+
+export const shadowAgents = pgTable(
+  "shadow_agents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    did: text("did"),
+    capabilities: jsonb("capabilities").$type<string[]>().notNull().default([]),
+    runtime: text("runtime"),
+    fingerprint: text("fingerprint"),
+    firstSeen: timestamp("first_seen", { withTimezone: true }).notNull().defaultNow(),
+    lastSeen: timestamp("last_seen", { withTimezone: true }).notNull().defaultNow(),
+    status: text("status", { enum: ["unknown", "investigating", "known", "quarantined"] })
+      .notNull()
+      .default("unknown"),
+    notes: text("notes"),
+  },
+  (table) => [
+    index("shadow_agents_org_status_idx").on(table.orgId, table.status),
+    index("shadow_agents_org_lastseen_idx").on(table.orgId, table.lastSeen),
   ],
 );
