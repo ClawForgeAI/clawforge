@@ -24,9 +24,7 @@ export default function ApprovalsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [statusFilter, setStatusFilter] = useState<(typeof STATUSES)[number]>("pending");
-  const [actionTypeFilter, setActionTypeFilter] = useState<"all" | (typeof ACTION_TYPES)[number]>(
-    "all",
-  );
+  const [actionTypeFilter, setActionTypeFilter] = useState<"all" | (typeof ACTION_TYPES)[number]>("all");
 
   const [commentDraft, setCommentDraft] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -85,8 +83,8 @@ export default function ApprovalsPage() {
       <header className="space-y-2">
         <h1 className="text-3xl font-bold">Approvals</h1>
         <p className="text-base-content/70">
-          Generalized queue: skill loads, policy changes, tool calls, and delegations all flow through
-          the AGT <code className="text-xs">require_approval</code> shape.
+          Generalized queue: skill loads, policy changes, tool calls, and delegations all flow through the AGT{" "}
+          <code className="text-xs">require_approval</code> shape.
         </p>
       </header>
 
@@ -113,9 +111,7 @@ export default function ApprovalsPage() {
             <select
               className="select select-bordered"
               value={actionTypeFilter}
-              onChange={(e) =>
-                setActionTypeFilter(e.target.value as "all" | (typeof ACTION_TYPES)[number])
-              }
+              onChange={(e) => setActionTypeFilter(e.target.value as "all" | (typeof ACTION_TYPES)[number])}
             >
               <option value="all">all</option>
               {ACTION_TYPES.map((t) => (
@@ -156,9 +152,7 @@ export default function ApprovalsPage() {
                         >
                           {a.status}
                         </span>
-                        {a.agentDid && (
-                          <code className="text-xs text-base-content/70">{a.agentDid}</code>
-                        )}
+                        {a.agentDid && <code className="text-xs text-base-content/70">{a.agentDid}</code>}
                       </div>
                       {a.target && (
                         <div className="text-sm">
@@ -175,9 +169,7 @@ export default function ApprovalsPage() {
                           className="input input-bordered input-sm w-48"
                           placeholder="optional comment"
                           value={commentDraft[a.id] ?? ""}
-                          onChange={(e) =>
-                            setCommentDraft((prev) => ({ ...prev, [a.id]: e.target.value }))
-                          }
+                          onChange={(e) => setCommentDraft((prev) => ({ ...prev, [a.id]: e.target.value }))}
                         />
                         <button
                           className="btn btn-success btn-sm"

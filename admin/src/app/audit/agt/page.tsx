@@ -25,9 +25,9 @@ export default function AgtAuditPage() {
 
   const [agentDid, setAgentDid] = useState("");
 
-  const [verifyState, setVerifyState] = useState<
-    null | { valid: boolean; entriesChecked: number; breakAt?: string }
-  >(null);
+  const [verifyState, setVerifyState] = useState<null | { valid: boolean; entriesChecked: number; breakAt?: string }>(
+    null,
+  );
   const [verifyLoading, setVerifyLoading] = useState(false);
 
   useEffect(() => {
@@ -120,9 +120,7 @@ export default function AgtAuditPage() {
         {verifyState && (
           <div className="px-6 pb-4">
             {verifyState.valid ? (
-              <span className="badge badge-success">
-                chain integrity ✓ ({verifyState.entriesChecked} entries)
-              </span>
+              <span className="badge badge-success">chain integrity ✓ ({verifyState.entriesChecked} entries)</span>
             ) : (
               <span className="badge badge-error">
                 chain break at seq {verifyState.breakAt} ({verifyState.entriesChecked} entries)
@@ -138,8 +136,8 @@ export default function AgtAuditPage() {
             <div>Loading…</div>
           ) : entries.length === 0 ? (
             <div className="text-base-content/60">
-              No AGT audit entries yet. Connect an agent via{" "}
-              <code className="text-xs">@clawforgeai/client</code> to start streaming.
+              No AGT audit entries yet. Connect an agent via <code className="text-xs">@clawforgeai/client</code> to
+              start streaming.
             </div>
           ) : (
             <div className="overflow-x-auto">

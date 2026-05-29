@@ -64,10 +64,11 @@ export function listAgtPolicies(token: string) {
 }
 
 export function createAgtPolicy(token: string, body: { name: string; yamlSource: string }) {
-  return agtFetch<{ id: string; name: string; version: number; createdAt: string }>(
-    "/api/v1/policies/agt",
-    { method: "POST", body, token },
-  );
+  return agtFetch<{ id: string; name: string; version: number; createdAt: string }>("/api/v1/policies/agt", {
+    method: "POST",
+    body,
+    token,
+  });
 }
 
 export function getEffectiveAgtYaml(token: string, agentDid: string) {
@@ -127,10 +128,10 @@ export function listAgtAuditEntries(
 }
 
 export function verifyAgtAuditChain(token: string, orgId: string) {
-  return agtFetch<{ valid: boolean; entriesChecked: number; breakAt?: string }>(
-    `/api/v1/audit/${orgId}/verify`,
-    { method: "POST", token },
-  );
+  return agtFetch<{ valid: boolean; entriesChecked: number; breakAt?: string }>(`/api/v1/audit/${orgId}/verify`, {
+    method: "POST",
+    token,
+  });
 }
 
 // ---------- Approvals ----------
