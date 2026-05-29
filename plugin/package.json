@@ -52,8 +52,10 @@
   },
   "dependencies": {
     "@clawforgeai/audit-events": "workspace:*",
+    "@clawforgeai/client": "workspace:*",
     "@clawforgeai/contracts": "workspace:*",
     "@clawforgeai/policy-engine": "workspace:*",
+    "@clawforgeai/policy-schema": "workspace:*",
     "@clawforgeai/tool-governance": "workspace:*"
   },
   "devDependencies": {
