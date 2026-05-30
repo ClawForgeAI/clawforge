@@ -3,6 +3,17 @@
 -- drizzle snapshots lagging behind hand-written migrations no-op cleanly.
 
 -- ---------------------------------------------------------------------------
+-- Drift fix: legacy migrations created `policies_org_id_idx` as UNIQUE,
+-- preventing more than one policy per org. The Drizzle schema declares it
+-- non-unique. Force the index to match the schema.
+-- ---------------------------------------------------------------------------
+
+DROP INDEX IF EXISTS "policies_org_id_idx";
+--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "policies_org_id_idx" ON "policies" USING btree ("org_id");
+--> statement-breakpoint
+
+-- ---------------------------------------------------------------------------
 -- New AGT-canonical tables (addendum §A4)
 -- ---------------------------------------------------------------------------
 

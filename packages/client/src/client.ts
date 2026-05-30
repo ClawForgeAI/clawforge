@@ -21,6 +21,32 @@ interface ResolvedOptions {
   options: ClawforgeConnectOptions;
 }
 
+/**
+ * Decode the orgId claim from a JWT bearer token. The Clawforge server scopes
+ * audit and policy resources by orgId in the URL path; the client extracts
+ * it from the bearer rather than making the customer pass it explicitly.
+ */
+function extractOrgIdFromJwt(token: string): string {
+  const parts = token.split(".");
+  if (parts.length < 2) {
+    throw new Error("Clawforge.connect(): token does not look like a JWT");
+  }
+  let payload: Record<string, unknown>;
+  try {
+    // base64url -> base64 -> JSON
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+    payload = JSON.parse(Buffer.from(padded, "base64").toString("utf8"));
+  } catch (err) {
+    throw new Error(`Clawforge.connect(): failed to decode JWT payload — ${(err as Error).message}`);
+  }
+  const orgId = payload.orgId;
+  if (typeof orgId !== "string" || orgId.length === 0) {
+    throw new Error("Clawforge.connect(): JWT missing required `orgId` claim");
+  }
+  return orgId;
+}
+
 function resolveOptions(input?: ClawforgeConnectOptions): ResolvedOptions {
   const opts = input ?? {};
   const url = opts.url ?? process.env.CLAWFORGE_URL;
@@ -71,6 +97,7 @@ export class Clawforge {
   /** Public entry point — see §A20 for usage. */
   static async connect(input?: ClawforgeConnectOptions): Promise<Clawforge> {
     const { url, token, agentDid, options } = resolveOptions(input);
+    const orgId = extractOrgIdFromJwt(token);
 
     const http = new HttpClient({ baseUrl: url, token, fetchImpl: options.fetch });
     const evaluator = new ClawforgeEvaluator();
@@ -80,7 +107,7 @@ export class Clawforge {
 
     const auditBatcher = new AuditBatcher({
       transport: async (batch) => {
-        await http.post(`/api/v1/audit/${encodeURIComponent(agentDid)}/entries`, batch);
+        await http.post(`/api/v1/audit/${encodeURIComponent(orgId)}/entries`, batch);
       },
       batch: options.auditBatch,
     });

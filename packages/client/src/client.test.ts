@@ -79,7 +79,7 @@ async function connect(opts: { policyYaml?: string; auditSink?: (e: AuditEntry[]
   const killSwitchSource = new InMemoryKillSwitchSource();
   const client = await Clawforge.connect({
     url: "https://test.clawforge.local",
-    token: "tk-test",
+    token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJvcmdJZCI6InRlc3Qtb3JnIiwidXNlcklkIjoidGVzdC11c2VyIn0.sig",
     agentDid: "did:mesh:test-agent",
     fetch: mock.fetchImpl,
     killSwitchSource,
@@ -116,7 +116,8 @@ describe("Clawforge.connect — option resolution", () => {
 
   it("zero-config — falls back to env vars", async () => {
     process.env.CLAWFORGE_URL = "https://env.clawforge.local";
-    process.env.CLAWFORGE_TOKEN = "env-token";
+    process.env.CLAWFORGE_TOKEN =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJvcmdJZCI6InRlc3Qtb3JnIiwidXNlcklkIjoidGVzdC11c2VyIn0.sig";
     process.env.CLAWFORGE_AGENT_DID = "did:mesh:env-agent";
     const { fetchImpl } = makeMockFetch({});
     const c = await Clawforge.connect({
