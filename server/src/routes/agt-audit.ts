@@ -7,11 +7,37 @@
  */
 
 import type { FastifyInstance } from "fastify";
+import { createHash } from "node:crypto";
 import { and, desc, eq, lt } from "drizzle-orm";
 import { z } from "zod";
 import { AuditEntry } from "@clawforgeai/policy-schema";
 import { auditEntries } from "../db/schema.js";
 import { requireAdminOrViewer, requireOrg } from "../middleware/auth.js";
+
+const GENESIS_HASH = "0".repeat(64);
+
+/**
+ * Recompute the hash of an AGT AuditEntry from its content using the exact
+ * recipe AGT's `AuditLogger.log()` uses (agent-governance-typescript/src/
+ * audit.ts). The JSON key order is load-bearing — JS preserves insertion
+ * order and so does AGT, so swap and the hashes stop matching. Keep in sync.
+ */
+function recomputeAuditHash(entry: {
+  timestamp: string;
+  agentId: string;
+  action: string;
+  decision: string;
+  previousHash: string;
+}): string {
+  const payload = JSON.stringify({
+    timestamp: entry.timestamp,
+    agentId: entry.agentId,
+    action: entry.action,
+    decision: entry.decision,
+    previousHash: entry.previousHash,
+  });
+  return createHash("sha256").update(payload).digest("hex");
+}
 
 const PostBodySchema = z.array(AuditEntry);
 
@@ -116,6 +142,16 @@ export async function agtAuditRoutes(app: FastifyInstance): Promise<void> {
 
   // -------------------------------------------------------------------------
   // POST /api/v1/audit/:orgId/verify — full-chain integrity walk
+  //
+  // Two checks per row, in order:
+  //   1. linkage:    row.previousHash must equal the prior row's hash
+  //                  (catches missing / reordered rows)
+  //   2. content:    sha256(canonical payload from row content) must equal
+  //                  row.hash (catches in-place mutation of action, decision,
+  //                  agent_did, or timestamp without a re-hash)
+  //
+  // A chain emitted by `cf.audit()` re-verifies via AGT's `AuditLogger.verify()`
+  // because both sides use the exact same hash recipe.
   // -------------------------------------------------------------------------
   app.post<{ Params: { orgId: string } }>("/api/v1/audit/:orgId/verify", async (request, reply) => {
     const { orgId } = request.params;
@@ -127,6 +163,10 @@ export async function agtAuditRoutes(app: FastifyInstance): Promise<void> {
     const rows = await app.db
       .select({
         chainSeq: auditEntries.chainSeq,
+        timestamp: auditEntries.timestamp,
+        agentDid: auditEntries.agentDid,
+        action: auditEntries.action,
+        decision: auditEntries.decision,
         hash: auditEntries.hash,
         previousHash: auditEntries.previousHash,
       })
@@ -134,14 +174,34 @@ export async function agtAuditRoutes(app: FastifyInstance): Promise<void> {
       .where(eq(auditEntries.orgId, orgId))
       .orderBy(auditEntries.chainSeq);
 
-    let expectedPrev = "0".repeat(64);
+    let expectedPrev = GENESIS_HASH;
     for (const row of rows) {
+      // Linkage check
       if (row.previousHash !== expectedPrev) {
         return reply.send({
           valid: false,
           breakAt: row.chainSeq.toString(),
+          breakKind: "linkage",
           expected: expectedPrev,
           actual: row.previousHash,
+          entriesChecked: rows.length,
+        });
+      }
+      // Content integrity check — recompute from row fields and compare
+      const recomputed = recomputeAuditHash({
+        timestamp: row.timestamp.toISOString(),
+        agentId: row.agentDid,
+        action: row.action,
+        decision: row.decision,
+        previousHash: row.previousHash,
+      });
+      if (recomputed !== row.hash) {
+        return reply.send({
+          valid: false,
+          breakAt: row.chainSeq.toString(),
+          breakKind: "content",
+          expected: recomputed,
+          actual: row.hash,
           entriesChecked: rows.length,
         });
       }
