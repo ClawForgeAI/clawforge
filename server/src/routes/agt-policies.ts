@@ -8,8 +8,12 @@
  * Endpoints:
  *   GET  /api/v1/policies/effective?agentDid=…   -> AGT YAML (text/yaml)
  *   POST /api/v1/policies/evaluate                -> PolicyDecisionResult
- *   POST /api/v1/policies/agt                     -> create/upsert AGT policy
- *   GET  /api/v1/policies/agt                     -> list AGT policies for org
+ *   POST /api/v1/policies                         -> create AGT policy
+ *   GET  /api/v1/policies                         -> list AGT policies for org
+ *
+ * The Cut 1 `/agt` suffix on the last two was dropped in Cut 2a §A21 step 2.4.
+ * The legacy `/api/v1/policies/:orgId` family (routes/policies.ts) keeps
+ * serving the still-present /skills and /kill-switch admin pages until Cut 2b.
  */
 
 import type { FastifyInstance } from "fastify";
@@ -123,9 +127,12 @@ export async function agtPolicyRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // -------------------------------------------------------------------------
-  // POST /api/v1/policies/agt — create/upsert AGT policy
+  // POST /api/v1/policies — create AGT policy (drops the Cut 1 /agt suffix
+  // per Cut 2a §A21 step 2.4). Coexists with the legacy
+  // POST /api/v1/policies/:orgId in routes/policies.ts via Fastify's exact-
+  // vs-param routing; the legacy family retires in Cut 2b.
   // -------------------------------------------------------------------------
-  app.post("/api/v1/policies/agt", async (request, reply) => {
+  app.post("/api/v1/policies", async (request, reply) => {
     requireAdmin(request, reply);
     if (reply.sent) return;
     const orgId = request.authUser?.orgId;
@@ -164,9 +171,9 @@ export async function agtPolicyRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // -------------------------------------------------------------------------
-  // GET /api/v1/policies/agt — list AGT policies for the current org
+  // GET /api/v1/policies — list AGT policies for the current org (Cut 2a)
   // -------------------------------------------------------------------------
-  app.get("/api/v1/policies/agt", async (request, reply) => {
+  app.get("/api/v1/policies", async (request, reply) => {
     const orgId = request.authUser?.orgId;
     if (!orgId) return reply.code(401).send({ error: "unauthorized" });
 

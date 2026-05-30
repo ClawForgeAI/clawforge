@@ -56,16 +56,22 @@ export async function agtAuditRoutes(app: FastifyInstance): Promise<void> {
     }
     if (parsed.data.length === 0) return reply.code(204).send();
 
-    // Server-side chain integrity check: each entry's previousHash must match
-    // the prior entry's hash. Cross-batch chains are verified against the
-    // latest stored hash for this org.
+    // AGT chains are per-agent — each `Clawforge.connect()` builds its own
+    // `AuditLogger` starting at genesis. Validate the batch carries a single
+    // agentDid and look up the last hash for THAT agent within the org.
+    const agentDid = parsed.data[0].agentId;
+    if (parsed.data.some((e) => e.agentId !== agentDid)) {
+      return reply.code(422).send({
+        error: "batch must contain entries from a single agentDid",
+      });
+    }
     const [latest] = await app.db
       .select({ hash: auditEntries.hash })
       .from(auditEntries)
-      .where(eq(auditEntries.orgId, orgId))
+      .where(and(eq(auditEntries.orgId, orgId), eq(auditEntries.agentDid, agentDid)))
       .orderBy(desc(auditEntries.chainSeq))
       .limit(1);
-    let expectedPrev = latest?.hash ?? "0".repeat(64);
+    let expectedPrev = latest?.hash ?? GENESIS_HASH;
     for (let i = 0; i < parsed.data.length; i++) {
       const e = parsed.data[i];
       if (e.previousHash !== expectedPrev) {
@@ -174,20 +180,22 @@ export async function agtAuditRoutes(app: FastifyInstance): Promise<void> {
       .where(eq(auditEntries.orgId, orgId))
       .orderBy(auditEntries.chainSeq);
 
-    let expectedPrev = GENESIS_HASH;
+    // Chains are per-agent — group rows by agentDid and walk each independently.
+    // expectedPrev starts at genesis for every agent's first row.
+    const perAgentExpected = new Map<string, string>();
     for (const row of rows) {
-      // Linkage check
+      const expectedPrev = perAgentExpected.get(row.agentDid) ?? GENESIS_HASH;
       if (row.previousHash !== expectedPrev) {
         return reply.send({
           valid: false,
           breakAt: row.chainSeq.toString(),
           breakKind: "linkage",
+          breakAgentDid: row.agentDid,
           expected: expectedPrev,
           actual: row.previousHash,
           entriesChecked: rows.length,
         });
       }
-      // Content integrity check — recompute from row fields and compare
       const recomputed = recomputeAuditHash({
         timestamp: row.timestamp.toISOString(),
         agentId: row.agentDid,
@@ -200,13 +208,18 @@ export async function agtAuditRoutes(app: FastifyInstance): Promise<void> {
           valid: false,
           breakAt: row.chainSeq.toString(),
           breakKind: "content",
+          breakAgentDid: row.agentDid,
           expected: recomputed,
           actual: row.hash,
           entriesChecked: rows.length,
         });
       }
-      expectedPrev = row.hash;
+      perAgentExpected.set(row.agentDid, row.hash);
     }
-    return reply.send({ valid: true, entriesChecked: rows.length });
+    return reply.send({
+      valid: true,
+      entriesChecked: rows.length,
+      agentsChecked: perAgentExpected.size,
+    });
   });
 }

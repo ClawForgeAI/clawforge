@@ -60,11 +60,11 @@ export interface AgtPolicySummary {
 }
 
 export function listAgtPolicies(token: string) {
-  return agtFetch<{ policies: AgtPolicySummary[] }>("/api/v1/policies/agt", { token });
+  return agtFetch<{ policies: AgtPolicySummary[] }>("/api/v1/policies", { token });
 }
 
 export function createAgtPolicy(token: string, body: { name: string; yamlSource: string }) {
-  return agtFetch<{ id: string; name: string; version: number; createdAt: string }>("/api/v1/policies/agt", {
+  return agtFetch<{ id: string; name: string; version: number; createdAt: string }>("/api/v1/policies", {
     method: "POST",
     body,
     token,
