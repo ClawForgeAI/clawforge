@@ -35,8 +35,8 @@ services:
 
   server:
     build:
-      context: server
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: server/Dockerfile
     depends_on:
       postgres:
         condition: service_healthy
@@ -61,7 +61,7 @@ services:
         node dist/index.js
       "
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4100/health/ready"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:4100/health/ready"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -70,8 +70,8 @@ services:
 
   seed:
     build:
-      context: server
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: server/Dockerfile
     profiles: ["tools"]
     depends_on:
       postgres:
@@ -99,7 +99,7 @@ services:
     ports:
       - "${ADMIN_PORT:-4200}:4200"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4200/api/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:4200/api/health"]
       interval: 10s
       timeout: 5s
       retries: 3

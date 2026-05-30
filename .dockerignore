@@ -1,0 +1,14 @@
+# Keep build context small for `context: .` builds.
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/coverage
+.git
+.github
+docs
+clawforge-hq
+*.log
+.env
+.env.*
+!.env.example
