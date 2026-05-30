@@ -94,7 +94,13 @@ services:
       server:
         condition: service_healthy
     environment:
-      NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-http://server:4100}"
+      # MUST be browser-reachable — admin/src/lib/api.ts reads this at runtime
+      # via runtime-config.js (loaded by the browser). `http://server:4100`
+      # only resolves inside the Docker network; the host browser would get
+      # ERR_NAME_NOT_RESOLVED. Default to `http://localhost:4100` to match
+      # the build-time arg. Override via `NEXT_PUBLIC_API_URL` env var when
+      # deploying behind a real hostname.
+      NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-http://localhost:4100}"
       PORT: "4200"
     ports:
       - "${ADMIN_PORT:-4200}:4200"
