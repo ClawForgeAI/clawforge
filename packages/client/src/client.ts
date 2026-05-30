@@ -2,6 +2,7 @@ import { AuditLogger, KillSwitch, type PolicyEngine, TrustManager } from "@micro
 import { type AuditEntry, type PolicyDecisionResult, parsePolicyYamlOrThrow } from "@clawforgeai/policy-schema";
 import { ClawforgeEvaluator } from "@clawforgeai/policy-engine";
 import { AuditBatcher } from "./audit-batcher.js";
+import { AuditSpool } from "./audit-spool.js";
 import { ClawforgeDenied, ClawforgeNotConnected } from "./errors.js";
 import { HttpClient } from "./http.js";
 import { InMemoryKillSwitchSource, PollingKillSwitchSource } from "./kill-switch-transport.js";
@@ -105,11 +106,21 @@ export class Clawforge {
     const killSwitch = new KillSwitch({ enabled: true });
     const trust = new TrustManager();
 
+    const spool = options.offlineBuffer
+      ? new AuditSpool({
+          agentDid,
+          path: options.offlineBuffer.path,
+          maxBytes: options.offlineBuffer.maxBytes,
+          logger: { warn: (msg) => console.warn(msg) },
+        })
+      : undefined;
+
     const auditBatcher = new AuditBatcher({
       transport: async (batch) => {
         await http.post(`/api/v1/audit/${encodeURIComponent(orgId)}/entries`, batch);
       },
       batch: options.auditBatch,
+      spool,
     });
 
     const killSwitchSource: KillSwitchSource = options.killSwitchSource ?? new PollingKillSwitchSource(http, agentDid);
