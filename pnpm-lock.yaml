@@ -91,6 +91,12 @@ importers:
         specifier: ^4.1.5
         version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@25.6.0)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.2(@types/node@25.6.0)(typescript@6.0.3))(vite@7.3.1(@types/node@25.6.0)(jiti@1.21.7)(tsx@4.21.0)(yaml@2.8.2))
 
+  examples/clawforge-governed:
+    dependencies:
+      '@clawforgeai/client':
+        specifier: workspace:*
+        version: link:../../packages/client
+
   packages/agent-sdk:
     dependencies:
       '@clawforgeai/audit-events':

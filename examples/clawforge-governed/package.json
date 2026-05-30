@@ -1,0 +1,14 @@
+{
+  "name": "@clawforgeai/example-clawforge-governed",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Example agent governed by ClawForge — wires @clawforgeai/client + @microsoft/agent-governance-sdk into a tiny tool runner and asserts that policies authored in the admin actually enforce.",
+  "type": "module",
+  "scripts": {
+    "demo:60s": "node govern-in-60-seconds.mjs",
+    "demo:live": "node live-demo.mjs"
+  },
+  "dependencies": {
+    "@clawforgeai/client": "workspace:*"
+  }
+}
