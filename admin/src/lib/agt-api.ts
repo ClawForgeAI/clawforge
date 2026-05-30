@@ -96,6 +96,18 @@ export function evaluateAgtPolicy(
   return agtFetch<AgtEvaluateResult>("/api/v1/policies/evaluate", { method: "POST", body, token });
 }
 
+// ---------- Dashboard ----------
+
+export interface AgtDashboardStats {
+  allowedCount: number;
+  deniedCount: number;
+  pendingApprovals: number;
+}
+
+export function getDashboardStats(token: string) {
+  return agtFetch<AgtDashboardStats>("/api/v1/dashboard/stats", { token });
+}
+
 // ---------- Audit ----------
 
 export interface AgtAuditEntry {

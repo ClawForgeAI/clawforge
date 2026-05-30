@@ -8,15 +8,14 @@ import { Card, CardTitle, StatCard } from "@/components/card";
 import { Badge } from "@/components/badge";
 import { StatSkeleton, TableSkeleton } from "@/components/skeleton";
 import { getAuth } from "@/lib/auth";
-import { getPolicy, queryAudit, getPendingSkills, getUsers, getConnectedClients } from "@/lib/api";
-import type { EffectivePolicy, AuditEvent } from "@/lib/api";
+import { getUsers, getConnectedClients } from "@/lib/api";
+import { getDashboardStats, listAgtAuditEntries, type AgtAuditEntry } from "@/lib/agt-api";
 
 const POLL_INTERVAL_MS = 30_000;
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [policy, setPolicy] = useState<EffectivePolicy | null>(null);
-  const [recentEvents, setRecentEvents] = useState<AuditEvent[]>([]);
+  const [recentEntries, setRecentEntries] = useState<AgtAuditEntry[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [userCount, setUserCount] = useState(0);
   const [toolCallsAllowed, setToolCallsAllowed] = useState(0);
@@ -44,22 +43,22 @@ export default function DashboardPage() {
     if (!auth) return;
     const { orgId, accessToken } = auth;
 
-    const [policyData, auditData, skillsData, usersData, clientsData] = await Promise.allSettled([
-      getPolicy(orgId, accessToken),
-      queryAudit(orgId, accessToken, { limit: "20" }),
-      getPendingSkills(orgId, accessToken),
+    // AGT-only sources (per Cut 2a §A21 — hard cut from legacy tables).
+    // Active Users / Clients Online keep their legacy queries because no AGT
+    // equivalent exists yet (Cut 2b adds identity tracking via `identities`).
+    const [statsData, recentData, usersData, clientsData] = await Promise.allSettled([
+      getDashboardStats(accessToken),
+      listAgtAuditEntries(accessToken, orgId, { limit: 20 }),
       getUsers(orgId, accessToken),
       getConnectedClients(orgId, accessToken),
     ]);
 
-    if (policyData.status === "fulfilled") setPolicy(policyData.value);
-    if (auditData.status === "fulfilled") {
-      const events = auditData.value.events;
-      setRecentEvents(events);
-      setToolCallsAllowed(events.filter((e) => e.outcome === "allowed").length);
-      setToolCallsBlocked(events.filter((e) => e.outcome === "blocked").length);
+    if (statsData.status === "fulfilled") {
+      setToolCallsAllowed(statsData.value.allowedCount);
+      setToolCallsBlocked(statsData.value.deniedCount);
+      setPendingCount(statsData.value.pendingApprovals);
     }
-    if (skillsData.status === "fulfilled") setPendingCount(skillsData.value.submissions.length);
+    if (recentData.status === "fulfilled") setRecentEntries(recentData.value.entries);
     if (usersData.status === "fulfilled") setUserCount(usersData.value.users.length);
     if (clientsData.status === "fulfilled") setOnlineClients(clientsData.value.summary.online);
 
@@ -123,31 +122,10 @@ export default function DashboardPage() {
           </div>
         ) : (
           <>
-            {/* Kill switch banner */}
-            {policy?.killSwitch.active && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="alert alert-error mb-6 shadow-md"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6 shrink-0"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M18.36 6.64a9 9 0 1 1-12.73 0M12 2v10" />
-                </svg>
-                <div>
-                  <h3 className="font-bold">Kill Switch Active</h3>
-                  <p className="text-sm opacity-80">
-                    {policy.killSwitch.message ?? "All agent tool calls are currently blocked."}
-                  </p>
-                </div>
-              </motion.div>
-            )}
+            {/* Kill switch banner — moves to /kill-switch panel in Cut 2b
+                (the new `kill_switch_scopes` table is org-wide rather than
+                embedded in the policy row, so the banner needs a different
+                data source than the legacy `policy.killSwitch.active`). */}
 
             {/* Stats row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
@@ -158,7 +136,7 @@ export default function DashboardPage() {
               <StatCard label="Pending Reviews" value={pendingCount} variant="warning" icon={<ClockSmIcon />} />
             </div>
 
-            {/* Recent audit events */}
+            {/* Recent audit entries (AGT chain) */}
             <Card>
               <div className="flex items-center justify-between mb-1">
                 <CardTitle className="mb-0">Recent Activity</CardTitle>
@@ -166,9 +144,10 @@ export default function DashboardPage() {
                   View all
                 </button>
               </div>
-              {recentEvents.length === 0 ? (
+              {recentEntries.length === 0 ? (
                 <div className="text-center py-10 text-base-content/40">
-                  <p className="text-sm">No recent events</p>
+                  <p className="text-sm">No recent activity</p>
+                  <p className="text-xs mt-1">Agent runs land here via the AGT audit pipeline.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto -mx-5">
@@ -176,29 +155,41 @@ export default function DashboardPage() {
                     <thead>
                       <tr className="text-base-content/40 text-xs uppercase">
                         <th>Time</th>
-                        <th>User</th>
-                        <th>Event</th>
-                        <th>Tool</th>
-                        <th>Outcome</th>
+                        <th>Agent</th>
+                        <th>Action</th>
+                        <th>Rule</th>
+                        <th>Decision</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {recentEvents.slice(0, 10).map((event, i) => (
+                      {recentEntries.slice(0, 10).map((entry, i) => (
                         <motion.tr
-                          key={event.id}
+                          key={entry.chainSeq}
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           transition={{ delay: i * 0.03 }}
                           className="table-row-hover"
                         >
                           <td className="text-base-content/50 whitespace-nowrap text-xs">
-                            {new Date(event.timestamp).toLocaleTimeString()}
+                            {new Date(entry.timestamp).toLocaleTimeString()}
                           </td>
-                          <td className="font-mono text-xs">{event.userId.slice(0, 8)}...</td>
-                          <td className="text-sm">{event.eventType}</td>
-                          <td className="font-mono text-xs text-base-content/50">{event.toolName ?? "-"}</td>
+                          <td className="font-mono text-xs" title={entry.agentId}>
+                            {entry.agentId.length > 24 ? entry.agentId.slice(0, 24) + "…" : entry.agentId}
+                          </td>
+                          <td className="text-sm">{entry.action}</td>
+                          <td className="font-mono text-xs text-base-content/50">{entry.matchedRule ?? "-"}</td>
                           <td>
-                            <Badge variant={event.outcome === "allowed" ? "success" : "danger"}>{event.outcome}</Badge>
+                            <Badge
+                              variant={
+                                entry.decision === "allow"
+                                  ? "success"
+                                  : entry.decision === "deny"
+                                    ? "danger"
+                                    : "warning"
+                              }
+                            >
+                              {entry.decision}
+                            </Badge>
                           </td>
                         </motion.tr>
                       ))}

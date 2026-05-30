@@ -27,6 +27,7 @@ import { alertRoutes } from "./routes/alerts.js";
 import { webhookRoutes } from "./routes/webhooks.js";
 import { agtPolicyRoutes } from "./routes/agt-policies.js";
 import { agtAuditRoutes } from "./routes/agt-audit.js";
+import { dashboardRoutes } from "./routes/dashboard.js";
 import { agtIdentityRoutes } from "./routes/agt-identities.js";
 import { agtApprovalRoutes } from "./routes/agt-approvals.js";
 import { agtKillSwitchRoutes } from "./routes/agt-kill-switch.js";
@@ -374,6 +375,7 @@ export async function createServer(config: ServerConfig) {
   await app.register(agtIdentityRoutes);
   await app.register(agtApprovalRoutes);
   await app.register(agtKillSwitchRoutes);
+  await app.register(dashboardRoutes);
 
   // Start audit retention cleanup job (#39)
   if (config.auditRetentionDays && config.auditRetentionDays > 0) {
