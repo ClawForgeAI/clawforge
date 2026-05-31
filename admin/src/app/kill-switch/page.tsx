@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sidebar } from "@/components/sidebar";
@@ -8,18 +8,28 @@ import { Card, CardTitle } from "@/components/card";
 import { CardSkeleton } from "@/components/skeleton";
 import { useToast } from "@/components/toast";
 import { getAuth } from "@/lib/auth";
-import { getPolicy, setKillSwitch, getUsers } from "@/lib/api";
+import {
+  activateAgtKillSwitch,
+  deactivateAgtKillSwitch,
+  getUsers,
+  listAgtKillSwitches,
+  type AgtKillSwitchScope,
+} from "@/lib/api";
+import { subscribeOrgEvents } from "@/lib/sse";
 
 export default function KillSwitchPage() {
   const router = useRouter();
   const toast = useToast();
-  const [active, setActive] = useState(false);
+  const [activeScope, setActiveScope] = useState<AgtKillSwitchScope | undefined>(undefined);
   const [message, setMessage] = useState("");
   const [userCount, setUserCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingAction, setPendingAction] = useState<boolean>(false);
+  const unsubRef = useRef<(() => void) | undefined>(undefined);
+
+  const active = activeScope !== undefined;
 
   useEffect(() => {
     const auth = getAuth();
@@ -28,15 +38,19 @@ export default function KillSwitchPage() {
       return;
     }
 
-    async function load() {
-      const auth = getAuth()!;
-      const [policyRes, usersRes] = await Promise.allSettled([
-        getPolicy(auth.orgId, auth.accessToken),
+    async function refresh() {
+      const auth = getAuth();
+      if (!auth) return;
+      const [scopesRes, usersRes] = await Promise.allSettled([
+        listAgtKillSwitches(auth.accessToken),
         getUsers(auth.orgId, auth.accessToken),
       ]);
-      if (policyRes.status === "fulfilled") {
-        setActive(policyRes.value.killSwitch.active);
-        setMessage(policyRes.value.killSwitch.message ?? "");
+      if (scopesRes.status === "fulfilled") {
+        // Cut 2b only surfaces the most recently activated org-wide scope.
+        // Cut 3 layers per-agent/role scopes into the panel.
+        const orgScope = scopesRes.value.scopes.find((s) => s.scope.kind === "org") ?? scopesRes.value.scopes[0];
+        setActiveScope(orgScope);
+        if (orgScope?.message) setMessage(orgScope.message);
       }
       if (usersRes.status === "fulfilled") {
         setUserCount(usersRes.value.users.length);
@@ -44,7 +58,19 @@ export default function KillSwitchPage() {
       setLoading(false);
     }
 
-    load();
+    refresh();
+
+    // Live updates via the shared SSE bus — another admin toggling the
+    // kill switch in a different tab is reflected here without a poll.
+    unsubRef.current = subscribeOrgEvents(auth.orgId, auth.accessToken, (event) => {
+      if (event.event === "kill_switch") {
+        refresh();
+      }
+    });
+
+    return () => {
+      unsubRef.current?.();
+    };
   }, [router]);
 
   function requestToggle(newState: boolean) {
@@ -60,13 +86,18 @@ export default function KillSwitchPage() {
     setToggling(true);
 
     try {
-      await setKillSwitch(auth.orgId, auth.accessToken, pendingAction, message || undefined);
-      setActive(pendingAction);
-      toast.success(
-        pendingAction
-          ? "Kill switch activated. All agent tool calls are now blocked."
-          : "Kill switch deactivated. Normal operations resumed.",
-      );
+      if (pendingAction) {
+        const inserted = await activateAgtKillSwitch(auth.accessToken, {
+          scope: { kind: "org" },
+          message: message || undefined,
+        });
+        setActiveScope(inserted);
+        toast.success("Kill switch activated. All agent tool calls are now blocked.");
+      } else if (activeScope) {
+        await deactivateAgtKillSwitch(auth.accessToken, activeScope.id);
+        setActiveScope(undefined);
+        toast.success("Kill switch deactivated. Normal operations resumed.");
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update kill switch");
     } finally {

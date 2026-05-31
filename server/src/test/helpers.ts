@@ -161,9 +161,13 @@ export function createMockDb(): MockDb {
 /**
  * Build a Fastify app wired for testing.
  *
- * Accepts a mock DB so callers can control database responses.
+ * Accepts a mock DB so callers can control database responses, and an
+ * optional list of extra route plugins to register before `app.ready()`.
  */
-export async function createTestApp(mockDb?: MockDb): Promise<FastifyInstance> {
+export async function createTestApp(
+  mockDb?: MockDb,
+  extraPlugins: ((app: FastifyInstance) => Promise<void>)[] = [],
+): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
 
   await app.register(cors, { origin: true });
@@ -215,6 +219,11 @@ export async function createTestApp(mockDb?: MockDb): Promise<FastifyInstance> {
   await app.register(policyRoutes);
   await app.register(auditRoutes);
   await app.register(heartbeatRoutes);
+
+  // Extra route plugins supplied by the caller (e.g. AGT-only test suites).
+  for (const plugin of extraPlugins) {
+    await app.register(plugin);
+  }
 
   await app.ready();
   return app;
