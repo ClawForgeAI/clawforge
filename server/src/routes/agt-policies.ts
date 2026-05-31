@@ -23,6 +23,7 @@ import { ClawforgeEvaluator } from "@clawforgeai/policy-engine";
 import { z } from "zod";
 import { policies } from "../db/schema.js";
 import { requireAdmin } from "../middleware/auth.js";
+import { eventBus } from "../services/event-bus.js";
 
 const EvaluateBodySchema = z.object({
   agentDid: z.string().min(1),
@@ -166,6 +167,15 @@ export async function agtPolicyRoutes(app: FastifyInstance): Promise<void> {
         version: policies.version,
         createdAt: policies.createdAt,
       });
+
+    // Fan out a policy_changed event on the SSE bus. Subscribed agents react
+    // by re-fetching /api/v1/policies/effective; admin pages can refresh.
+    eventBus.broadcast(orgId, "policy_changed", {
+      policyId: inserted.id,
+      policyName: inserted.name,
+      version: inserted.version,
+      schemaVersion: yamlResult.policy.version,
+    });
 
     return reply.code(201).send(inserted);
   });
