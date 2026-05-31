@@ -2,6 +2,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuditEntry } from "@clawforgeai/policy-schema";
 import { Clawforge, ClawforgeDenied, ClawforgeNotConnected, InMemoryKillSwitchSource } from "./index.js";
 
+const TEST_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJvcmdJZCI6InRlc3Qtb3JnIiwidXNlcklkIjoidGVzdC11c2VyIn0.sig";
+
+async function until(predicate: () => boolean, timeoutMs = 1000): Promise<void> {
+  const start = Date.now();
+  while (!predicate()) {
+    if (Date.now() - start > timeoutMs) throw new Error("until() timed out");
+    await new Promise<void>((r) => setImmediate(r));
+  }
+}
+
 const SAMPLE_POLICY_YAML = `
 version: "1.0"
 name: test-policy
@@ -279,6 +289,258 @@ describe("escape hatch — cf.agt.*", () => {
     expect(client.agt.killSwitch).toBeDefined();
     expect(client.agt.trust).toBeDefined();
     await client.disconnect();
+  });
+});
+
+/**
+ * Build a mock fetch that serves the SSE stream from a controllable
+ * ReadableStream. The test pushes chunks via `controller` and decides when
+ * to close the stream. Other endpoints (policies/effective, audit POST,
+ * kill-switch poll) still respond normally so connect() doesn't 404.
+ */
+function makeFetchWithSse(opts: {
+  policyYaml?: string;
+  policyYamlSecond?: string;
+  sseStatus?: number;
+  auditSink?: (entries: AuditEntry[]) => void;
+}) {
+  const calls: { url: string; method: string }[] = [];
+  let streamController: ReadableStreamDefaultController<Uint8Array> | undefined;
+  let policyFetchCount = 0;
+  const encoder = new TextEncoder();
+
+  const fetchImpl = (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+    const urlStr =
+      typeof input === "string" ? input : input instanceof URL ? input.href : (input as { url: string }).url;
+    const parsed = new URL(urlStr);
+    const method = init?.method ?? "GET";
+    calls.push({ url: parsed.pathname + parsed.search, method });
+
+    if (method === "GET" && parsed.pathname === "/api/v1/policies/effective") {
+      policyFetchCount += 1;
+      const yaml =
+        policyFetchCount === 1
+          ? (opts.policyYaml ?? SAMPLE_POLICY_YAML)
+          : (opts.policyYamlSecond ?? opts.policyYaml ?? SAMPLE_POLICY_YAML);
+      return new Response(yaml, { headers: { "content-type": "text/yaml" } });
+    }
+    if (method === "POST" && parsed.pathname.startsWith("/api/v1/audit/")) {
+      let body: unknown;
+      if (typeof init?.body === "string") {
+        try {
+          body = JSON.parse(init.body);
+        } catch {
+          body = init.body;
+        }
+      }
+      opts.auditSink?.(body as AuditEntry[]);
+      return new Response(null, { status: 204 });
+    }
+    if (method === "GET" && parsed.pathname.startsWith("/api/v1/kill-switch/")) {
+      return new Response(JSON.stringify({ active: false, scope: "agent", reason: "", updatedAt: "" }), {
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (method === "GET" && /^\/api\/v1\/events\/.+\/stream$/.test(parsed.pathname)) {
+      if (opts.sseStatus && opts.sseStatus !== 200) {
+        return new Response("nope", { status: opts.sseStatus });
+      }
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          streamController = controller;
+        },
+      });
+      return new Response(stream, { status: 200, headers: { "content-type": "text/event-stream" } });
+    }
+    return new Response("Not Found", { status: 404 });
+  }) as typeof fetch;
+
+  return {
+    fetchImpl,
+    calls,
+    pushSseChunk: (chunk: string) => {
+      if (!streamController) throw new Error("SSE stream not yet opened");
+      streamController.enqueue(encoder.encode(chunk));
+    },
+    closeSseStream: () => streamController?.close(),
+    getPolicyFetchCount: () => policyFetchCount,
+  };
+}
+
+describe("Clawforge.connect — SSE transport (Cut 2b)", () => {
+  it("uses SSE by default and dispatches kill_switch events to onKillSwitch handlers", async () => {
+    const mock = makeFetchWithSse({});
+    const client = await Clawforge.connect({
+      url: "https://test.clawforge.local",
+      token: TEST_TOKEN,
+      agentDid: "did:mesh:test-agent",
+      fetch: mock.fetchImpl,
+    });
+    const handler = vi.fn();
+    client.onKillSwitch(handler);
+
+    mock.pushSseChunk('event: kill_switch\ndata: {"active":true,"scope":"org","reason":"incident"}\n\n');
+    await until(() => handler.mock.calls.length === 1);
+
+    expect(handler.mock.calls[0][0]).toMatchObject({ active: true, scope: "org", reason: "incident" });
+    await client.disconnect();
+  });
+
+  it("falls back to polling when SSE returns non-2xx in auto mode", async () => {
+    const mock = makeFetchWithSse({ sseStatus: 503 });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const client = await Clawforge.connect({
+      url: "https://test.clawforge.local",
+      token: TEST_TOKEN,
+      agentDid: "did:mesh:test-agent",
+      fetch: mock.fetchImpl,
+    });
+    // No throw — fell back. The polling source hits /api/v1/kill-switch/{did}
+    // on its first tick (within the connect window we don't assert ticks).
+    expect(warn).toHaveBeenCalled();
+    await client.disconnect();
+    warn.mockRestore();
+  });
+
+  it('throws in "sse" transport mode when the stream is unreachable', async () => {
+    const mock = makeFetchWithSse({ sseStatus: 503 });
+    await expect(
+      Clawforge.connect({
+        url: "https://test.clawforge.local",
+        token: TEST_TOKEN,
+        agentDid: "did:mesh:test-agent",
+        fetch: mock.fetchImpl,
+        transport: "sse",
+      }),
+    ).rejects.toThrow(/SSE stream unavailable/);
+  });
+
+  it('"polling" transport mode skips the SSE stream entirely', async () => {
+    const mock = makeFetchWithSse({});
+    const client = await Clawforge.connect({
+      url: "https://test.clawforge.local",
+      token: TEST_TOKEN,
+      agentDid: "did:mesh:test-agent",
+      fetch: mock.fetchImpl,
+      transport: "polling",
+    });
+    const sseCalls = mock.calls.filter((c) => c.url.includes("/events/") && c.url.endsWith("/stream"));
+    expect(sseCalls).toHaveLength(0);
+    await client.disconnect();
+  });
+
+  it("re-fetches the effective policy on policy_changed and reloads the engine", async () => {
+    const SECOND_POLICY = `
+version: "1.0"
+name: updated-policy
+rules:
+  - name: allow_everything
+    condition:
+      field: tool_name
+      operator: ne
+      value: nothing
+    action: allow
+    priority: 10
+defaults:
+  action: allow
+  max_tokens: 4096
+  max_tool_calls: 10
+  confidence_threshold: 0.8
+`;
+    const mock = makeFetchWithSse({ policyYamlSecond: SECOND_POLICY });
+    const client = await Clawforge.connect({
+      url: "https://test.clawforge.local",
+      token: TEST_TOKEN,
+      agentDid: "did:mesh:test-agent",
+      fetch: mock.fetchImpl,
+    });
+
+    expect(client.agt.policyEngine.listPolicies()).toContain("test-policy");
+    expect(client.agt.policyEngine.listPolicies()).not.toContain("updated-policy");
+
+    const handler = vi.fn();
+    client.onPolicyChanged(handler);
+
+    mock.pushSseChunk('event: policy_changed\ndata: {"policyId":"p2","policyName":"updated-policy","version":2}\n\n');
+    await until(() => handler.mock.calls.length === 1);
+
+    expect(mock.getPolicyFetchCount()).toBe(2);
+    expect(client.agt.policyEngine.listPolicies()).toContain("updated-policy");
+    expect(handler.mock.calls[0][0]).toMatchObject({
+      policyId: "p2",
+      policyName: "updated-policy",
+      version: 2,
+    });
+    await client.disconnect();
+  });
+
+  it("unsubscribe stops further onPolicyChanged invocations", async () => {
+    const mock = makeFetchWithSse({});
+    const client = await Clawforge.connect({
+      url: "https://test.clawforge.local",
+      token: TEST_TOKEN,
+      agentDid: "did:mesh:test-agent",
+      fetch: mock.fetchImpl,
+    });
+    const handler = vi.fn();
+    const unsub = client.onPolicyChanged(handler);
+
+    mock.pushSseChunk("event: policy_changed\ndata: {}\n\n");
+    await until(() => handler.mock.calls.length === 1);
+    unsub();
+    mock.pushSseChunk("event: policy_changed\ndata: {}\n\n");
+    // Give the second event a chance to be processed without firing the handler.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(handler).toHaveBeenCalledTimes(1);
+    await client.disconnect();
+  });
+
+  it("ignores keepalive comments and unknown event types", async () => {
+    const mock = makeFetchWithSse({});
+    const client = await Clawforge.connect({
+      url: "https://test.clawforge.local",
+      token: TEST_TOKEN,
+      agentDid: "did:mesh:test-agent",
+      fetch: mock.fetchImpl,
+    });
+    const killHandler = vi.fn();
+    const policyHandler = vi.fn();
+    client.onKillSwitch(killHandler);
+    client.onPolicyChanged(policyHandler);
+
+    mock.pushSseChunk(":keepalive\n\n");
+    mock.pushSseChunk('event: connected\ndata: {"orgId":"test-org"}\n\n');
+    mock.pushSseChunk("event: unknown_thing\ndata: {}\n\n");
+    // Give the parser room to dispatch.
+    await new Promise((r) => setTimeout(r, 30));
+
+    expect(killHandler).not.toHaveBeenCalled();
+    expect(policyHandler).not.toHaveBeenCalled();
+    await client.disconnect();
+  });
+
+  it("disconnect() closes the SSE stream", async () => {
+    const mock = makeFetchWithSse({});
+    const client = await Clawforge.connect({
+      url: "https://test.clawforge.local",
+      token: TEST_TOKEN,
+      agentDid: "did:mesh:test-agent",
+      fetch: mock.fetchImpl,
+    });
+    const handler = vi.fn();
+    client.onKillSwitch(handler);
+    await client.disconnect();
+
+    // Pushing AFTER disconnect should not fan out — the abort controller
+    // disconnected the reader. We allow the push (controller still alive
+    // in the mock), but the client's reader should have torn down.
+    try {
+      mock.pushSseChunk('event: kill_switch\ndata: {"active":true}\n\n');
+    } catch {
+      /* mock may already have closed */
+    }
+    await new Promise((r) => setTimeout(r, 30));
+    expect(handler).not.toHaveBeenCalled();
   });
 });
 

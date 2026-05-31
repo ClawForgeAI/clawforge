@@ -37,10 +37,18 @@ export interface ClawforgeConnectOptions {
   /** Cancels the connect-time setup. */
   signal?: AbortSignal;
   /**
-   * Override the kill-switch event source (test injection). When omitted the
-   * client uses its default SSE/polling transport (see kill-switch-transport.ts).
+   * Override the kill-switch event source (test injection). When provided,
+   * this short-circuits the SSE/polling transport selection.
    */
   killSwitchSource?: KillSwitchSource;
+  /**
+   * Real-time transport for kill-switch + policy-changed events:
+   *   - "auto"    (default): try SSE; fall back to polling on failure
+   *   - "sse"     : require SSE; throw if the stream can't be opened
+   *   - "polling" : skip SSE entirely; use the polling kill-switch source
+   *                 (no policy_changed pushes — the client won't auto-reload)
+   */
+  transport?: "auto" | "sse" | "polling";
 }
 
 /**
@@ -60,6 +68,21 @@ export interface KillSwitchEvent {
 }
 
 export type KillSwitchEventHandler = (event: KillSwitchEvent) => void | Promise<void>;
+
+/**
+ * Fired when the server broadcasts a `policy_changed` SSE event. The client
+ * has already re-fetched and reloaded the effective policy by the time the
+ * handler runs.
+ */
+export interface PolicyChangedEvent {
+  policyId?: string;
+  policyName?: string;
+  version?: number;
+  schemaVersion?: string;
+  receivedAt: string;
+}
+
+export type PolicyChangedHandler = (event: PolicyChangedEvent) => void | Promise<void>;
 
 export type AuditDraft = Omit<AuditEntry, "timestamp" | "hash" | "previousHash">;
 

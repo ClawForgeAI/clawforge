@@ -6,12 +6,15 @@ import { AuditSpool } from "./audit-spool.js";
 import { ClawforgeDenied, ClawforgeNotConnected } from "./errors.js";
 import { HttpClient } from "./http.js";
 import { InMemoryKillSwitchSource, PollingKillSwitchSource } from "./kill-switch-transport.js";
+import { SseEventSource } from "./sse-event-source.js";
 import type {
   AuditDraft,
   ClawforgeConnectOptions,
   KillSwitchEvent,
   KillSwitchEventHandler,
   KillSwitchSource,
+  PolicyChangedEvent,
+  PolicyChangedHandler,
   Unsubscribe,
 } from "./types.js";
 
@@ -39,7 +42,9 @@ function extractOrgIdFromJwt(token: string): string {
     const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
     payload = JSON.parse(Buffer.from(padded, "base64").toString("utf8"));
   } catch (err) {
-    throw new Error(`Clawforge.connect(): failed to decode JWT payload — ${(err as Error).message}`);
+    throw new Error(`Clawforge.connect(): failed to decode JWT payload — ${(err as Error).message}`, {
+      cause: err,
+    });
   }
   const orgId = payload.orgId;
   if (typeof orgId !== "string" || orgId.length === 0) {
@@ -71,8 +76,10 @@ export class Clawforge {
   private readonly trust: TrustManager;
   private readonly auditBatcher: AuditBatcher;
   private readonly killSwitchSource: KillSwitchSource;
+  private readonly sseSource?: SseEventSource;
   private readonly agentDidValue: string;
   private readonly killSwitchHandlers = new Set<KillSwitchEventHandler>();
+  private readonly policyChangedHandlers = new Set<PolicyChangedHandler>();
   private disconnected = false;
 
   private constructor(args: {
@@ -83,6 +90,7 @@ export class Clawforge {
     trust: TrustManager;
     auditBatcher: AuditBatcher;
     killSwitchSource: KillSwitchSource;
+    sseSource?: SseEventSource;
     agentDid: string;
   }) {
     this.http = args.http;
@@ -92,6 +100,7 @@ export class Clawforge {
     this.trust = args.trust;
     this.auditBatcher = args.auditBatcher;
     this.killSwitchSource = args.killSwitchSource;
+    this.sseSource = args.sseSource;
     this.agentDidValue = args.agentDid;
   }
 
@@ -123,7 +132,38 @@ export class Clawforge {
       spool,
     });
 
-    const killSwitchSource: KillSwitchSource = options.killSwitchSource ?? new PollingKillSwitchSource(http, agentDid);
+    // ---- Transport selection (Cut 2b step 2.8) -----------------------------
+    // Priority:
+    //   1. Explicit `killSwitchSource` injection (tests, custom transports)
+    //   2. SSE — preferred when reachable; carries kill_switch + policy_changed
+    //   3. Polling fallback — kill_switch only, no policy_changed pushes
+    const transport = options.transport ?? "auto";
+    let killSwitchSource: KillSwitchSource;
+    let sseSource: SseEventSource | undefined;
+
+    if (options.killSwitchSource) {
+      killSwitchSource = options.killSwitchSource;
+    } else if (transport === "polling") {
+      killSwitchSource = new PollingKillSwitchSource(http, agentDid);
+    } else {
+      // "auto" or "sse"
+      try {
+        sseSource = await openSseStream({
+          baseUrl: url,
+          token,
+          orgId,
+          fetchImpl: options.fetch,
+          signal: options.signal,
+        });
+        killSwitchSource = new SseDispatchSource();
+      } catch (err) {
+        if (transport === "sse") {
+          throw new Error(`Clawforge.connect: SSE stream unavailable: ${(err as Error).message}`, { cause: err });
+        }
+        console.warn(`Clawforge.connect: SSE stream unreachable (${(err as Error).message}); falling back to polling`);
+        killSwitchSource = new PollingKillSwitchSource(http, agentDid);
+      }
+    }
 
     const client = new Clawforge({
       http,
@@ -133,8 +173,11 @@ export class Clawforge {
       trust,
       auditBatcher,
       killSwitchSource,
+      sseSource,
       agentDid,
     });
+
+    if (sseSource) client.wireSseDispatch(sseSource, killSwitchSource as SseDispatchSource);
 
     await client.loadEffectivePolicy(options.signal);
     client.startKillSwitchSource();
@@ -169,6 +212,22 @@ export class Clawforge {
     this.killSwitchHandlers.add(handler);
     return () => {
       this.killSwitchHandlers.delete(handler);
+    };
+  }
+
+  /**
+   * Subscribe to `policy_changed` events. The client re-fetches the effective
+   * policy and reloads it into the engine BEFORE invoking handlers, so by the
+   * time your handler runs `evaluate()` is already using the new rules.
+   *
+   * Only fires when the SSE transport is in use. Polling clients won't receive
+   * policy_changed events — they pick up the new policy on the next safety-net
+   * pull (Cut 3) or on reconnect.
+   */
+  onPolicyChanged(handler: PolicyChangedHandler): Unsubscribe {
+    this.policyChangedHandlers.add(handler);
+    return () => {
+      this.policyChangedHandlers.delete(handler);
     };
   }
 
@@ -218,7 +277,9 @@ export class Clawforge {
     if (this.disconnected) return;
     this.disconnected = true;
     this.killSwitchSource.stop();
+    this.sseSource?.close();
     this.killSwitchHandlers.clear();
+    this.policyChangedHandlers.clear();
     await this.auditBatcher.close();
   }
 
@@ -253,8 +314,119 @@ export class Clawforge {
     });
   }
 
+  /**
+   * Wire an already-connected SseEventSource into the client's dispatch.
+   * The SseDispatchSource (used as the `killSwitchSource`) lets us route
+   * `kill_switch` events through the same `onKillSwitch()` handler set as
+   * the polling transport, while routing `policy_changed` straight to the
+   * effective-policy refresh path.
+   */
+  private wireSseDispatch(source: SseEventSource, sink: SseDispatchSource): void {
+    source.attachDispatcher(async (event: { event: string; data: string }) => {
+      if (event.event === "kill_switch" || event.event === "kill_switch_changed") {
+        const parsed = safeJsonParse(event.data);
+        if (!parsed) return;
+        sink.deliver({
+          active: Boolean(parsed.active),
+          scope: typeof parsed.scope === "string" ? parsed.scope : "org",
+          reason: typeof parsed.reason === "string" ? parsed.reason : "",
+          receivedAt: new Date().toISOString(),
+        });
+        return;
+      }
+      if (event.event === "policy_changed" || event.event === "policy_updated") {
+        await this.handlePolicyChanged(safeJsonParse(event.data) ?? {});
+        return;
+      }
+      // Other event types (`connected`, future fan-out) — ignore.
+    });
+  }
+
+  private async handlePolicyChanged(payload: Record<string, unknown>): Promise<void> {
+    try {
+      await this.loadEffectivePolicy();
+    } catch (err) {
+      console.warn(`Clawforge: policy reload after policy_changed failed: ${(err as Error).message}`);
+    }
+    const event: PolicyChangedEvent = {
+      policyId: typeof payload.policyId === "string" ? payload.policyId : undefined,
+      policyName: typeof payload.policyName === "string" ? payload.policyName : undefined,
+      version: typeof payload.version === "number" ? payload.version : undefined,
+      schemaVersion: typeof payload.schemaVersion === "string" ? payload.schemaVersion : undefined,
+      receivedAt: new Date().toISOString(),
+    };
+    for (const handler of this.policyChangedHandlers) {
+      try {
+        await handler(event);
+      } catch {
+        // Handler errors must not break the source.
+      }
+    }
+  }
+
   private assertConnected(): void {
     if (this.disconnected) throw new ClawforgeNotConnected();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// SSE bootstrap + dispatch source
+// ---------------------------------------------------------------------------
+
+function safeJsonParse(s: string): Record<string, unknown> | null {
+  try {
+    const v = JSON.parse(s);
+    return v && typeof v === "object" ? (v as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Open the org-scoped SSE stream and return an SseEventSource that has
+ * already received its initial 200 OK response. The dispatcher is wired
+ * later by the client via `attachDispatcher()`.
+ */
+async function openSseStream(opts: {
+  baseUrl: string;
+  token: string;
+  orgId: string;
+  fetchImpl?: typeof fetch;
+  signal?: AbortSignal;
+}): Promise<SseEventSource> {
+  const base = opts.baseUrl.replace(/\/+$/, "");
+  const url = `${base}/api/v1/events/${encodeURIComponent(opts.orgId)}/stream`;
+  const source = new SseEventSource({
+    url,
+    token: opts.token,
+    fetchImpl: opts.fetchImpl,
+    onEvent: () => {
+      /* swapped in via attachDispatcher once the client is constructed */
+    },
+  });
+  await source.start(opts.signal);
+  return source;
+}
+
+/**
+ * KillSwitchSource implementation backed by the shared SseEventSource.
+ * The client calls `deliver()` to push parsed kill_switch events; the
+ * `start()`/`stop()` calls are no-ops because the underlying SSE stream
+ * is opened/closed by the client itself.
+ */
+class SseDispatchSource implements KillSwitchSource {
+  private handler?: KillSwitchEventHandler;
+
+  start(handler: KillSwitchEventHandler): void {
+    this.handler = handler;
+  }
+
+  stop(): void {
+    this.handler = undefined;
+  }
+
+  deliver(event: KillSwitchEvent): void {
+    void this.handler?.(event);
   }
 }
 
