@@ -31,6 +31,11 @@ import { dashboardRoutes } from "./routes/dashboard.js";
 import { agtIdentityRoutes } from "./routes/agt-identities.js";
 import { agtApprovalRoutes } from "./routes/agt-approvals.js";
 import { agtKillSwitchRoutes } from "./routes/agt-kill-switch.js";
+import { agtMetricsRoutes } from "./routes/agt-metrics.js";
+import { agtDiscoveryRoutes } from "./routes/agt-discovery.js";
+import { agtTrustRoutes } from "./routes/agt-trust.js";
+import { agtAttestationRoutes } from "./routes/agt-attestations.js";
+import { agtHypervisorRoutes } from "./routes/agt-hypervisor.js";
 import { startAuditRetentionJob, stopAuditRetentionJob } from "./services/audit-retention.js";
 
 // ---------------------------------------------------------------------------
@@ -375,6 +380,11 @@ export async function createServer(config: ServerConfig) {
   await app.register(agtIdentityRoutes);
   await app.register(agtApprovalRoutes);
   await app.register(agtKillSwitchRoutes);
+  await app.register(agtMetricsRoutes);
+  await app.register(agtDiscoveryRoutes);
+  await app.register(agtTrustRoutes);
+  await app.register(agtAttestationRoutes);
+  await app.register(agtHypervisorRoutes);
   await app.register(dashboardRoutes);
 
   // Start audit retention cleanup job (#39)

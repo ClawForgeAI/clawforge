@@ -645,6 +645,13 @@ export async function policyRoutes(app: FastifyInstance): Promise<void> {
   /**
    * PUT /api/v1/policies/:orgId/kill-switch
    * Toggle kill switch (admin only).
+   *
+   * @deprecated Cut 2b step 2.16 — admin pages now drive the AGT-canonical
+   * routes (`POST /api/v1/kill-switch`, `DELETE /api/v1/kill-switch/:id`)
+   * which write to the `kill_switch_scopes` table. This legacy PUT is kept
+   * because the plugin's heartbeat still reads `policies.killSwitch` for
+   * its poll loop; the plugin migrates to the AGT kill-switch source in
+   * Cut 3 and this route retires alongside it.
    */
   app.put<{ Params: { orgId: string } }>(
     "/api/v1/policies/:orgId/kill-switch",
