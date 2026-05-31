@@ -2,6 +2,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import DashboardPage from "./page";
 
+/**
+ * Cut 2b step 2.17 — assertions updated for the AGT-aware dashboard:
+ *   - StatCard labels: "Calls Allowed" / "Calls Blocked" (was "Tool Calls …")
+ *   - Recent Activity columns: Time / Agent / Action / Rule / Decision
+ *     (was Time / User / Event / Tool / Outcome)
+ *   - Row data: agent DIDs + actions from the AGT audit chain mock
+ */
+
 const mockReplace = vi.fn();
 
 vi.mock("next/navigation", () => ({
@@ -20,6 +28,19 @@ vi.mock("next/navigation", () => ({
   notFound: vi.fn(),
 }));
 
+function seedAuth() {
+  localStorage.setItem(
+    "clawforge_auth",
+    JSON.stringify({
+      accessToken: "mock-token-123",
+      orgId: "org-1",
+      userId: "user-1",
+      email: "admin@example.com",
+      role: "admin",
+    }),
+  );
+}
+
 describe("DashboardPage", () => {
   beforeEach(() => {
     mockReplace.mockClear();
@@ -28,137 +49,71 @@ describe("DashboardPage", () => {
 
   it("redirects to login when not authenticated", async () => {
     render(<DashboardPage />);
-
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith("/login");
     });
   });
 
   it("renders the dashboard heading", () => {
-    localStorage.setItem(
-      "clawforge_auth",
-      JSON.stringify({
-        accessToken: "mock-token-123",
-        orgId: "org-1",
-        userId: "user-1",
-        email: "admin@example.com",
-        role: "admin",
-      }),
-    );
-
+    seedAuth();
     render(<DashboardPage />);
-    // The heading is an h2; "Dashboard" also appears in the sidebar nav link
     const heading = screen.getByRole("heading", { level: 2, name: "Dashboard" });
     expect(heading).toBeInTheDocument();
   });
 
   it("shows loading skeletons initially", () => {
-    localStorage.setItem(
-      "clawforge_auth",
-      JSON.stringify({
-        accessToken: "mock-token-123",
-        orgId: "org-1",
-        userId: "user-1",
-        email: "admin@example.com",
-        role: "admin",
-      }),
-    );
-
+    seedAuth();
     const { container } = render(<DashboardPage />);
-    // The skeleton uses animate-pulse class
-    const skeletons = container.querySelectorAll(".animate-pulse");
-    expect(skeletons.length).toBeGreaterThan(0);
+    expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(0);
   });
 
   it("renders stat cards when data loads", async () => {
-    localStorage.setItem(
-      "clawforge_auth",
-      JSON.stringify({
-        accessToken: "mock-token-123",
-        orgId: "org-1",
-        userId: "user-1",
-        email: "admin@example.com",
-        role: "admin",
-      }),
-    );
-
+    seedAuth();
     render(<DashboardPage />);
 
-    // Wait for API data to load and stats to render
     await waitFor(() => {
       expect(screen.getByText("Active Users")).toBeInTheDocument();
     });
 
     expect(screen.getByText("Clients Online")).toBeInTheDocument();
-    expect(screen.getByText("Tool Calls Allowed")).toBeInTheDocument();
-    expect(screen.getByText("Tool Calls Blocked")).toBeInTheDocument();
+    expect(screen.getByText("Calls Allowed")).toBeInTheDocument();
+    expect(screen.getByText("Calls Blocked")).toBeInTheDocument();
     expect(screen.getByText("Pending Reviews")).toBeInTheDocument();
   });
 
   it("renders stat values from API data", async () => {
-    localStorage.setItem(
-      "clawforge_auth",
-      JSON.stringify({
-        accessToken: "mock-token-123",
-        orgId: "org-1",
-        userId: "user-1",
-        email: "admin@example.com",
-        role: "admin",
-      }),
-    );
-
+    seedAuth();
     render(<DashboardPage />);
 
     await waitFor(() => {
       expect(screen.getByText("Active Users")).toBeInTheDocument();
     });
 
-    // From MSW handlers: 2 users, 3 online clients, 1 allowed, 1 blocked, 1 pending
-    expect(screen.getByText("2")).toBeInTheDocument(); // Active Users
-    expect(screen.getByText("3")).toBeInTheDocument(); // Clients Online
-    // "1" appears three times (allowed, blocked, pending) so use getAllByText
-    const ones = screen.getAllByText("1");
-    expect(ones.length).toBe(3);
+    // From MSW handlers: 2 users, 3 online clients, 1 allowed, 1 denied, 1 pending.
+    expect(screen.getByText("2")).toBeInTheDocument();
+    expect(screen.getByText("3")).toBeInTheDocument();
+    // Three stat cards each render "1"; activity rows or timestamps may
+    // contain stray "1"s on certain locales, so assert ≥ 3 instead of ===.
+    expect(screen.getAllByText("1").length).toBeGreaterThanOrEqual(3);
   });
 
-  it("renders the Recent Activity section", async () => {
-    localStorage.setItem(
-      "clawforge_auth",
-      JSON.stringify({
-        accessToken: "mock-token-123",
-        orgId: "org-1",
-        userId: "user-1",
-        email: "admin@example.com",
-        role: "admin",
-      }),
-    );
-
+  it("renders the Recent Activity table with AGT columns", async () => {
+    seedAuth();
     render(<DashboardPage />);
 
     await waitFor(() => {
       expect(screen.getByText("Recent Activity")).toBeInTheDocument();
     });
 
-    // Event table headers
     expect(screen.getByText("Time")).toBeInTheDocument();
-    expect(screen.getByText("User")).toBeInTheDocument();
-    expect(screen.getByText("Event")).toBeInTheDocument();
-    expect(screen.getByText("Tool")).toBeInTheDocument();
-    expect(screen.getByText("Outcome")).toBeInTheDocument();
+    expect(screen.getByText("Agent")).toBeInTheDocument();
+    expect(screen.getByText("Action")).toBeInTheDocument();
+    expect(screen.getByText("Rule")).toBeInTheDocument();
+    expect(screen.getByText("Decision")).toBeInTheDocument();
   });
 
-  it("renders audit event data from the API", async () => {
-    localStorage.setItem(
-      "clawforge_auth",
-      JSON.stringify({
-        accessToken: "mock-token-123",
-        orgId: "org-1",
-        userId: "user-1",
-        email: "admin@example.com",
-        role: "admin",
-      }),
-    );
-
+  it("renders AGT audit entry rows", async () => {
+    seedAuth();
     render(<DashboardPage />);
 
     await waitFor(() => {
@@ -166,7 +121,7 @@ describe("DashboardPage", () => {
     });
 
     expect(screen.getByText("exec_cmd")).toBeInTheDocument();
-    expect(screen.getByText("allowed")).toBeInTheDocument();
-    expect(screen.getByText("blocked")).toBeInTheDocument();
+    expect(screen.getByText("allow")).toBeInTheDocument();
+    expect(screen.getByText("deny")).toBeInTheDocument();
   });
 });

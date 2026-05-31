@@ -68,7 +68,7 @@ const handlers = [
     });
   }),
 
-  // Audit query
+  // Legacy audit query (kept for /audit page tests).
   http.get(`${API_BASE}/api/v1/audit/:orgId/query`, () => {
     return HttpResponse.json({
       events: [
@@ -96,6 +96,48 @@ const handlers = [
         },
       ],
       total: 2,
+    });
+  }),
+
+  // AGT dashboard stats — added in Cut 2a step 2.3, mocked here in 2.17.
+  http.get(`${API_BASE}/api/v1/dashboard/stats`, () => {
+    return HttpResponse.json({
+      allowedCount: 1,
+      deniedCount: 1,
+      pendingApprovals: 1,
+    });
+  }),
+
+  // AGT audit chain entries.
+  http.get(`${API_BASE}/api/v1/audit/:orgId/entries`, () => {
+    return HttpResponse.json({
+      entries: [
+        {
+          chainSeq: "1",
+          timestamp: new Date().toISOString(),
+          agentId: "did:mesh:agent-alpha",
+          action: "file_read",
+          decision: "allow",
+          hash: "a".repeat(64),
+          previousHash: "0".repeat(64),
+          policyName: "default",
+          policyVersion: 1,
+          matchedRule: "allow_read",
+        },
+        {
+          chainSeq: "2",
+          timestamp: new Date().toISOString(),
+          agentId: "did:mesh:agent-alpha",
+          action: "exec_cmd",
+          decision: "deny",
+          hash: "b".repeat(64),
+          previousHash: "a".repeat(64),
+          policyName: "default",
+          policyVersion: 1,
+          matchedRule: "block_shell",
+        },
+      ],
+      nextBeforeSeq: null,
     });
   }),
 

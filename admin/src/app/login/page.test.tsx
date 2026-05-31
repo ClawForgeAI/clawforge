@@ -31,8 +31,11 @@ describe("LoginPage", () => {
 
   it("renders the login page heading", async () => {
     render(<LoginPage />);
-    expect(screen.getByText("ClawForge")).toBeInTheDocument();
-    expect(screen.getByText("Admin Console")).toBeInTheDocument();
+    // ClawForge appears in the side panel brand AND the form-side brand.
+    expect(screen.getAllByText("ClawForge").length).toBeGreaterThan(0);
+    // "Admin Console" lives inside the page's brand strip; the substring
+    // match below is robust to wrapping copy changes.
+    expect(screen.getAllByText(/admin console/i).length).toBeGreaterThan(0);
   });
 
   it("renders email and password fields once auth mode loads", async () => {
@@ -40,7 +43,7 @@ describe("LoginPage", () => {
 
     // Wait for the auth mode fetch to resolve and password form to appear
     await waitFor(() => {
-      expect(screen.getByLabelText("Email")).toBeInTheDocument();
+      expect(screen.getByLabelText("Email address")).toBeInTheDocument();
     });
     expect(screen.getByLabelText("Password")).toBeInTheDocument();
   });
@@ -59,10 +62,10 @@ describe("LoginPage", () => {
 
     // Wait for password form to appear
     await waitFor(() => {
-      expect(screen.getByLabelText("Email")).toBeInTheDocument();
+      expect(screen.getByLabelText("Email address")).toBeInTheDocument();
     });
 
-    await user.type(screen.getByLabelText("Email"), "admin@example.com");
+    await user.type(screen.getByLabelText("Email address"), "admin@example.com");
     await user.type(screen.getByLabelText("Password"), "password123");
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
@@ -83,16 +86,18 @@ describe("LoginPage", () => {
     render(<LoginPage />);
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Email")).toBeInTheDocument();
+      expect(screen.getByLabelText("Email address")).toBeInTheDocument();
     });
 
-    await user.type(screen.getByLabelText("Email"), "bad@example.com");
+    await user.type(screen.getByLabelText("Email address"), "bad@example.com");
     await user.type(screen.getByLabelText("Password"), "wrong");
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
-    // A 401 response triggers apiFetch's expired-session handler which throws "Session expired"
+    // The login route (no token in opts) surfaces the server's error body
+    // ("Invalid credentials") directly via apiFetch, not the session-expired
+    // path. That body lands in the alert beneath the form.
     await waitFor(() => {
-      expect(screen.getByText("Session expired")).toBeInTheDocument();
+      expect(screen.getByText("Invalid credentials")).toBeInTheDocument();
     });
   });
 
@@ -101,10 +106,10 @@ describe("LoginPage", () => {
     render(<LoginPage />);
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Email")).toBeInTheDocument();
+      expect(screen.getByLabelText("Email address")).toBeInTheDocument();
     });
 
-    await user.type(screen.getByLabelText("Email"), "admin@example.com");
+    await user.type(screen.getByLabelText("Email address"), "admin@example.com");
     await user.type(screen.getByLabelText("Password"), "password123");
 
     const button = screen.getByRole("button", { name: /sign in/i });
