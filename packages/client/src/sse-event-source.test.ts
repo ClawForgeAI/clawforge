@@ -20,7 +20,10 @@ function makeStreamingResponse(chunks: string[], init: ResponseInit = {}): Respo
   });
 }
 
-function makeFetch(impl: (input: RequestInfo | URL, init?: RequestInit) => Response | Promise<Response>) {
+type FetchInput = Parameters<typeof fetch>[0];
+type FetchInit = Parameters<typeof fetch>[1];
+
+function makeFetch(impl: (input: FetchInput, init?: FetchInit) => Response | Promise<Response>) {
   return impl as unknown as typeof fetch;
 }
 

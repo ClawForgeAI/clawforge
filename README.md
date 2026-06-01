@@ -80,7 +80,6 @@ Everything flows through **policy, approval, audit, and response**. One operator
 | **AGT-compatible policy layer**      | Translates ClawForge policy into Microsoft AGT primitives where the runtime supports it.                         |
 | **Risk signals & anomaly detection** | Surfaces unusual tool-call patterns, policy denials, and approval-rate drift across the fleet.                   |
 
-
 ## Relationship to Microsoft AGT
 
 AGT is the enforcement substrate. ClawForge is the operations layer above it. For AGT-supported runtimes, AGT does the per-tool-call enforcement, the MCP gateway, and the append-only audit; ClawForge writes the policy AGT enforces, surfaces AGT's approval hooks into an operator queue, and federates AGT's audit log into the cross-runtime event store. For runtimes outside AGT (Claude Code, OpenClaw, custom agents), ClawForge handles interception itself via SDK adapters, runtime hooks, or its own MCP proxy. **The operator surface stays the same either way.**
