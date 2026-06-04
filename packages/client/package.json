@@ -25,7 +25,7 @@
   "dependencies": {
     "@clawforgeai/policy-engine": "workspace:*",
     "@clawforgeai/policy-schema": "workspace:*",
-    "@microsoft/agent-governance-sdk": "^3.7.0"
+    "@microsoft/agent-governance-sdk": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
