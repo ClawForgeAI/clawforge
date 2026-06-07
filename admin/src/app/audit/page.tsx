@@ -6,14 +6,26 @@
  * Streams AuditEntry rows from `GET /api/v1/audit/:orgId/entries`, shows a
  * per-page chain-integrity badge computed via `POST /:orgId/verify`, and
  * supports basic filtering by agent DID.
+ *
+ * Cut 2b §A21 step 2.16 layout pass — wrapped in the shared Sidebar /
+ * Card shell so this page matches the rest of the admin UI.
  */
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Sidebar } from "@/components/sidebar";
+import { Card, CardTitle } from "@/components/card";
+import { CardSkeleton, TableSkeleton } from "@/components/skeleton";
 import { getAuth } from "@/lib/auth";
 import { listAgtAuditEntries, verifyAgtAuditChain, type AgtAuditEntry } from "@/lib/agt-api";
 
 const PAGE_SIZE = 50;
+
+const DECISION_BADGE: Record<string, string> = {
+  allow: "badge-success",
+  deny: "badge-error",
+  review: "badge-warning",
+};
 
 export default function AgtAuditPage() {
   const router = useRouter();
@@ -85,126 +97,147 @@ export default function AgtAuditPage() {
     void load();
   };
 
-  if (!auth) return <main className="p-8">Loading…</main>;
-
   return (
-    <main className="p-8 max-w-7xl mx-auto space-y-6">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-bold">AGT Audit Timeline</h1>
-        <p className="text-base-content/70">
-          Hash-chained audit records from the AGT canonical stream.{" "}
-          <code className="text-xs">/api/v1/audit/{auth.orgId}/entries</code>
-        </p>
-      </header>
-
-      {error && <div className="alert alert-error">{error}</div>}
-
-      <section className="card bg-base-100 shadow-lg">
-        <div className="card-body flex-row items-center gap-4 flex-wrap">
-          <label className="form-control flex-1 min-w-[20rem]">
-            <span className="label-text">Filter by agent DID</span>
-            <input
-              className="input input-bordered w-full"
-              placeholder="did:mesh:checkout-7"
-              value={agentDid}
-              onChange={(e) => setAgentDid(e.target.value)}
-            />
-          </label>
-          <button className="btn" onClick={handleFilter}>
-            Apply
-          </button>
-          <button className="btn btn-outline" onClick={handleVerify} disabled={verifyLoading}>
-            {verifyLoading ? "Verifying…" : "Verify chain integrity"}
-          </button>
+    <div className="flex min-h-screen bg-base-200">
+      <Sidebar />
+      <main className="flex-1 p-4 lg:p-8 pt-16 lg:pt-8">
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold">Audit Logs</h2>
+          <p className="text-sm text-base-content/50 mt-1">
+            Hash-chained audit entries from the AGT canonical stream. Filter by agent DID and click{" "}
+            <em>Verify chain integrity</em> to walk the chain and confirm no row has been tampered with.
+          </p>
         </div>
-        {verifyState && (
-          <div className="px-6 pb-4">
-            {verifyState.valid ? (
-              <span className="badge badge-success">chain integrity ✓ ({verifyState.entriesChecked} entries)</span>
+
+        {error && (
+          <div className="alert alert-error mb-4 text-sm">
+            <span>{error}</span>
+          </div>
+        )}
+
+        {!auth ? (
+          <div className="space-y-4">
+            <CardSkeleton />
+            <CardSkeleton />
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* --- Controls --- */}
+            <Card>
+              <div className="flex items-end gap-3 flex-wrap">
+                <div className="form-control flex-1 min-w-[20rem]">
+                  <label className="label py-1">
+                    <span className="label-text text-xs">Filter by agent DID</span>
+                  </label>
+                  <input
+                    className="input input-bordered input-sm font-mono text-xs"
+                    placeholder="did:mesh:checkout-7"
+                    value={agentDid}
+                    onChange={(e) => setAgentDid(e.target.value)}
+                  />
+                </div>
+                <button className="btn btn-sm" onClick={handleFilter}>
+                  Apply
+                </button>
+                <button className="btn btn-outline btn-sm gap-2" onClick={handleVerify} disabled={verifyLoading}>
+                  {verifyLoading && <span className="loading loading-spinner loading-xs" />}
+                  {verifyLoading ? "Verifying…" : "Verify chain integrity"}
+                </button>
+              </div>
+
+              {verifyState && (
+                <div className="mt-3">
+                  {verifyState.valid ? (
+                    <span className="badge badge-success badge-sm">
+                      chain integrity ✓ ({verifyState.entriesChecked} entries)
+                    </span>
+                  ) : (
+                    <span className="badge badge-error badge-sm">
+                      chain break at seq {verifyState.breakAt} ({verifyState.entriesChecked} entries)
+                    </span>
+                  )}
+                </div>
+              )}
+            </Card>
+
+            {/* --- Entries table --- */}
+            {loading && entries.length === 0 ? (
+              <TableSkeleton rows={6} />
+            ) : entries.length === 0 ? (
+              <Card>
+                <CardTitle>No audit entries</CardTitle>
+                <p className="text-sm text-base-content/60">
+                  Connect an agent via{" "}
+                  <code className="px-1 py-0.5 bg-base-300 rounded text-xs">@clawforgeai/client</code> to start
+                  streaming. The example at{" "}
+                  <code className="px-1 py-0.5 bg-base-300 rounded text-xs">examples/cut2b-smoke.mjs</code> seeds a
+                  short chain for you.
+                </p>
+              </Card>
             ) : (
-              <span className="badge badge-error">
-                chain break at seq {verifyState.breakAt} ({verifyState.entriesChecked} entries)
-              </span>
+              <Card>
+                <div className="overflow-x-auto">
+                  <table className="table table-zebra text-sm">
+                    <thead>
+                      <tr>
+                        <th>Seq</th>
+                        <th>Timestamp</th>
+                        <th>Agent</th>
+                        <th>Action</th>
+                        <th>Decision</th>
+                        <th>Rule</th>
+                        <th>Hash</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {entries.map((e) => (
+                        <tr key={e.chainSeq}>
+                          <td>
+                            <code className="font-mono text-xs">{e.chainSeq}</code>
+                          </td>
+                          <td className="text-xs whitespace-nowrap">{new Date(e.timestamp).toLocaleString()}</td>
+                          <td>
+                            <code className="font-mono text-xs break-all">{e.agentId}</code>
+                          </td>
+                          <td className="text-sm">{e.action}</td>
+                          <td>
+                            <span
+                              className={`badge ${DECISION_BADGE[e.decision] ?? "badge-ghost"} badge-sm capitalize`}
+                            >
+                              {e.decision}
+                            </span>
+                          </td>
+                          <td className="text-xs text-base-content/60">
+                            {e.policyName ? (
+                              <span>
+                                {e.policyName}
+                                {e.matchedRule ? `/${e.matchedRule}` : ""}
+                              </span>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td className="font-mono text-xs" title={e.hash}>
+                            {e.hash.slice(0, 12)}…
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {nextBefore && (
+                  <div className="mt-4 flex justify-center">
+                    <button className="btn btn-outline btn-sm" onClick={() => load(nextBefore)} disabled={loading}>
+                      {loading ? "Loading…" : "Load more"}
+                    </button>
+                  </div>
+                )}
+              </Card>
             )}
           </div>
         )}
-      </section>
-
-      <section className="card bg-base-100 shadow-lg">
-        <div className="card-body">
-          {loading && entries.length === 0 ? (
-            <div>Loading…</div>
-          ) : entries.length === 0 ? (
-            <div className="text-base-content/60">
-              No AGT audit entries yet. Connect an agent via <code className="text-xs">@clawforgeai/client</code> to
-              start streaming.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="table table-zebra">
-                <thead>
-                  <tr>
-                    <th>Seq</th>
-                    <th>Timestamp</th>
-                    <th>Agent</th>
-                    <th>Action</th>
-                    <th>Decision</th>
-                    <th>Rule</th>
-                    <th>Hash</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {entries.map((e) => (
-                    <tr key={e.chainSeq}>
-                      <td>
-                        <code className="text-xs">{e.chainSeq}</code>
-                      </td>
-                      <td className="text-xs">{new Date(e.timestamp).toLocaleString()}</td>
-                      <td>
-                        <code className="text-xs">{e.agentId}</code>
-                      </td>
-                      <td>{e.action}</td>
-                      <td>
-                        <span
-                          className={`badge ${
-                            e.decision === "allow"
-                              ? "badge-success"
-                              : e.decision === "deny"
-                                ? "badge-error"
-                                : "badge-warning"
-                          }`}
-                        >
-                          {e.decision}
-                        </span>
-                      </td>
-                      <td className="text-xs">
-                        {e.policyName ? (
-                          <span>
-                            {e.policyName}
-                            {e.matchedRule ? `/${e.matchedRule}` : ""}
-                          </span>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="text-xs font-mono" title={e.hash}>
-                        {e.hash.slice(0, 12)}…
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          {nextBefore && (
-            <div className="card-actions justify-center mt-3">
-              <button className="btn btn-outline" onClick={() => load(nextBefore)} disabled={loading}>
-                {loading ? "Loading…" : "Load more"}
-              </button>
-            </div>
-          )}
-        </div>
-      </section>
-    </main>
+      </main>
+    </div>
   );
 }

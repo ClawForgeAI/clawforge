@@ -5,11 +5,17 @@
  *
  * Lists AGT policies for the current org, surfaces the YAML for editing,
  * supports a "Test" dry-run via /api/v1/policies/evaluate, and creates
- * new policies via /api/v1/policies/agt.
+ * new policies via POST /api/v1/policies.
+ *
+ * Cut 2b §A21 step 2.16 layout pass — wrapped in the shared Sidebar /
+ * Card shell so this page matches the rest of the admin UI.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Sidebar } from "@/components/sidebar";
+import { Card, CardTitle } from "@/components/card";
+import { CardSkeleton } from "@/components/skeleton";
 import { getAuth } from "@/lib/auth";
 import {
   createAgtPolicy,
@@ -132,164 +138,197 @@ export default function AgtPoliciesPage() {
     if (!evalResult) return null;
     const cls = evalResult.allowed ? "badge-success" : "badge-error";
     return (
-      <span className={`badge ${cls}`}>
+      <span className={`badge ${cls} badge-sm`}>
         {evalResult.allowed ? "allowed" : "denied"} · {evalResult.action}
       </span>
     );
   }, [evalResult]);
 
-  if (!auth) return <main className="p-8">Loading…</main>;
-
   return (
-    <main className="p-8 max-w-7xl mx-auto space-y-8">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-bold">AGT Policies</h1>
-        <p className="text-base-content/70">
-          Author AGT-canonical YAML, test it with a dry-run, and see what an agent receives via{" "}
-          <code className="text-xs">GET /api/v1/policies/effective</code>.
-        </p>
-      </header>
-
-      {error && <div className="alert alert-error">{error}</div>}
-
-      <section className="grid lg:grid-cols-2 gap-6">
-        <div className="card bg-base-100 shadow-lg">
-          <div className="card-body">
-            <h2 className="card-title">Author</h2>
-            <label className="form-control">
-              <span className="label-text">Policy name</span>
-              <input
-                className="input input-bordered w-full"
-                value={policyName}
-                onChange={(e) => setPolicyName(e.target.value)}
-              />
-            </label>
-            <label className="form-control mt-3">
-              <span className="label-text">YAML source</span>
-              <textarea
-                className="textarea textarea-bordered font-mono text-xs"
-                rows={20}
-                value={yamlSource}
-                onChange={(e) => setYamlSource(e.target.value)}
-                spellCheck={false}
-              />
-            </label>
-            <div className="card-actions justify-end mt-3">
-              <button className="btn btn-primary" disabled={saving} onClick={handleSave}>
-                {saving ? "Saving…" : "Save AGT policy"}
-              </button>
-            </div>
-          </div>
+    <div className="flex min-h-screen bg-base-200">
+      <Sidebar />
+      <main className="flex-1 p-4 lg:p-8 pt-16 lg:pt-8">
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold">Policies</h2>
+          <p className="text-sm text-base-content/50 mt-1">
+            Author AGT-canonical YAML, dry-run it against a sample agent, and inspect what an enrolled agent receives.
+          </p>
         </div>
 
-        <div className="card bg-base-100 shadow-lg">
-          <div className="card-body">
-            <h2 className="card-title">Test (dry-run)</h2>
-            <p className="text-sm text-base-content/70">
-              Evaluates the YAML above against the action/DID below via the AGT engine.
-            </p>
-            <label className="form-control mt-2">
-              <span className="label-text">Agent DID</span>
-              <input
-                className="input input-bordered w-full"
-                value={evalDid}
-                onChange={(e) => setEvalDid(e.target.value)}
-              />
-            </label>
-            <label className="form-control mt-2">
-              <span className="label-text">Action / tool name</span>
-              <input
-                className="input input-bordered w-full"
-                value={evalAction}
-                onChange={(e) => setEvalAction(e.target.value)}
-              />
-            </label>
-            <div className="card-actions justify-end mt-3">
-              <button className="btn btn-secondary" onClick={handleEvaluate}>
-                Evaluate
-              </button>
-            </div>
-            {evalError && <div className="alert alert-error mt-3 text-sm">{evalError}</div>}
-            {evalResult && (
-              <div className="mt-3 space-y-2">
-                <div>{decisionBadge}</div>
-                {evalResult.matchedRule && (
-                  <div className="text-xs text-base-content/70">
-                    matched rule: <code>{evalResult.matchedRule}</code>
+        {error && (
+          <div className="alert alert-error mb-4 text-sm">
+            <span>{error}</span>
+          </div>
+        )}
+
+        {!auth ? (
+          <div className="space-y-4">
+            <CardSkeleton />
+            <CardSkeleton />
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* --- Author column --- */}
+              <Card>
+                <CardTitle>Author</CardTitle>
+                <div className="form-control mb-3">
+                  <label className="label py-1">
+                    <span className="label-text text-xs">Policy name</span>
+                  </label>
+                  <input
+                    className="input input-bordered input-sm"
+                    value={policyName}
+                    onChange={(e) => setPolicyName(e.target.value)}
+                  />
+                </div>
+                <div className="form-control">
+                  <label className="label py-1">
+                    <span className="label-text text-xs">YAML source</span>
+                  </label>
+                  <textarea
+                    className="textarea textarea-bordered font-mono text-xs"
+                    rows={18}
+                    value={yamlSource}
+                    onChange={(e) => setYamlSource(e.target.value)}
+                    spellCheck={false}
+                  />
+                </div>
+                <div className="mt-3 flex justify-end">
+                  <button className="btn btn-primary btn-sm gap-2" disabled={saving} onClick={handleSave}>
+                    {saving && <span className="loading loading-spinner loading-xs" />}
+                    {saving ? "Saving…" : "Save AGT policy"}
+                  </button>
+                </div>
+              </Card>
+
+              {/* --- Dry-run column --- */}
+              <Card>
+                <CardTitle>Test (dry-run)</CardTitle>
+                <p className="text-xs text-base-content/50 mb-3">
+                  Evaluates the YAML above against the action / DID below via the AGT engine.
+                </p>
+                <div className="form-control mb-3">
+                  <label className="label py-1">
+                    <span className="label-text text-xs">Agent DID</span>
+                  </label>
+                  <input
+                    className="input input-bordered input-sm font-mono text-xs"
+                    value={evalDid}
+                    onChange={(e) => setEvalDid(e.target.value)}
+                  />
+                </div>
+                <div className="form-control mb-3">
+                  <label className="label py-1">
+                    <span className="label-text text-xs">Action / tool name</span>
+                  </label>
+                  <input
+                    className="input input-bordered input-sm"
+                    value={evalAction}
+                    onChange={(e) => setEvalAction(e.target.value)}
+                  />
+                </div>
+                <div className="flex justify-end">
+                  <button className="btn btn-secondary btn-sm" onClick={handleEvaluate}>
+                    Evaluate
+                  </button>
+                </div>
+
+                {evalError && (
+                  <div className="alert alert-error mt-3 text-xs py-2">
+                    <span>{evalError}</span>
                   </div>
                 )}
-                {evalResult.reason && <div className="text-xs">reason: {evalResult.reason}</div>}
-                <pre className="text-xs bg-base-200 p-2 rounded overflow-auto">
-                  {JSON.stringify(evalResult, null, 2)}
-                </pre>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      <section className="card bg-base-100 shadow-lg">
-        <div className="card-body">
-          <h2 className="card-title">Effective YAML for an agent</h2>
-          <div className="flex flex-wrap gap-2 items-end">
-            <label className="form-control flex-1 min-w-[20rem]">
-              <span className="label-text">Agent DID</span>
-              <input
-                className="input input-bordered w-full"
-                value={effectiveDid}
-                onChange={(e) => setEffectiveDid(e.target.value)}
-              />
-            </label>
-            <button className="btn" onClick={handleFetchEffective}>
-              Fetch
-            </button>
-          </div>
-          {effectiveError && <div className="alert alert-error mt-3 text-sm">{effectiveError}</div>}
-          {effectiveYaml !== null && (
-            <pre className="text-xs bg-base-200 p-3 rounded mt-3 overflow-auto whitespace-pre-wrap">
-              {effectiveYaml}
-            </pre>
-          )}
-        </div>
-      </section>
-
-      <section className="card bg-base-100 shadow-lg">
-        <div className="card-body">
-          <h2 className="card-title">Saved AGT policies</h2>
-          {loading ? (
-            <div>Loading…</div>
-          ) : policies.length === 0 ? (
-            <div className="text-base-content/60">No AGT policies yet — save one above.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="table table-zebra">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Version</th>
-                    <th>Spec</th>
-                    <th>Created</th>
-                    <th>Updated</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {policies.map((p) => (
-                    <tr key={p.id}>
-                      <td>
-                        <code>{p.name}</code>
-                      </td>
-                      <td>{p.version}</td>
-                      <td>{p.schemaVersion ?? "—"}</td>
-                      <td>{new Date(p.createdAt).toLocaleString()}</td>
-                      <td>{new Date(p.updatedAt).toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                {evalResult && (
+                  <div className="mt-3 space-y-2">
+                    <div>{decisionBadge}</div>
+                    {evalResult.matchedRule && (
+                      <div className="text-xs text-base-content/60">
+                        matched rule: <code className="font-mono">{evalResult.matchedRule}</code>
+                      </div>
+                    )}
+                    {evalResult.reason && <div className="text-xs">reason: {evalResult.reason}</div>}
+                    <pre className="text-xs bg-base-200 p-2 rounded overflow-auto max-h-48">
+                      {JSON.stringify(evalResult, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </Card>
             </div>
-          )}
-        </div>
-      </section>
-    </main>
+
+            {/* --- Effective policy lookup --- */}
+            <Card>
+              <CardTitle>Effective YAML for an agent</CardTitle>
+              <p className="text-xs text-base-content/50 mb-3">
+                Returns what <code className="font-mono">GET /api/v1/policies/effective</code> serves the supplied DID —
+                i.e. the policy that agent is currently bound to.
+              </p>
+              <div className="flex flex-wrap gap-2 items-end">
+                <div className="form-control flex-1 min-w-[20rem]">
+                  <label className="label py-1">
+                    <span className="label-text text-xs">Agent DID</span>
+                  </label>
+                  <input
+                    className="input input-bordered input-sm font-mono text-xs"
+                    value={effectiveDid}
+                    onChange={(e) => setEffectiveDid(e.target.value)}
+                  />
+                </div>
+                <button className="btn btn-sm" onClick={handleFetchEffective}>
+                  Fetch
+                </button>
+              </div>
+              {effectiveError && (
+                <div className="alert alert-error mt-3 text-xs py-2">
+                  <span>{effectiveError}</span>
+                </div>
+              )}
+              {effectiveYaml !== null && (
+                <pre className="text-xs bg-base-200 p-3 rounded mt-3 overflow-auto whitespace-pre-wrap max-h-72">
+                  {effectiveYaml}
+                </pre>
+              )}
+            </Card>
+
+            {/* --- Saved policies table --- */}
+            <Card>
+              <CardTitle>Saved AGT policies</CardTitle>
+              {loading ? (
+                <p className="text-sm text-base-content/40">Loading…</p>
+              ) : policies.length === 0 ? (
+                <p className="text-sm text-base-content/40">No AGT policies yet — save one above.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="table table-zebra text-sm">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Version</th>
+                        <th>Spec</th>
+                        <th>Created</th>
+                        <th>Updated</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {policies.map((p) => (
+                        <tr key={p.id}>
+                          <td>
+                            <code className="font-mono text-xs">{p.name}</code>
+                          </td>
+                          <td>{p.version}</td>
+                          <td>{p.schemaVersion ?? "—"}</td>
+                          <td className="text-xs whitespace-nowrap">{new Date(p.createdAt).toLocaleString()}</td>
+                          <td className="text-xs whitespace-nowrap">{new Date(p.updatedAt).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+          </div>
+        )}
+      </main>
+    </div>
   );
 }
