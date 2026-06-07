@@ -1,0 +1,182 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  lint-and-format:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: ESLint
+        run: pnpm lint
+
+      - name: Prettier
+        run: pnpm format:check
+
+      - name: Package dependency guard
+        run: pnpm check:deps
+
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build platform packages
+        run: pnpm -r --filter './packages/*' build
+
+      - name: Type check server
+        run: pnpm --filter @ClawForgeAI/clawforge-server build
+
+      - name: Type check admin
+        run: pnpm --filter @ClawForgeAI/clawforge-admin build
+
+  test-server:
+    name: Server Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: clawforge_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build platform packages
+        run: pnpm -r --filter './packages/*' build
+
+      - name: Run server tests with coverage
+        run: pnpm --filter @ClawForgeAI/clawforge-server test -- --coverage
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/clawforge_test
+
+  test-plugin:
+    name: Plugin Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build platform packages
+        run: pnpm -r --filter './packages/*' build
+
+      - name: Run plugin tests with coverage
+        run: pnpm --filter @clawforgeai/clawforge test -- --coverage
+
+  test-packages:
+    name: Platform Package Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: ".nvmrc"
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build platform packages
+        run: pnpm -r --filter './packages/*' build
+
+      - name: Test platform packages
+        run: pnpm -r --filter './packages/*' test
+
+      - name: Typecheck platform packages
+        run: pnpm -r --filter './packages/*' typecheck
+
+  build-docker:
+    name: Docker Build & Healthcheck
+    runs-on: ubuntu-latest
+    needs: [lint-and-format, typecheck, test-server, test-plugin, test-packages]
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build images from local folders
+        run: docker compose build server admin
+
+      - name: Start backend stack
+        run: docker compose up -d postgres server
+
+      - name: Check backend health API
+        run: |
+          attempts=0
+          until curl -fsS http://localhost:4100/health/ready >/dev/null; do
+            attempts=$((attempts + 1))
+            if [ "$attempts" -ge 30 ]; then
+              echo "Health check failed after waiting 150s"
+              docker compose logs --no-color server postgres
+              exit 1
+            fi
+            sleep 5
+          done
+          echo "Health check passed"
+
+      - name: Stop services
+        if: always()
+        run: docker compose down -v

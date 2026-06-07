@@ -1,0 +1,7 @@
+node_modules
+.next
+dist
+**/.env
+*.tsbuildinfo
+.DS_Store
+.claude/worktrees/

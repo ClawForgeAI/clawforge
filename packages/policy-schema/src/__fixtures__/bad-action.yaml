@@ -1,0 +1,8 @@
+name: bad-action-policy
+rules:
+  - name: bad-rule
+    condition:
+      field: tool_name
+      operator: eq
+      value: shell
+    action: nuke

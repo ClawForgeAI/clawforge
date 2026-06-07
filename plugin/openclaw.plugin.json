@@ -1,0 +1,62 @@
+{
+  "id": "clawforge",
+  "name": "ClawForge",
+  "description": "Enterprise governance layer – SSO authentication, tool policy enforcement, skill approval, audit logging, and kill switch.",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "controlPlaneUrl": {
+        "type": "string",
+        "description": "Base URL of the ClawForge control plane (e.g. https://clawforge.example.com)"
+      },
+      "orgId": {
+        "type": "string",
+        "description": "Organization identifier"
+      },
+      "sso": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "issuerUrl": {
+            "type": "string",
+            "description": "OIDC issuer URL (e.g. https://login.example.com)"
+          },
+          "clientId": {
+            "type": "string",
+            "description": "OIDC client ID for the ClawForge application"
+          }
+        }
+      },
+      "policyCacheTtlMs": {
+        "type": "number",
+        "description": "Policy cache TTL in milliseconds (default: 3600000 = 1 hour)"
+      },
+      "heartbeatIntervalMs": {
+        "type": "number",
+        "description": "Heartbeat interval in milliseconds (default: 30000 = 30s)"
+      },
+      "heartbeatFailureThreshold": {
+        "type": "number",
+        "description": "Number of consecutive heartbeat failures before degraded mode (default: 10)"
+      },
+      "auditBatchSize": {
+        "type": "number",
+        "description": "Number of audit events to buffer before shipping (default: 100)"
+      },
+      "auditFlushIntervalMs": {
+        "type": "number",
+        "description": "Interval for flushing audit events in milliseconds (default: 30000)"
+      },
+      "offlineMode": {
+        "type": "string",
+        "enum": ["block", "allow", "cached"],
+        "description": "Behavior when the plugin cannot reach the control plane. 'block' blocks all tools (default), 'allow' allows all tools, 'cached' uses the last cached policy even if stale."
+      },
+      "maxAuditBufferSize": {
+        "type": "number",
+        "description": "Maximum number of audit events to buffer before dropping oldest (default: 10000)"
+      }
+    }
+  }
+}

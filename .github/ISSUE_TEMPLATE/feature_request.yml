@@ -1,0 +1,54 @@
+name: Feature Request
+description: Suggest an idea to improve ClawForge.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sharing your idea.
+        Please describe the problem and the value of this feature.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem are you trying to solve?
+      placeholder: Today it is difficult to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Solution
+      description: Describe your preferred solution.
+      placeholder: We could add...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any workarounds or alternative approaches?
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Impacted Area
+      options:
+        - Plugin
+        - Server API
+        - Admin Console
+        - Docs
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Links, mockups, screenshots, or examples.

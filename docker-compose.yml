@@ -1,0 +1,116 @@
+# ClawForge full-stack: Postgres + Server + Admin Console
+#
+# Usage:
+#   cp .env.example .env
+#   docker compose up --build
+#
+# One-off seed:
+#   docker compose run --rm seed
+#
+# Default credentials (seed):
+#   Email:    admin@clawforge.local
+#   Password: clawforge
+#
+# Endpoints:
+#   Server API:    http://localhost:4100
+#   Admin Console: http://localhost:4200
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-clawforge}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - clawforge-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-postgres}", "-d", "${POSTGRES_DB:-clawforge}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-clawforge}"
+      JWT_SECRET: "${JWT_SECRET:-clawforge-dev-secret-change-in-production}"
+      CORS_ORIGIN: "${CORS_ORIGIN:-http://localhost:4200}"
+      PORT: "${SERVER_PORT:-4100}"
+      HOST: "0.0.0.0"
+      RATE_LIMIT_ENABLED: "${RATE_LIMIT_ENABLED:-true}"
+      AUDIT_RETENTION_DAYS: "${AUDIT_RETENTION_DAYS:-90}"
+      AUDIT_CLEANUP_INTERVAL_HOURS: "${AUDIT_CLEANUP_INTERVAL_HOURS:-24}"
+      AUDIT_CLEANUP_BATCH_SIZE: "${AUDIT_CLEANUP_BATCH_SIZE:-10000}"
+      SUPERADMIN_EMAIL: "${SUPERADMIN_EMAIL:-admin@clawforge.local}"
+      SUPERADMIN_PASSWORD: "${SUPERADMIN_PASSWORD:-clawforge}"
+      SUPERADMIN_ORG_NAME: "${SUPERADMIN_ORG_NAME:-Default}"
+    ports:
+      - "${SERVER_PORT:-4100}:4100"
+    command: >
+      sh -c "
+        ./node_modules/.bin/drizzle-kit migrate &&
+        node dist/index.js
+      "
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:4100/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  seed:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    profiles: ["tools"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-clawforge}"
+      SUPERADMIN_EMAIL: "${SUPERADMIN_EMAIL:-admin@clawforge.local}"
+      SUPERADMIN_PASSWORD: "${SUPERADMIN_PASSWORD:-clawforge}"
+      SUPERADMIN_ORG_NAME: "${SUPERADMIN_ORG_NAME:-Default}"
+    command: ["node", "./node_modules/tsx/dist/cli.mjs", "src/db/seed.ts"]
+    restart: "no"
+
+  admin:
+    build:
+      context: admin
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-http://localhost:4100}"
+    depends_on:
+      server:
+        condition: service_healthy
+    environment:
+      # MUST be browser-reachable — admin/src/lib/api.ts reads this at runtime
+      # via runtime-config.js (loaded by the browser). `http://server:4100`
+      # only resolves inside the Docker network; the host browser would get
+      # ERR_NAME_NOT_RESOLVED. Default to `http://localhost:4100` to match
+      # the build-time arg. Override via `NEXT_PUBLIC_API_URL` env var when
+      # deploying behind a real hostname.
+      NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-http://localhost:4100}"
+      PORT: "4200"
+    ports:
+      - "${ADMIN_PORT:-4200}:4200"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:4200/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  clawforge-pgdata:

@@ -1,0 +1,29 @@
+version: "1.0"
+name: with-a2a-policy
+description: Exercises the a2a_conversation_policy section
+rules:
+  - name: deny_dangerous
+    condition:
+      field: tool_name
+      operator: in
+      value: [drop_table, rm_rf]
+    action: deny
+    priority: 100
+    message: Dangerous operation
+a2a_conversation_policy:
+  enabled: true
+  escalation_score_threshold: 0.7
+  escalation_warn_threshold: 0.5
+  offensive_score_threshold: 0.6
+  offensive_critical_threshold: 0.9
+  max_retry_cycles: 5
+  max_conversation_turns: 50
+  on_escalation_detected: pause
+  on_offensive_detected: quarantine
+  on_feedback_loop: break
+  require_human_approval_on:
+    - escalation_above_threshold
+    - offensive_intent_detected
+  audit:
+    capture_full_transcript: true
+    retention_days: 365

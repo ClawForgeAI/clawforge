@@ -1,0 +1,143 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------------------------------------------------------------------------
+ * Clawforge DaisyUI theme — manually injected (Cut 2a step 2.1).
+ *
+ * DaisyUI v4's theme generator does not emit the [data-theme=clawforge]
+ * block under Next 16's Turbopack/Lightning CSS pipeline. The `daisyui.themes`
+ * config in tailwind.config.ts is silently dropped at build time, so the
+ * runtime falls back to DaisyUI's default-light fallback colors (purple
+ * #491eff buttons, gray cards) instead of our brand. We override the
+ * DaisyUI v4 CSS variables directly. Hex → OKLCH conversion uses the same
+ * recipe DaisyUI applies internally.
+ *
+ * Source of truth: admin/tailwind.config.ts `daisyui.themes[0].clawforge`.
+ * Keep them in sync until the stack moves to Tailwind v4 / DaisyUI v5.
+ * ------------------------------------------------------------------------ */
+[data-theme="clawforge"] {
+  color-scheme: light;
+  /* primary #3b82f6 */
+  --p: 62.3083% 0.188015 259.815;
+  --pc: 100% 0 0;
+  /* secondary #6366f1 */
+  --s: 58.5404% 0.204055 277.117;
+  --sc: 100% 0 0;
+  /* accent #06b6d4 */
+  --a: 70.6178% 0.142914 224.385;
+  --ac: 100% 0 0;
+  /* neutral #0f172a */
+  --n: 20.7682% 0.039824 265.755;
+  --nc: 84.8438% 0.022 252.93;
+  /* base-100 #ffffff */
+  --b1: 100% 0 0;
+  /* base-200 #f8fafc */
+  --b2: 98.4152% 0.003413 247.858;
+  /* base-300 #f1f5f9 */
+  --b3: 96.8064% 0.006826 247.896;
+  /* base-content #0f172a */
+  --bc: 20.7682% 0.039824 265.755;
+  /* info #3b82f6 */
+  --in: 62.3083% 0.188015 259.815;
+  --inc: 100% 0 0;
+  /* success #22c55e */
+  --su: 71.6754% 0.176108 144.553;
+  --suc: 100% 0 0;
+  /* warning #f59e0b */
+  --wa: 76.8483% 0.166399 70.0793;
+  --wac: 100% 0 0;
+  /* error #ef4444 */
+  --er: 64.5604% 0.234261 26.6839;
+  --erc: 100% 0 0;
+  /* DaisyUI v4 also wants --fallback-* overridden so component rules
+     that hard-reference them pick up our brand. Hex form. */
+  --fallback-p: #3b82f6;
+  --fallback-pc: #ffffff;
+  --fallback-s: #6366f1;
+  --fallback-sc: #ffffff;
+  --fallback-a: #06b6d4;
+  --fallback-ac: #ffffff;
+  --fallback-n: #0f172a;
+  --fallback-nc: #cbd5e1;
+  --fallback-b1: #ffffff;
+  --fallback-b2: #f8fafc;
+  --fallback-b3: #f1f5f9;
+  --fallback-bc: #0f172a;
+  --fallback-in: #3b82f6;
+  --fallback-inc: #ffffff;
+  --fallback-su: #22c55e;
+  --fallback-suc: #ffffff;
+  --fallback-wa: #f59e0b;
+  --fallback-wac: #ffffff;
+  --fallback-er: #ef4444;
+  --fallback-erc: #ffffff;
+  --rounded-box: 0.75rem;
+  --rounded-btn: 0.5rem;
+  --rounded-badge: 1rem;
+  --tab-radius: 0.5rem;
+  --animation-btn: 0.2s;
+  --animation-input: 0.2s;
+  --btn-focus-scale: 0.97;
+}
+
+@layer base {
+  body {
+    @apply bg-base-200 text-base-content min-h-screen antialiased;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-base-300 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.15);
+  }
+}
+
+@layer components {
+  /* Page transition wrapper */
+  .page-enter {
+    animation: pageEnter 0.3s ease-out;
+  }
+
+  /* Stat card hover */
+  .stat-card {
+    @apply transition-all duration-200;
+  }
+
+  .stat-card:hover {
+    @apply shadow-md;
+    transform: translateY(-2px);
+  }
+
+  /* Table row hover */
+  .table-row-hover {
+    @apply transition-colors duration-150;
+  }
+
+  .table-row-hover:hover {
+    background: rgba(0, 0, 0, 0.02);
+  }
+}
+
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
