@@ -1,3 +1,9 @@
+/**
+ * @deprecated Cut 1 step 4: legacy approval shapes. The AGT-canonical
+ * approval shape is modeled on the `require_approval` policy action — see
+ * the new `approvals` table and `/api/v1/approvals` routes landing in
+ * Cut 1 steps 6 and 7. These types are removed in Cut 1 step 10.
+ */
 import { z } from "zod";
 import { Iso, OrgId, UserId, Uuid } from "./common.js";
 

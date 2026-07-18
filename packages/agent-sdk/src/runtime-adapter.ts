@@ -9,6 +9,7 @@ import type {
   RuntimeRegistration,
 } from "@clawforgeai/contracts";
 import type { PolicyDecision } from "@clawforgeai/policy-engine";
+import type { Policy, PolicyDecisionResult } from "@clawforgeai/policy-schema";
 
 /**
  * Minimal tool descriptor reported by an adapter. Adapters supply only the
@@ -101,8 +102,21 @@ export interface RuntimeAdapter {
    * should apply it before the next action evaluation. The returned decision
    * (if provided) hints whether subsequent action evaluation should pause —
    * typically used in tests.
+   *
+   * @deprecated Implement `applyAgtPolicy(policy: Policy)` instead — the AGT
+   * canonical shape replaces `OrgPolicy` per addendum §A1. Removal is tracked
+   * under Cut 1 step 10.
    */
   applyPolicy(policy: OrgPolicy): Promise<PolicyDecision | void>;
+
+  /**
+   * Receive a new effective policy in the AGT canonical shape (from
+   * `@clawforgeai/policy-schema`). Optional during the migration window;
+   * adapters that have not migrated may omit this method and continue to
+   * implement `applyPolicy(OrgPolicy)`. Aligns with
+   * FRAMEWORK-ADAPTER-CONTRACT-1.0 (addendum §A13).
+   */
+  applyAgtPolicy?(policy: Policy): Promise<PolicyDecisionResult | void>;
 
   /** Report aggregated usage for a run. May be called multiple times. */
   reportUsage(runId: string, usage: UsageReport): Promise<void>;

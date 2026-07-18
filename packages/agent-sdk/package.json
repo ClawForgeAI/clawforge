@@ -25,7 +25,8 @@
   "dependencies": {
     "@clawforgeai/audit-events": "workspace:*",
     "@clawforgeai/contracts": "workspace:*",
-    "@clawforgeai/policy-engine": "workspace:*"
+    "@clawforgeai/policy-engine": "workspace:*",
+    "@clawforgeai/policy-schema": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",

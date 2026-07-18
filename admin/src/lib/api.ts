@@ -88,42 +88,331 @@ export function changePassword(token: string, body: { currentPassword: string; n
 }
 
 // --- Policies ---
+//
+// The legacy OrgPolicy-shaped helpers (`getPolicy`, `getEffectivePolicy`,
+// `updatePolicy`, `setKillSwitch`) were retired in Cut 2b step 2.16 — admin
+// pages now drive AGT-canonical equivalents (`POST /api/v1/policies` etc.)
+// from this file. The plugin still consumes the legacy
+// `GET /api/v1/policies/:orgId/effective` route directly; it does NOT use
+// this admin client. See `plugin/src/policy/org-policy-client.ts`.
 
-export type EffectivePolicy = {
-  version: number;
-  tools: { allow?: string[]; deny?: string[]; profile?: string };
-  skills: {
-    approved: Array<{ name: string; key: string; scope: string }>;
-    requireApproval: boolean;
-  };
-  killSwitch: { active: boolean; message?: string };
-  auditLevel: string;
+// --- AGT Agent Hypervisor (Cut 2b step 2.15) ---
+
+export type AgentRuntime = "live" | "idle" | "offline";
+
+export type HypervisorAgent = {
+  did: string;
+  name: string | null;
+  status: "active" | "suspended" | "revoked";
+  runtime: AgentRuntime;
+  capabilities: string[];
+  delegationDepth: number;
+  lastSeenAt: string | null;
+  killSwitchActive: boolean;
+  registeredAt: string;
 };
 
-export function getPolicy(orgId: string, token: string) {
-  return apiFetch<EffectivePolicy>(`/api/v1/policies/${orgId}`, { token });
-}
+export type HypervisorSummary = {
+  total: number;
+  live: number;
+  idle: number;
+  offline: number;
+  killSwitched: number;
+};
 
-export function getEffectivePolicy(orgId: string, token: string) {
-  return apiFetch<EffectivePolicy>(`/api/v1/policies/${orgId}/effective`, { token });
-}
+export type HypervisorAgentDetail = {
+  did: string;
+  name: string | null;
+  status: "active" | "suspended" | "revoked";
+  runtime: AgentRuntime;
+  capabilities: string[];
+  lastSeenAt: string | null;
+  lastAuditAt: string | null;
+  lastMetricAt: string | null;
+  registeredAt: string;
+  activity24h: { allow: number; deny: number; metrics: number };
+};
 
-export function updatePolicy(orgId: string, token: string, body: unknown) {
-  return apiFetch<{ status?: string; requestId?: string; message?: string; version?: number }>(
-    `/api/v1/policies/${orgId}`,
-    {
-      method: "PUT",
-      token,
-      body,
-    },
+export function listHypervisorAgents(token: string) {
+  return apiFetch<{ agents: HypervisorAgent[]; summary: HypervisorSummary; orgKillSwitch: boolean }>(
+    "/api/v1/hypervisor/agents",
+    { token },
   );
 }
 
-export function setKillSwitch(orgId: string, token: string, active: boolean, message?: string) {
-  return apiFetch(`/api/v1/policies/${orgId}/kill-switch`, {
-    method: "PUT",
+export function getHypervisorAgent(token: string, did: string) {
+  return apiFetch<HypervisorAgentDetail>(`/api/v1/hypervisor/agents/${encodeURIComponent(did)}`, { token });
+}
+
+export function pauseHypervisorAgent(token: string, did: string) {
+  return apiFetch(`/api/v1/hypervisor/agents/${encodeURIComponent(did)}/pause`, { method: "POST", token });
+}
+
+export function resumeHypervisorAgent(token: string, did: string) {
+  return apiFetch(`/api/v1/hypervisor/agents/${encodeURIComponent(did)}/resume`, { method: "POST", token });
+}
+
+export function terminateHypervisorAgent(token: string, did: string) {
+  return apiFetch(`/api/v1/hypervisor/agents/${encodeURIComponent(did)}/terminate`, { method: "POST", token });
+}
+
+// --- AGT compliance attestations (Cut 2b step 2.14) ---
+
+export type AgtAttestation = {
+  version: number;
+  orgId: string;
+  rangeFrom: string;
+  rangeTo: string;
+  agentDid?: string;
+  entriesCovered: number;
+  agentsCovered: number;
+  rootHash: string;
+  valid: boolean;
+  breakKind?: "linkage" | "content";
+  breakAt?: string;
+  perAgentBoundaries: { agentDid: string; firstPreviousHash: string; lastHash: string }[];
+  issuedAt: string;
+  issuedBy: string;
+};
+
+export function generateAttestation(token: string, body: { fromIso: string; toIso: string; agentDid?: string }) {
+  return apiFetch<{ attestation: AgtAttestation; token: string }>("/api/v1/attestations", {
+    method: "POST",
     token,
-    body: { active, message },
+    body,
+  });
+}
+
+export function verifyAttestation(token: string, attestationToken: string) {
+  return apiFetch<{
+    signatureValid: boolean;
+    orgMatch?: boolean;
+    attestation?: AgtAttestation;
+    error?: string;
+  }>("/api/v1/attestations/verify", {
+    method: "POST",
+    token,
+    body: { token: attestationToken },
+  });
+}
+
+// --- AGT trust scores (Cut 2b step 2.13) ---
+
+export type TrustTier = "Untrusted" | "Provisional" | "Trusted" | "Verified";
+
+export type TrustScore = {
+  id: string;
+  orgId: string;
+  did: string;
+  overall: number;
+  dimensions: Record<string, number>;
+  tier: TrustTier;
+  lastUpdated: string;
+};
+
+export function listTrustScores(token: string) {
+  return apiFetch<{ trustScores: TrustScore[]; dimensionKeys: string[] }>("/api/v1/trust-scores", { token });
+}
+
+export function getTrustScore(token: string, did: string) {
+  return apiFetch<TrustScore>(`/api/v1/trust-scores/${encodeURIComponent(did)}`, { token });
+}
+
+export function upsertTrustScore(
+  token: string,
+  body: { did: string; overall: number; dimensions?: Record<string, number>; tier?: TrustTier },
+) {
+  return apiFetch<TrustScore>("/api/v1/trust-scores", {
+    method: "POST",
+    token,
+    body,
+  });
+}
+
+// --- AGT discovery / shadow agents (Cut 2b step 2.12) ---
+
+export type ShadowAgentStatus = "unknown" | "investigating" | "known" | "quarantined";
+
+export type ShadowAgent = {
+  id: string;
+  orgId: string;
+  did: string | null;
+  fingerprint: string | null;
+  runtime: string | null;
+  capabilities: string[];
+  status: ShadowAgentStatus;
+  notes: string | null;
+  firstSeen: string;
+  lastSeen: string;
+};
+
+export function listShadowAgents(token: string, opts: { status?: ShadowAgentStatus } = {}) {
+  const params = new URLSearchParams();
+  if (opts.status) params.set("status", opts.status);
+  const qs = params.toString();
+  return apiFetch<{ shadowAgents: ShadowAgent[] }>(`/api/v1/shadow-agents${qs ? `?${qs}` : ""}`, { token });
+}
+
+export function setShadowAgentStatus(token: string, id: string, status: ShadowAgentStatus) {
+  return apiFetch<ShadowAgent>(`/api/v1/shadow-agents/${encodeURIComponent(id)}/status`, {
+    method: "PATCH",
+    token,
+    body: { status },
+  });
+}
+
+export function setShadowAgentNotes(token: string, id: string, notes: string) {
+  return apiFetch<ShadowAgent>(`/api/v1/shadow-agents/${encodeURIComponent(id)}/notes`, {
+    method: "PATCH",
+    token,
+    body: { notes },
+  });
+}
+
+// --- AGT metrics (Cut 2b step 2.11) ---
+
+export type AgtMetric = {
+  id: string;
+  orgId: string;
+  agentDid: string | null;
+  snapshot: Record<string, unknown>;
+  recordedAt: string;
+};
+
+export type AgtMetricsSummary = {
+  total: number;
+  distinctAgents: number;
+  last24h: { total: number; distinctAgents: number };
+  lastHour: { total: number };
+  topAgents: { agentDid: string | null; total: number }[];
+};
+
+export function listAgtMetrics(token: string, opts: { agentDid?: string; sinceMinutes?: number; limit?: number } = {}) {
+  const params = new URLSearchParams();
+  if (opts.agentDid) params.set("agentDid", opts.agentDid);
+  if (opts.sinceMinutes) params.set("sinceMinutes", String(opts.sinceMinutes));
+  if (opts.limit) params.set("limit", String(opts.limit));
+  const qs = params.toString();
+  return apiFetch<{ metrics: AgtMetric[] }>(`/api/v1/metrics${qs ? `?${qs}` : ""}`, { token });
+}
+
+export function getAgtMetricsSummary(token: string) {
+  return apiFetch<AgtMetricsSummary>("/api/v1/metrics/summary", { token });
+}
+
+export function submitAgtMetric(token: string, body: { agentDid?: string; snapshot: Record<string, unknown> }) {
+  return apiFetch<AgtMetric>("/api/v1/metrics", {
+    method: "POST",
+    token,
+    body,
+  });
+}
+
+// --- AGT identities (Cut 2b step 2.10) ---
+
+export type AgtIdentityStatus = "active" | "suspended" | "revoked";
+
+export type AgtIdentity = {
+  id: string;
+  orgId: string;
+  did: string;
+  publicKey: string;
+  parentDid?: string | null;
+  capabilities: string[];
+  status: AgtIdentityStatus;
+  name?: string | null;
+  description?: string | null;
+  sponsor?: string | null;
+  delegationDepth: number;
+  expiresAt?: string | null;
+  createdAt: string;
+};
+
+export type AgtDelegation = {
+  id: string;
+  orgId: string;
+  issuerDid: string;
+  subjectDid: string;
+  grantedCapabilities: string[];
+  deniedCapabilities: string[];
+  depth: number;
+  expiresAt?: string | null;
+  createdAt: string;
+};
+
+export function listAgtIdentities(token: string) {
+  return apiFetch<{ identities: AgtIdentity[] }>("/api/v1/identities", { token });
+}
+
+export function getAgtIdentity(token: string, did: string) {
+  return apiFetch<AgtIdentity>(`/api/v1/identities/${encodeURIComponent(did)}`, { token });
+}
+
+export function listAgtIdentityDelegations(token: string, did: string) {
+  return apiFetch<{ outgoing: AgtDelegation[]; incoming: AgtDelegation[] }>(
+    `/api/v1/identities/${encodeURIComponent(did)}/delegations`,
+    { token },
+  );
+}
+
+export function setAgtIdentityStatus(token: string, did: string, status: AgtIdentityStatus) {
+  return apiFetch<AgtIdentity>(`/api/v1/identities/${encodeURIComponent(did)}/status`, {
+    method: "PATCH",
+    token,
+    body: { status },
+  });
+}
+
+export function createAgtIdentity(
+  token: string,
+  body: {
+    did: string;
+    publicKey: string;
+    capabilities: string[];
+    name?: string;
+    description?: string;
+    parentDid?: string;
+    delegationDepth?: number;
+  },
+) {
+  return apiFetch<AgtIdentity>("/api/v1/identities", {
+    method: "POST",
+    token,
+    body,
+  });
+}
+
+// --- AGT kill-switch (Cut 2b step 2.9) ---
+
+export type AgtKillSwitchScope = {
+  id: string;
+  scope: { kind: "org" | "agent" | "role" | "tag"; agentDid?: string; role?: string; tag?: string };
+  active: boolean;
+  message: string | null;
+  activatedBy: string | null;
+  activatedAt: string | null;
+  createdAt: string;
+};
+
+export function listAgtKillSwitches(token: string) {
+  return apiFetch<{ scopes: AgtKillSwitchScope[] }>("/api/v1/kill-switch", { token });
+}
+
+export function activateAgtKillSwitch(
+  token: string,
+  opts: { scope?: AgtKillSwitchScope["scope"]; message?: string } = {},
+) {
+  return apiFetch<AgtKillSwitchScope>("/api/v1/kill-switch", {
+    method: "POST",
+    token,
+    body: { scope: opts.scope, message: opts.message },
+  });
+}
+
+export function deactivateAgtKillSwitch(token: string, scopeId: string) {
+  return apiFetch<AgtKillSwitchScope>(`/api/v1/kill-switch/${encodeURIComponent(scopeId)}`, {
+    method: "DELETE",
+    token,
   });
 }
 

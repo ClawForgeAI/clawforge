@@ -1,3 +1,10 @@
+/**
+ * @deprecated Cut 1 step 4: legacy Clawforge policy shapes. New code should
+ * import the AGT-canonical equivalents from `@clawforgeai/contracts` (e.g.
+ * `Policy`, `PolicyRule`, `PolicyDecisionResult`) — sourced from
+ * `@clawforgeai/policy-schema`. These types are removed in Cut 1 step 10
+ * once `agent-sdk`, `policy-engine`, and `tool-governance` have migrated.
+ */
 import { z } from "zod";
 
 export const DlpAction = z.enum(["block", "warn", "log"]);

@@ -18,6 +18,8 @@
     "db:studio": "tsx --env-file=.env ./node_modules/drizzle-kit/bin.cjs studio"
   },
   "dependencies": {
+    "@clawforgeai/policy-engine": "workspace:*",
+    "@clawforgeai/policy-schema": "workspace:*",
     "@fastify/cors": "^11.0.0",
     "@fastify/jwt": "^10.0.0",
     "@fastify/rate-limit": "^10.3.0",

@@ -35,8 +35,8 @@ services:
 
   server:
     build:
-      context: server
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: server/Dockerfile
     depends_on:
       postgres:
         condition: service_healthy
@@ -61,7 +61,7 @@ services:
         node dist/index.js
       "
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4100/health/ready"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:4100/health/ready"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -70,8 +70,8 @@ services:
 
   seed:
     build:
-      context: server
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: server/Dockerfile
     profiles: ["tools"]
     depends_on:
       postgres:
@@ -94,12 +94,18 @@ services:
       server:
         condition: service_healthy
     environment:
-      NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-http://server:4100}"
+      # MUST be browser-reachable — admin/src/lib/api.ts reads this at runtime
+      # via runtime-config.js (loaded by the browser). `http://server:4100`
+      # only resolves inside the Docker network; the host browser would get
+      # ERR_NAME_NOT_RESOLVED. Default to `http://localhost:4100` to match
+      # the build-time arg. Override via `NEXT_PUBLIC_API_URL` env var when
+      # deploying behind a real hostname.
+      NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-http://localhost:4100}"
       PORT: "4200"
     ports:
       - "${ADMIN_PORT:-4200}:4200"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4200/api/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:4200/api/health"]
       interval: 10s
       timeout: 5s
       retries: 3

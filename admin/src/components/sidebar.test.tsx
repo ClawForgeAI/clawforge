@@ -2,7 +2,13 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { Sidebar } from "./sidebar";
 
-// Override the default usePathname mock per test
+/**
+ * Cut 2b step 2.17 — labels updated to match the post-AGT navigation:
+ * "Policies" (was "Policy Editor"), plus the new sections added by
+ * steps 2.10–2.15 (Identities, Discovery, Trust, Compliance, Metrics,
+ * Hypervisor).
+ */
+
 const mockUsePathname = vi.fn(() => "/dashboard");
 
 vi.mock("next/navigation", async () => {
@@ -29,24 +35,25 @@ describe("Sidebar", () => {
     expect(screen.getAllByText("ClawForge").length).toBeGreaterThan(0);
   });
 
-  it("renders all navigation links", () => {
+  it("renders the current nav labels", () => {
     render(<Sidebar />);
     const expectedLabels = [
       "Dashboard",
+      "Hypervisor",
       "Clients",
-      "Policy Editor",
-      "Skill Review",
-      "Audit Logs",
+      "Policies",
+      "Identities",
+      "Discovery",
+      "Trust",
+      "Compliance",
       "Kill Switch",
       "Users",
-      "Enrollment",
+      "Audit Logs",
+      "Metrics",
       "Settings",
     ];
     for (const label of expectedLabels) {
-      // Desktop + mobile both render NavContent, but mobile is hidden by default (open=false)
-      // Only the desktop version should be present
-      const links = screen.getAllByText(label);
-      expect(links.length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText(label).length).toBeGreaterThanOrEqual(1);
     }
   });
 
@@ -66,10 +73,10 @@ describe("Sidebar", () => {
     expect(activeLink.className).toContain("font-medium");
   });
 
-  it("highlights the active Policy Editor link when pathname is /policies", () => {
+  it("highlights the active Policies link when pathname is /policies", () => {
     mockUsePathname.mockReturnValue("/policies");
     render(<Sidebar />);
-    const policyLinks = screen.getAllByText("Policy Editor");
+    const policyLinks = screen.getAllByText("Policies");
     const activeLink = policyLinks[0].closest("a")!;
     expect(activeLink.className).toContain("bg-primary");
   });
@@ -83,21 +90,16 @@ describe("Sidebar", () => {
     expect(usersLink.className).toContain("hover:bg-white/5");
   });
 
-  it("links have correct href attributes", () => {
+  it("links have the expected href attributes", () => {
     render(<Sidebar />);
-    const dashboardLink = screen.getAllByText("Dashboard")[0].closest("a")!;
-    expect(dashboardLink).toHaveAttribute("href", "/dashboard");
-
-    const auditLink = screen.getAllByText("Audit Logs")[0].closest("a")!;
-    expect(auditLink).toHaveAttribute("href", "/audit");
-
-    const clientsLink = screen.getAllByText("Clients")[0].closest("a")!;
-    expect(clientsLink).toHaveAttribute("href", "/dashboard/clients");
+    expect(screen.getAllByText("Dashboard")[0].closest("a")).toHaveAttribute("href", "/dashboard");
+    expect(screen.getAllByText("Audit Logs")[0].closest("a")).toHaveAttribute("href", "/audit");
+    expect(screen.getAllByText("Clients")[0].closest("a")).toHaveAttribute("href", "/dashboard/clients");
+    expect(screen.getAllByText("Hypervisor")[0].closest("a")).toHaveAttribute("href", "/hypervisor");
   });
 
   it("renders the hamburger menu button for mobile", () => {
     render(<Sidebar />);
-    const menuButton = screen.getByLabelText("Open menu");
-    expect(menuButton).toBeInTheDocument();
+    expect(screen.getByLabelText("Open menu")).toBeInTheDocument();
   });
 });

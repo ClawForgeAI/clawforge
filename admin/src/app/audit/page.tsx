@@ -1,419 +1,242 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+/**
+ * AGT-canonical audit timeline (Cut 1 step 9 — addendum §A18 Tier 1).
+ *
+ * Streams AuditEntry rows from `GET /api/v1/audit/:orgId/entries`, shows a
+ * per-page chain-integrity badge computed via `POST /:orgId/verify`, and
+ * supports basic filtering by agent DID.
+ *
+ * Cut 2b §A21 step 2.16 layout pass — wrapped in the shared Sidebar /
+ * Card shell so this page matches the rest of the admin UI.
+ */
+
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
 import { Sidebar } from "@/components/sidebar";
 import { Card, CardTitle } from "@/components/card";
-import { Badge } from "@/components/badge";
-import { CardSkeleton } from "@/components/skeleton";
-import { useToast } from "@/components/toast";
+import { CardSkeleton, TableSkeleton } from "@/components/skeleton";
 import { getAuth } from "@/lib/auth";
-import { queryAudit, deleteAuditRetention, exportAudit } from "@/lib/api";
-import type { AuditEvent } from "@/lib/api";
+import { listAgtAuditEntries, verifyAgtAuditChain, type AgtAuditEntry } from "@/lib/agt-api";
 
-export default function AuditPage() {
+const PAGE_SIZE = 50;
+
+const DECISION_BADGE: Record<string, string> = {
+  allow: "badge-success",
+  deny: "badge-error",
+  review: "badge-warning",
+};
+
+export default function AgtAuditPage() {
   const router = useRouter();
-  const toast = useToast();
-  const [events, setEvents] = useState<AuditEvent[]>([]);
+  const [auth, setAuth] = useState<ReturnType<typeof getAuth>>(null);
+  const [entries, setEntries] = useState<AgtAuditEntry[]>([]);
+  const [nextBefore, setNextBefore] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [total, setTotal] = useState(0);
-  const [nextCursor, setNextCursor] = useState<string | undefined>();
-  const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Retention
-  const [retentionDays, setRetentionDays] = useState(90);
-  const [purging, setPurging] = useState(false);
+  const [agentDid, setAgentDid] = useState("");
 
-  // Filters
-  const [filterUser, setFilterUser] = useState("");
-  const [filterType, setFilterType] = useState("");
-  const [filterTool, setFilterTool] = useState("");
-  const [filterOutcome, setFilterOutcome] = useState("");
-  const [filterPromptInjection, setFilterPromptInjection] = useState("");
-  const [filterFrom, setFilterFrom] = useState("");
-  const [filterTo, setFilterTo] = useState("");
-
-  const buildParams = useCallback(() => {
-    const params: Record<string, string> = { limit: "100" };
-    if (filterUser) params.userId = filterUser;
-    if (filterType) params.eventType = filterType;
-    if (filterTool) params.toolName = filterTool;
-    if (filterOutcome) params.outcome = filterOutcome;
-    if (filterPromptInjection) params.promptInjectionDetected = filterPromptInjection;
-    if (filterFrom) params.from = filterFrom;
-    if (filterTo) params.to = filterTo;
-    return params;
-  }, [filterUser, filterType, filterTool, filterOutcome, filterPromptInjection, filterFrom, filterTo]);
-
-  const loadEvents = useCallback(async () => {
-    const auth = getAuth();
-    if (!auth) return;
-
-    setLoading(true);
-    const params = buildParams();
-
-    try {
-      const data = await queryAudit(auth.orgId, auth.accessToken, params);
-      setEvents(data.events);
-      setTotal(data.total);
-      setNextCursor(data.nextCursor);
-    } catch {
-      // leave events as-is
-    }
-    setLoading(false);
-  }, [buildParams]);
-
-  const loadMore = useCallback(async () => {
-    if (!nextCursor) return;
-    const auth = getAuth();
-    if (!auth) return;
-
-    setLoadingMore(true);
-    const params = buildParams();
-    params.cursor = nextCursor;
-
-    try {
-      const data = await queryAudit(auth.orgId, auth.accessToken, params);
-      setEvents((prev) => [...prev, ...data.events]);
-      setNextCursor(data.nextCursor);
-    } catch {
-      // leave events as-is
-    }
-    setLoadingMore(false);
-  }, [nextCursor, buildParams]);
+  const [verifyState, setVerifyState] = useState<null | { valid: boolean; entriesChecked: number; breakAt?: string }>(
+    null,
+  );
+  const [verifyLoading, setVerifyLoading] = useState(false);
 
   useEffect(() => {
-    const auth = getAuth();
-    if (!auth) {
+    const a = getAuth();
+    if (!a) {
       router.replace("/login");
       return;
     }
-    loadEvents();
-  }, [router, loadEvents]);
+    setAuth(a);
+  }, [router]);
 
-  function applyAdminFilter() {
-    setFilterType("admin_action");
-  }
+  const load = useCallback(
+    async (before?: string | null) => {
+      if (!auth) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await listAgtAuditEntries(auth.accessToken, auth.orgId, {
+          limit: PAGE_SIZE,
+          beforeSeq: before ?? undefined,
+          agentDid: agentDid.trim() || undefined,
+        });
+        setEntries((prev) => (before ? [...prev, ...res.entries] : res.entries));
+        setNextBefore(res.nextBeforeSeq);
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [auth, agentDid],
+  );
 
   useEffect(() => {
-    if (filterType === "admin_action") {
-      loadEvents();
-    }
-  }, [filterType, loadEvents]);
+    void load();
+  }, [load]);
 
-  async function handlePurge() {
-    const auth = getAuth();
+  const handleVerify = async () => {
     if (!auth) return;
-
-    setPurging(true);
+    setVerifyState(null);
+    setVerifyLoading(true);
     try {
-      const result = await deleteAuditRetention(auth.orgId, auth.accessToken, retentionDays);
-      toast.success(
-        `Deleted ${result.deleted.toLocaleString()} events older than ${new Date(result.cutoffDate).toLocaleDateString()}.`,
-      );
-      await loadEvents();
+      const res = await verifyAgtAuditChain(auth.accessToken, auth.orgId);
+      setVerifyState(res);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Purge failed");
+      setError((err as Error).message);
+    } finally {
+      setVerifyLoading(false);
     }
-    setPurging(false);
-  }
+  };
 
-  async function downloadExport(format: "csv" | "json") {
-    const auth = getAuth();
-    if (!auth) return;
-
-    try {
-      const { blob, filename } = await exportAudit(auth.orgId, auth.accessToken, format, buildParams());
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success(`Export ready: ${filename}`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Export failed");
-    }
-  }
+  const handleFilter = () => {
+    setEntries([]);
+    setNextBefore(null);
+    void load();
+  };
 
   return (
     <div className="flex min-h-screen bg-base-200">
       <Sidebar />
       <main className="flex-1 p-4 lg:p-8 pt-16 lg:pt-8">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-bold">Audit Logs</h2>
-            <p className="text-sm text-base-content/50 mt-1">Track and investigate all governance events</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => downloadExport("json")} className="btn btn-ghost btn-sm gap-2">
-              <svg
-                className="w-4 h-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              Export JSON
-            </button>
-            <button onClick={() => downloadExport("csv")} className="btn btn-ghost btn-sm gap-2">
-              <svg
-                className="w-4 h-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              Export CSV
-            </button>
-          </div>
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold">Audit Logs</h2>
+          <p className="text-sm text-base-content/50 mt-1">
+            Hash-chained audit entries from the AGT canonical stream. Filter by agent DID and click{" "}
+            <em>Verify chain integrity</em> to walk the chain and confirm no row has been tampered with.
+          </p>
         </div>
 
-        {/* Filters */}
-        <Card className="mb-6">
-          <CardTitle>Filters</CardTitle>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
-            <input
-              value={filterUser}
-              onChange={(e) => setFilterUser(e.target.value)}
-              placeholder="User ID"
-              className="input input-bordered input-sm w-full"
-            />
-            <input
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              placeholder="Event type"
-              className="input input-bordered input-sm w-full"
-            />
-            <input
-              value={filterTool}
-              onChange={(e) => setFilterTool(e.target.value)}
-              placeholder="Tool name"
-              className="input input-bordered input-sm w-full"
-            />
-            <select
-              value={filterOutcome}
-              onChange={(e) => setFilterOutcome(e.target.value)}
-              className="select select-bordered select-sm w-full"
-            >
-              <option value="">All outcomes</option>
-              <option value="success">Success</option>
-              <option value="allowed">Allowed</option>
-              <option value="blocked">Blocked</option>
-              <option value="error">Error</option>
-            </select>
-            <select
-              data-testid="prompt-injection-filter"
-              value={filterPromptInjection}
-              onChange={(e) => setFilterPromptInjection(e.target.value)}
-              className="select select-bordered select-sm w-full"
-            >
-              <option value="">Injection risk (all)</option>
-              <option value="true">Flagged</option>
-              <option value="false">Not flagged</option>
-            </select>
-            <input
-              type="date"
-              value={filterFrom}
-              onChange={(e) => setFilterFrom(e.target.value)}
-              className="input input-bordered input-sm w-full"
-            />
-            <input
-              type="date"
-              value={filterTo}
-              onChange={(e) => setFilterTo(e.target.value)}
-              className="input input-bordered input-sm w-full"
-            />
+        {error && (
+          <div className="alert alert-error mb-4 text-sm">
+            <span>{error}</span>
           </div>
-          <div className="flex gap-2 mt-3">
-            <button onClick={loadEvents} className="btn btn-primary btn-sm">
-              Apply Filters
-            </button>
-            <button
-              onClick={applyAdminFilter}
-              className={`btn btn-sm ${filterType === "admin_action" ? "btn-primary" : "btn-ghost"}`}
-            >
-              Admin Actions
-            </button>
-          </div>
-        </Card>
+        )}
 
-        {/* Events table */}
-        <Card className="mb-6">
-          {loading ? (
-            <div className="space-y-3">
-              <CardSkeleton />
-            </div>
-          ) : events.length === 0 ? (
-            <div className="text-center py-12 text-base-content/40">
-              <svg
-                className="w-12 h-12 mx-auto mb-3 opacity-30"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              >
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <path d="M14 2v6h6" />
-              </svg>
-              <p className="text-sm">No audit events found</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto -mx-5">
-              <table className="table table-sm">
-                <thead>
-                  <tr className="text-base-content/40 text-xs uppercase">
-                    <th>Timestamp</th>
-                    <th>User</th>
-                    <th>Event</th>
-                    <th>Tool</th>
-                    <th>Outcome</th>
-                    <th>Injection Risk</th>
-                    <th>Session</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {events.map((event) => (
-                    <AnimatePresence key={event.id}>
-                      <tr
-                        className="table-row-hover cursor-pointer"
-                        onClick={() => setExpandedEventId(expandedEventId === event.id ? null : event.id)}
-                      >
-                        <td className="text-base-content/50 whitespace-nowrap text-xs">
-                          {new Date(event.timestamp).toLocaleString()}
-                        </td>
-                        <td className="font-mono text-xs">{event.userId.slice(0, 12)}...</td>
-                        <td className="text-sm">{event.eventType}</td>
-                        <td className="font-mono text-xs text-base-content/50">{event.toolName ?? "-"}</td>
-                        <td>
-                          <Badge
-                            variant={
-                              event.outcome === "allowed" || event.outcome === "success"
-                                ? "success"
-                                : event.outcome === "blocked" || event.outcome === "error"
-                                  ? "danger"
-                                  : "default"
-                            }
-                          >
-                            {event.outcome}
-                          </Badge>
-                        </td>
-                        <td>
-                          <Badge variant={event.promptInjectionDetected ? "danger" : "default"}>
-                            {event.promptInjectionDetected ? `Flagged (${event.promptInjectionConfidence}%)` : "Clear"}
-                          </Badge>
-                        </td>
-                        <td className="font-mono text-xs text-base-content/40">
-                          {event.sessionKey?.slice(0, 8) ?? "-"}
-                        </td>
-                      </tr>
-                      {expandedEventId === event.id && (
-                        <motion.tr
-                          key={`${event.id}-detail`}
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                        >
-                          <td colSpan={7} className="py-3 px-4 bg-base-200/50">
-                            <div className="space-y-2 text-xs">
-                              <div>
-                                <span className="font-semibold">ID:</span> <span className="font-mono">{event.id}</span>
-                              </div>
-                              <div>
-                                <span className="font-semibold">User ID:</span>{" "}
-                                <span className="font-mono">{event.userId}</span>
-                              </div>
-                              {event.agentId && (
-                                <div>
-                                  <span className="font-semibold">Agent ID:</span>{" "}
-                                  <span className="font-mono">{event.agentId}</span>
-                                </div>
-                              )}
-                              {event.sessionKey && (
-                                <div>
-                                  <span className="font-semibold">Session Key:</span>{" "}
-                                  <span className="font-mono">{event.sessionKey}</span>
-                                </div>
-                              )}
-                              <div>
-                                <span className="font-semibold">Prompt injection detection:</span>{" "}
-                                {event.promptInjectionDetected ? "Flagged" : "Not flagged"} (
-                                {event.promptInjectionConfidence}% confidence)
-                              </div>
-                              {event.promptInjectionSignals && event.promptInjectionSignals.length > 0 && (
-                                <div>
-                                  <span className="font-semibold">Detection signals:</span>{" "}
-                                  <span className="font-mono">{event.promptInjectionSignals.join(", ")}</span>
-                                </div>
-                              )}
-                              {event.metadata && (
-                                <div>
-                                  <span className="font-semibold">Metadata:</span>
-                                  <pre className="mt-1 p-3 bg-base-100 rounded-lg overflow-x-auto text-xs font-mono border border-base-300/50">
-                                    {JSON.stringify(event.metadata, null, 2)}
-                                  </pre>
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                        </motion.tr>
-                      )}
-                    </AnimatePresence>
-                  ))}
-                </tbody>
-              </table>
-              <div className="flex items-center justify-between mt-4 px-4">
-                <p className="text-xs text-base-content/40">
-                  Showing {events.length.toLocaleString()} of {total.toLocaleString()} events
-                </p>
-                {nextCursor && (
-                  <button onClick={loadMore} disabled={loadingMore} className="btn btn-ghost btn-sm">
-                    {loadingMore && <span className="loading loading-spinner loading-xs" />}
-                    {loadingMore ? "Loading..." : "Load More"}
-                  </button>
-                )}
+        {!auth ? (
+          <div className="space-y-4">
+            <CardSkeleton />
+            <CardSkeleton />
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* --- Controls --- */}
+            <Card>
+              <div className="flex items-end gap-3 flex-wrap">
+                <div className="form-control flex-1 min-w-[20rem]">
+                  <label className="label py-1">
+                    <span className="label-text text-xs">Filter by agent DID</span>
+                  </label>
+                  <input
+                    className="input input-bordered input-sm font-mono text-xs"
+                    placeholder="did:mesh:checkout-7"
+                    value={agentDid}
+                    onChange={(e) => setAgentDid(e.target.value)}
+                  />
+                </div>
+                <button className="btn btn-sm" onClick={handleFilter}>
+                  Apply
+                </button>
+                <button className="btn btn-outline btn-sm gap-2" onClick={handleVerify} disabled={verifyLoading}>
+                  {verifyLoading && <span className="loading loading-spinner loading-xs" />}
+                  {verifyLoading ? "Verifying…" : "Verify chain integrity"}
+                </button>
               </div>
-            </div>
-          )}
-        </Card>
 
-        {/* Retention Policy */}
-        <Card>
-          <CardTitle>Retention Policy</CardTitle>
-          <p className="text-sm text-base-content/50 mb-4">
-            Purge audit events older than a specified number of days. This action is irreversible.
-          </p>
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-sm font-medium">Delete events older than</span>
-            <input
-              type="number"
-              min={1}
-              max={3650}
-              value={retentionDays}
-              onChange={(e) => setRetentionDays(parseInt(e.target.value, 10) || 90)}
-              className="input input-bordered input-sm w-24"
-            />
-            <span className="text-sm text-base-content/50">days</span>
-            <button onClick={handlePurge} disabled={purging} className="btn btn-error btn-sm">
-              {purging && <span className="loading loading-spinner loading-xs" />}
-              {purging ? "Purging..." : "Purge Old Events"}
-            </button>
+              {verifyState && (
+                <div className="mt-3">
+                  {verifyState.valid ? (
+                    <span className="badge badge-success badge-sm">
+                      chain integrity ✓ ({verifyState.entriesChecked} entries)
+                    </span>
+                  ) : (
+                    <span className="badge badge-error badge-sm">
+                      chain break at seq {verifyState.breakAt} ({verifyState.entriesChecked} entries)
+                    </span>
+                  )}
+                </div>
+              )}
+            </Card>
+
+            {/* --- Entries table --- */}
+            {loading && entries.length === 0 ? (
+              <TableSkeleton rows={6} />
+            ) : entries.length === 0 ? (
+              <Card>
+                <CardTitle>No audit entries</CardTitle>
+                <p className="text-sm text-base-content/60">
+                  Connect an agent via{" "}
+                  <code className="px-1 py-0.5 bg-base-300 rounded text-xs">@clawforgeai/client</code> to start
+                  streaming. The example at{" "}
+                  <code className="px-1 py-0.5 bg-base-300 rounded text-xs">examples/cut2b-smoke.mjs</code> seeds a
+                  short chain for you.
+                </p>
+              </Card>
+            ) : (
+              <Card>
+                <div className="overflow-x-auto">
+                  <table className="table table-zebra text-sm">
+                    <thead>
+                      <tr>
+                        <th>Seq</th>
+                        <th>Timestamp</th>
+                        <th>Agent</th>
+                        <th>Action</th>
+                        <th>Decision</th>
+                        <th>Rule</th>
+                        <th>Hash</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {entries.map((e) => (
+                        <tr key={e.chainSeq}>
+                          <td>
+                            <code className="font-mono text-xs">{e.chainSeq}</code>
+                          </td>
+                          <td className="text-xs whitespace-nowrap">{new Date(e.timestamp).toLocaleString()}</td>
+                          <td>
+                            <code className="font-mono text-xs break-all">{e.agentId}</code>
+                          </td>
+                          <td className="text-sm">{e.action}</td>
+                          <td>
+                            <span
+                              className={`badge ${DECISION_BADGE[e.decision] ?? "badge-ghost"} badge-sm capitalize`}
+                            >
+                              {e.decision}
+                            </span>
+                          </td>
+                          <td className="text-xs text-base-content/60">
+                            {e.policyName ? (
+                              <span>
+                                {e.policyName}
+                                {e.matchedRule ? `/${e.matchedRule}` : ""}
+                              </span>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td className="font-mono text-xs" title={e.hash}>
+                            {e.hash.slice(0, 12)}…
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {nextBefore && (
+                  <div className="mt-4 flex justify-center">
+                    <button className="btn btn-outline btn-sm" onClick={() => load(nextBefore)} disabled={loading}>
+                      {loading ? "Loading…" : "Load more"}
+                    </button>
+                  </div>
+                )}
+              </Card>
+            )}
           </div>
-        </Card>
+        )}
       </main>
     </div>
   );

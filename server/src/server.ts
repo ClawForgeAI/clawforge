@@ -25,6 +25,17 @@ import { apiKeyRoutes } from "./routes/api-keys.js";
 import { roleRoutes } from "./routes/roles.js";
 import { alertRoutes } from "./routes/alerts.js";
 import { webhookRoutes } from "./routes/webhooks.js";
+import { agtPolicyRoutes } from "./routes/agt-policies.js";
+import { agtAuditRoutes } from "./routes/agt-audit.js";
+import { dashboardRoutes } from "./routes/dashboard.js";
+import { agtIdentityRoutes } from "./routes/agt-identities.js";
+import { agtApprovalRoutes } from "./routes/agt-approvals.js";
+import { agtKillSwitchRoutes } from "./routes/agt-kill-switch.js";
+import { agtMetricsRoutes } from "./routes/agt-metrics.js";
+import { agtDiscoveryRoutes } from "./routes/agt-discovery.js";
+import { agtTrustRoutes } from "./routes/agt-trust.js";
+import { agtAttestationRoutes } from "./routes/agt-attestations.js";
+import { agtHypervisorRoutes } from "./routes/agt-hypervisor.js";
 import { startAuditRetentionJob, stopAuditRetentionJob } from "./services/audit-retention.js";
 
 // ---------------------------------------------------------------------------
@@ -362,6 +373,19 @@ export async function createServer(config: ServerConfig) {
   await app.register(roleRoutes);
   await app.register(alertRoutes);
   await app.register(webhookRoutes);
+
+  // AGT-canonical routes (Cut 1 step 7 — addendum §5.3 / §A19).
+  await app.register(agtPolicyRoutes);
+  await app.register(agtAuditRoutes);
+  await app.register(agtIdentityRoutes);
+  await app.register(agtApprovalRoutes);
+  await app.register(agtKillSwitchRoutes);
+  await app.register(agtMetricsRoutes);
+  await app.register(agtDiscoveryRoutes);
+  await app.register(agtTrustRoutes);
+  await app.register(agtAttestationRoutes);
+  await app.register(agtHypervisorRoutes);
+  await app.register(dashboardRoutes);
 
   // Start audit retention cleanup job (#39)
   if (config.auditRetentionDays && config.auditRetentionDays > 0) {

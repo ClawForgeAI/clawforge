@@ -1,0 +1,60 @@
+name: AGT Conformance
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Per addendum §A15: lint vendored AGT YAML fixtures with `agt lint-policy`
+# and run `agt verify` against Clawforge's conformance manifest. This is a
+# non-blocking job during Cut 1 — it surfaces drift early but does not fail
+# the PR while the new AGT routes / admin are still being shaken out.
+# Promote to required after Cut 2 conformance work lands.
+
+jobs:
+  lint-and-verify:
+    name: agt lint-policy + verify (advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install agent-governance-toolkit
+        run: pip install "agent-governance-toolkit[full]"
+
+      - name: agt --version
+        run: agt --version
+
+      - name: agt lint-policy — vendored fixtures
+        run: |
+          # Lints the canonical YAML files vendored into packages/policy-schema.
+          # These mirror the AGT example policies and are the contract reference
+          # for the admin /policies/agt editor and the agt-policies route.
+          agt lint-policy packages/policy-schema/src/__fixtures__/agt-default.yaml
+          agt lint-policy packages/policy-schema/src/__fixtures__/agt-strict.yaml
+          agt lint-policy packages/policy-schema/src/__fixtures__/with-a2a.yaml
+          # Negative fixtures — these MUST fail; flip the exit so a successful
+          # lint here breaks the build (the rule that caught it has regressed).
+          ! agt lint-policy packages/policy-schema/src/__fixtures__/bad-action.yaml
+          ! agt lint-policy packages/policy-schema/src/__fixtures__/extra-key.yaml
+
+      - name: agt verify — Clawforge conformance attestation
+        run: |
+          # Generates / refreshes the OWASP ASI top-10 evidence manifest.
+          # Cut 1 ships a minimal manifest; Cut 2 populates it from
+          # /api/v1/conformance/attestation per addendum §A10 + §A17.
+          if [ -f ./agt-evidence.json ]; then
+            agt verify --evidence ./agt-evidence.json --strict || \
+              echo "::warning::agt verify failed — review conformance gaps"
+          else
+            echo "::notice::agt-evidence.json not present yet — Cut 2 milestone"
+          fi

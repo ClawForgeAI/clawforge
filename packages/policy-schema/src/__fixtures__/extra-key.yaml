@@ -1,0 +1,3 @@
+name: extra-key-policy
+rules: []
+unexpected_field: this should be rejected by strict validation

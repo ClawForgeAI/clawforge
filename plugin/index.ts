@@ -40,6 +40,23 @@ export type {
 export { SDK_VERSION, MIN_CONTROL_PLANE_VERSION } from "./src/sdk.js";
 
 // ---------------------------------------------------------------------------
+// AGT integration (Cut 1 step 8) — opt-in helpers backed by @clawforgeai/client
+// ---------------------------------------------------------------------------
+
+export { createAgtBackedRuntime, createAgtToolEnforcerHook } from "./src/agt/index.js";
+export type {
+  AgtBeforeToolCallEvent,
+  AgtRuntime,
+  AgtRuntimeConfig,
+  AgtToolCallResult,
+  AgtToolContext,
+  AgtToolEnforcerState,
+  ClawforgeConnectOptions,
+  KillSwitchEvent,
+  PolicyDecisionResult,
+} from "./src/agt/index.js";
+
+// ---------------------------------------------------------------------------
 // Plugin entry point
 // ---------------------------------------------------------------------------
 

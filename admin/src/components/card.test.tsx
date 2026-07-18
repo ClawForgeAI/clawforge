@@ -2,6 +2,11 @@ import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { Card, CardTitle, StatCard } from "./card";
 
+/**
+ * Cut 2b step 2.17 — these assertions match the current DaisyUI-based
+ * Card / CardTitle / StatCard. The wrapper now uses `card bg-base-100`
+ * and DaisyUI status colors (`text-success`, `text-error`, etc.).
+ */
 describe("Card", () => {
   it("renders children", () => {
     render(
@@ -13,49 +18,43 @@ describe("Card", () => {
   });
 
   it("applies base card styles", () => {
-    render(
+    const { container } = render(
       <Card>
         <span>test</span>
       </Card>,
     );
-    const card = screen.getByText("test").parentElement!;
-    expect(card.className).toContain("bg-card");
-    expect(card.className).toContain("rounded-lg");
-    expect(card.className).toContain("border");
-    expect(card.className).toContain("shadow-sm");
+    const root = container.firstChild as HTMLElement;
+    expect(root.className).toContain("card");
+    expect(root.className).toContain("bg-base-100");
+    expect(root.className).toContain("border");
+    expect(root.className).toContain("shadow-sm");
   });
 
-  it("applies additional className", () => {
-    render(
+  it("applies additional className to the wrapper", () => {
+    const { container } = render(
       <Card className="mt-4">
         <span>test</span>
       </Card>,
     );
-    const card = screen.getByText("test").parentElement!;
-    expect(card.className).toContain("mt-4");
-  });
-
-  it("renders without extra className by default", () => {
-    const { container } = render(<Card>content</Card>);
-    const card = container.firstChild as HTMLElement;
-    // Should still have the base classes
-    expect(card.className).toContain("bg-card");
+    const root = container.firstChild as HTMLElement;
+    expect(root.className).toContain("mt-4");
   });
 });
 
 describe("CardTitle", () => {
-  it("renders children as heading text", () => {
+  it("renders children as an H3", () => {
     render(<CardTitle>My Title</CardTitle>);
     const heading = screen.getByText("My Title");
     expect(heading).toBeInTheDocument();
     expect(heading.tagName).toBe("H3");
   });
 
-  it("applies title styles", () => {
+  it("applies semantic title styles", () => {
     render(<CardTitle>Title</CardTitle>);
     const heading = screen.getByText("Title");
-    expect(heading.className).toContain("text-lg");
+    expect(heading.className).toContain("text-base");
     expect(heading.className).toContain("font-semibold");
+    expect(heading.className).toContain("text-base-content");
   });
 });
 
@@ -66,39 +65,40 @@ describe("StatCard", () => {
     expect(screen.getByText("42")).toBeInTheDocument();
   });
 
-  it("renders string value", () => {
+  it("renders string value untouched", () => {
     render(<StatCard label="Status" value="OK" />);
     expect(screen.getByText("OK")).toBeInTheDocument();
   });
 
-  it("applies default variant color", () => {
+  it("formats numeric values with toLocaleString separators", () => {
+    render(<StatCard label="Count" value={12345} />);
+    expect(screen.getByText("12,345")).toBeInTheDocument();
+  });
+
+  it("uses text-base-content for the default variant", () => {
     render(<StatCard label="Count" value={10} />);
-    const value = screen.getByText("10");
-    expect(value.className).toContain("text-foreground");
+    expect(screen.getByText("10").className).toContain("text-base-content");
   });
 
-  it("applies success variant color", () => {
+  it("uses text-success for the success variant", () => {
     render(<StatCard label="Allowed" value={5} variant="success" />);
-    const value = screen.getByText("5");
-    expect(value.className).toContain("text-green-600");
+    expect(screen.getByText("5").className).toContain("text-success");
   });
 
-  it("applies danger variant color", () => {
+  it("uses text-error for the danger variant", () => {
     render(<StatCard label="Blocked" value={3} variant="danger" />);
-    const value = screen.getByText("3");
-    expect(value.className).toContain("text-red-600");
+    expect(screen.getByText("3").className).toContain("text-error");
   });
 
-  it("applies warning variant color", () => {
+  it("uses text-warning for the warning variant", () => {
     render(<StatCard label="Pending" value={1} variant="warning" />);
-    const value = screen.getByText("1");
-    expect(value.className).toContain("text-amber-600");
+    expect(screen.getByText("1").className).toContain("text-warning");
   });
 
-  it("wraps value in a Card component", () => {
+  it("wraps the value in a card-style div", () => {
     const { container } = render(<StatCard label="Test" value={0} />);
-    const card = container.firstChild as HTMLElement;
-    expect(card.className).toContain("bg-card");
-    expect(card.className).toContain("rounded-lg");
+    const root = container.firstChild as HTMLElement;
+    expect(root.className).toContain("card");
+    expect(root.className).toContain("bg-base-100");
   });
 });

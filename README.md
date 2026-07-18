@@ -22,9 +22,9 @@
   </a>
 </p>
 
-<p align="center">
+<!-- <p align="center">
   <img src="docs/images/demo.gif" alt="ClawForge Demo" width="700" />
-</p>
+</p> -->
 
 <p align="center">
   <strong>The control plane for AI agents at work.</strong>
@@ -79,7 +79,6 @@ Everything flows through **policy, approval, audit, and response**. One operator
 | **Fail-secure kill switch**          | Heartbeat-bounded propagation with a local fail-secure fallback. Containment that does not require connectivity. |
 | **AGT-compatible policy layer**      | Translates ClawForge policy into Microsoft AGT primitives where the runtime supports it.                         |
 | **Risk signals & anomaly detection** | Surfaces unusual tool-call patterns, policy denials, and approval-rate drift across the fleet.                   |
-
 
 ## Relationship to Microsoft AGT
 

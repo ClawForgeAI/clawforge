@@ -1,6 +1,6 @@
 {
   "name": "@clawforgeai/clawforge",
-  "version": "0.1.6",
+  "version": "0.2.0",
   "description": "Enterprise governance plugin for OpenClaw – SSO, policy enforcement, audit, kill switch",
   "type": "module",
   "main": "./dist/index.js",
@@ -52,8 +52,10 @@
   },
   "dependencies": {
     "@clawforgeai/audit-events": "workspace:*",
+    "@clawforgeai/client": "workspace:*",
     "@clawforgeai/contracts": "workspace:*",
     "@clawforgeai/policy-engine": "workspace:*",
+    "@clawforgeai/policy-schema": "workspace:*",
     "@clawforgeai/tool-governance": "workspace:*"
   },
   "devDependencies": {

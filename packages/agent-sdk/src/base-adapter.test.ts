@@ -1,4 +1,5 @@
 import type { OrgPolicy } from "@clawforgeai/contracts";
+import type { Policy } from "@clawforgeai/policy-schema";
 import { describe, expect, it, vi } from "vitest";
 import { BaseRuntimeAdapter } from "./base-adapter.js";
 import type { BaseAdapterOptions } from "./base-adapter.js";
@@ -104,6 +105,65 @@ describe("BaseRuntimeAdapter", () => {
       await adapter.flushAudit();
       expect(transport).toHaveBeenCalledTimes(1);
       expect(transport.mock.calls[0]?.[0]).toHaveLength(2);
+    });
+  });
+
+  describe("AGT-aware path — setAgtPolicy + evaluateToolWithAgt", () => {
+    function agtPolicy(): Policy {
+      return {
+        version: "1.0",
+        name: "agt-test",
+        description: "",
+        rules: [
+          {
+            name: "block_shell",
+            condition: { field: "tool_name", operator: "eq", value: "shell_exec" },
+            action: "deny",
+            priority: 100,
+            message: "",
+          },
+        ],
+      };
+    }
+
+    it("blocks during pending-init when no AGT policy is loaded", () => {
+      const { adapter } = makeAdapter();
+      const decision = adapter.evaluateToolWithAgt("read");
+      expect(decision.allowed).toBe(false);
+      expect(decision.action).toBe("deny");
+    });
+
+    it("setAgtPolicy clears pending-init and applies the AGT policy", () => {
+      const { adapter } = makeAdapter();
+      adapter.setAgtPolicy(agtPolicy());
+      expect(adapter.evaluateToolWithAgt("shell_exec").allowed).toBe(false);
+      expect(adapter.evaluateToolWithAgt("read").allowed).toBe(true);
+    });
+
+    it("kill switch overrides the AGT policy", () => {
+      const { adapter } = makeAdapter();
+      adapter.setAgtPolicy(agtPolicy());
+      adapter.setKillSwitch(true, "incident response");
+      const decision = adapter.evaluateToolWithAgt("read");
+      expect(decision.allowed).toBe(false);
+      expect(decision.reason).toBe("incident response");
+    });
+
+    it("offlineOverride='allow' short-circuits even when AGT policy would deny", () => {
+      const { adapter } = makeAdapter();
+      adapter.setAgtPolicy(agtPolicy());
+      adapter.setOfflineOverride("allow");
+      const decision = adapter.evaluateToolWithAgt("shell_exec");
+      expect(decision.allowed).toBe(true);
+      expect(decision.reason).toBe("offline_allow_mode");
+    });
+
+    it("markInitialized without policy yields no_policy + allowed", () => {
+      const { adapter } = makeAdapter();
+      adapter.markInitialized();
+      const decision = adapter.evaluateToolWithAgt("read");
+      expect(decision.allowed).toBe(true);
+      expect(decision.reason).toBe("no_policy");
     });
   });
 });
