@@ -118,7 +118,7 @@ The audit level controls how much data is captured from each OpenClaw instance:
 
 | Level      | What Is Logged                                                              | Recommended For                                 |
 | ---------- | --------------------------------------------------------------------------- | ----------------------------------------------- |
-| `metadata` | Tool names, outcomes (allowed/blocked), timestamps, session IDs             | **Start here** -- good visibility, low storage  |
+| `metadata` | Tool names, outcomes (allowed/blocked), timestamps, session IDs             | **Start here** - good visibility, low storage   |
 | `full`     | Everything in `metadata` plus full tool inputs/outputs and LLM interactions | Security-sensitive orgs, incident investigation |
 | `off`      | Nothing                                                                     | Not recommended                                 |
 
@@ -126,7 +126,7 @@ Set this in the **Policies** page alongside your tool config. We recommend start
 
 ### 2.3 (Optional) Configure SSO
 
-If your organization uses an OIDC provider (Okta, Auth0, Entra ID), you can enable SSO alongside email/password authentication. This is optional -- enrollment tokens (next step) work without SSO.
+If your organization uses an OIDC provider (Okta, Auth0, Entra ID), you can enable SSO alongside email/password authentication. This is optional - enrollment tokens (next step) work without SSO.
 
 Brief steps:
 
@@ -134,7 +134,7 @@ Brief steps:
 2. Set the redirect URI to `http://localhost:19832/clawforge/callback` (the OpenClaw plugin's local callback).
 3. Add the SSO config to your organization record (via SQL or API).
 
-For detailed SSO setup instructions, see the [Setup Guide -- Configure SSO](setup.md#configure-sso-optional).
+For detailed SSO setup instructions, see the [Setup Guide - Configure SSO](setup.md#configure-sso-optional).
 
 ### 2.4 Generate Enrollment Tokens
 
@@ -142,9 +142,9 @@ Enrollment tokens let employees join the organization without SSO. Navigate to *
 
 You can optionally set:
 
-- **Label** -- A human-readable name (e.g., "Engineering team Q1")
-- **Expiry** -- When the token stops working
-- **Max uses** -- How many employees can use this token
+- **Label** - A human-readable name (e.g., "Engineering team Q1")
+- **Expiry** - When the token stops working
+- **Max uses** - How many employees can use this token
 
 Copy the generated token string. You will distribute this to employees in the next step.
 
@@ -257,19 +257,21 @@ If everything is working, you should see an authenticated state, the correct org
 
 Walk through each item to confirm the full system is working end-to-end.
 
-- [ ] **Admin sees employee in Users list** -- In the admin console, navigate to **Users**. The newly enrolled employee should appear with their email and role.
+- [ ] **Admin sees employee in Users list** - In the admin console, navigate to **Users**. The newly enrolled employee should appear with their email and role.
 
-- [ ] **Dashboard shows online client** -- Navigate to **Dashboard**. The employee's OpenClaw instance should show as online (heartbeat received). If it does not appear immediately, wait up to one heartbeat interval (default: 60 seconds).
+- [ ] **Dashboard shows online client** - Navigate to **Dashboard**. The employee's OpenClaw instance should show as online (heartbeat received). If it does not appear immediately, wait up to one heartbeat interval (default: 60 seconds).
 
-- [ ] **Blocked tool call is enforced** -- Have the employee attempt to use a denied tool (e.g., `exec` if you followed the policy example above). The tool call should be blocked by the plugin with a policy violation message.
+- [ ] **Blocked tool call is enforced** - Have the employee attempt to use a denied tool (e.g., `exec` if you followed the policy example above). The tool call should be blocked by the plugin with a policy violation message.
 
-- [ ] **Audit events appear** -- Navigate to **Audit** in the admin console. You should see events for the blocked tool call (`tool_call_attempt` with outcome `blocked`) and any allowed tool calls. Filter by user or event type to find them.
+- [ ] **Audit events appear** - Navigate to **Audit** in the admin console. You should see events for the blocked tool call (`tool_call_attempt` with outcome `blocked`) and any allowed tool calls. Filter by user or event type to find them.
 
-- [ ] **Kill switch works end-to-end** -- In the admin console, go to **Policies** and activate the kill switch. Optionally add a message (e.g., "Tool access suspended for security review"). Wait one heartbeat interval, then have the employee try any tool call. It should be blocked. Deactivate the kill switch and verify tools work again.
+- [ ] **Kill switch works end-to-end** - In the admin console, go to **Policies** and activate the kill switch. Optionally add a message (e.g., "Tool access suspended for security review"). Wait one heartbeat interval, then have the employee try any tool call. It should be blocked. Deactivate the kill switch and verify tools work again.
 
-- [ ] **Skill governance works** -- Have the employee submit a skill from their OpenClaw instance. In the admin console, navigate to **Skills** and review the pending submission. Approve it and verify the skill becomes available to the employee. Reject a different submission and verify it does not load.
+- [ ] **Skill governance works** - Have the employee submit a skill from their OpenClaw instance. In the admin console, navigate to **Skills** and review the pending submission. Approve it and verify the skill becomes available to the employee. Reject a different submission and verify it does not load.
 
 - [ ] **Networked plugin onboarding is reviewed**: On a test employee machine, install a real OpenClaw plugin such as [TweetClaw](https://github.com/Xquik-dev/tweetclaw) with `openclaw plugins install @xquik/tweetclaw`. Keep the Xquik API key or MPP signing key in local OpenClaw plugin config only. In ClawForge, require skill approval before use, start with read-oriented X/Twitter jobs such as scrape tweets, search tweets, search tweet replies, follower export, user lookup, monitor tweets, and webhooks, then require stricter approval for post tweets, post tweet replies, direct messages, media upload, media download, and giveaway draw workflows. Verify audit events show tool names, outcomes, and policy decisions without exposing credentials.
+
+Xquik is an independent third-party service. Not affiliated with X Corp. "Twitter" and "X" are trademarks of X Corp.
 
 ---
 
@@ -304,7 +306,7 @@ Walk through each item to confirm the full system is working end-to-end.
 1. Confirm the redirect URI in your IdP matches `http://localhost:19832/clawforge/callback`.
 2. Verify the `sso_config` is set on the organization record (check via the database or API).
 3. Ensure the `sso.issuerUrl` and `sso.clientId` in `openclaw.json` match your IdP configuration.
-4. See the [Setup Guide -- Configure SSO](setup.md#configure-sso-optional) for detailed instructions.
+4. See the [Setup Guide - Configure SSO](setup.md#configure-sso-optional) for detailed instructions.
 
 ### "No heartbeat" (employee not showing as online)
 
@@ -345,4 +347,4 @@ Walk through each item to confirm the full system is working end-to-end.
 - Read the [Architecture & How It Works](architecture.md) guide to understand the system internals.
 - Explore the [API Reference](api-reference.md) for programmatic management.
 - Review the [Configuration Reference](configuration.md) for all plugin and server options.
-- Set up SSO if you have not already -- see the [Setup Guide](setup.md#configure-sso-optional).
+- Set up SSO if you have not already - see the [Setup Guide](setup.md#configure-sso-optional).
