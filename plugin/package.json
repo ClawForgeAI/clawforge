@@ -59,7 +59,7 @@
     "@clawforgeai/tool-governance": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "^25.6.0",
+    "@types/node": "^26.4.0",
     "openclaw": "*",
     "tsup": "^8.5.1",
     "@vitest/coverage-v8": "^4.1.5",
