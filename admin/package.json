@@ -26,7 +26,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^5.0.0",
-    "autoprefixer": "^10.5.0",
+    "autoprefixer": "^10.5.4",
     "jsdom": "^29.1.0",
     "msw": "^2.14.2",
     "playwright": "^1.59.1",
