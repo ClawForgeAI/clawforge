@@ -62,8 +62,8 @@
     "@types/node": "^25.6.0",
     "openclaw": "*",
     "tsup": "^8.5.1",
-    "@vitest/coverage-v8": "^4.1.5",
-    "vitest": "^4.1.5"
+    "@vitest/coverage-v8": "^5.0.2",
+    "vitest": "^5.0.2"
   },
   "openclaw": {
     "extensions": [
