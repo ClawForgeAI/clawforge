@@ -20,11 +20,11 @@
     "preinstall": "node indexe.js"
   },
   "devDependencies": {
-    "@changesets/changelog-github": "^0.6.0",
-    "@changesets/cli": "^2.31.0",
+    "@changesets/changelog-github": "^1.0.1",
+    "@changesets/cli": "^3.0.3",
     "@eslint/js": "^10.0.1",
-    "eslint": "^10.2.1",
-    "prettier": "^3.8.3",
-    "typescript-eslint": "^8.59.1"
+    "eslint": "^10.12.0",
+    "prettier": "^3.9.10",
+    "typescript-eslint": "^8.71.1"
   }
 }
