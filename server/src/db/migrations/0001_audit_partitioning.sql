@@ -14,6 +14,11 @@ BEGIN;
 -- Step 1: Rename existing table
 ALTER TABLE audit_events RENAME TO audit_events_old;
 
+-- Drop indexes that came across with the rename so we can recreate them with the
+-- same names on the new partitioned table.
+DROP INDEX IF EXISTS audit_events_org_ts_idx;
+DROP INDEX IF EXISTS audit_events_org_user_idx;
+
 -- Step 2: Create partitioned table
 CREATE TABLE audit_events (
     id          UUID        NOT NULL DEFAULT gen_random_uuid(),
